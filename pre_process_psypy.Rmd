@@ -1,0 +1,208 @@
+---
+title: ""social emophys - pre-procesing psychopy - social vs non social modulation of emotion response and physilogy""
+author: "Helio"
+date: "2024-03-07"
+output: html_document
+---
+
+
+# Overview 
+  To process output of PsychoPy.
+
+# Conventions
+For data: `dta_`
+Temporary files: `tmp_`
+Statistical summaries: `sum_`
+Models (such as lm models): `mod_`
+Custom functions: `fn_`
+Plots and visualization: `plt_`
+Lookup and reference tables: `lkp_`
+Results and Analysis: `rlt_`
+Consistency and accuracy checks: `chk_`
+
+
+Set-up: where I load libraries and create objects for later use (such as color schemes etc).
+```{r setup, include=FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+library(janitor)
+library(purrr)
+
+# Define paths
+data_path <- "./Data backup/DataChecks/R code and data/feb 6"
+ctrl_data_path <- file.path(data_path, "ctrl")
+
+
+```
+
+```{r}
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/behavioural")
+# Load behavioural data
+
+
+# Read all the files and create a FileName column to store filenames
+
+tmp_files <- list.files(pattern = ".csv")
+
+
+# Load and combine all CSV files
+
+
+# Load and preprocess data
+
+dta_psypy
+dta_psypy <- rbindlist(sapply(tmp_files, fread, simplify = FALSE), use.names = TRUE, idcol = "filename", fill = TRUE) %>%
+    janitor::clean_names()%>%
+  mutate(trial_order = if_else(condition == "Example Stimuli", 
+                              practice_this_trial_n, test_this_trial_n),
+         trial_index = if_else(condition == "Example Stimuli", 
+                               practice_this_index, test_this_index)) %>%
+  select(-matches("this_trial_n|this_index")) %>%
+  select(-matches("v1"), -matches("v2"))%>%
+  filter(!is.na(unixtime_start))
+
+
+# now selct the columsn that we need
+colnames(dta_psypy)
+
+
+
+    # any_of(
+
+dta_psypy
+dta_psypy1<- dta_psypy%>%
+  select(c(
+      "filename", "participant", "session", "date", "exp_name",
+      "condition", "emotion", "stim_iaps", "stim_description",
+      "valence_mean", "arousal_mean", 
+      "emotioncategory",
+      "trial_order", "trial_index", 
+      # "practice_this_trial_n", 
+      # "practice_this_n",
+      # "test_this_trial_n", "test_this_n",
+      "et_start_started", "unixtime_start",
+      "rest_started", "unixtime_end",
+      "et_stop_started", "et_stop_stopped",
+      "fixation_jit_started", "fixation_jit_stopped",
+      "fixation_fix_p_started", "image_p_started",
+      "fixation_fix_t_started", "image_t_started",
+      "val_slider_response", "val_slider_rt",
+      "int_slider_response", "int_slider_rt",
+      "happy_slide_response", "happy_slide_rt",
+      "sad_slide_response", "sad_slide_rt",
+      "fear_slide_response", "fear_slide_rt",
+      "disgust_slide_response", "disgust_slide_rt",
+      "anger_slide_response", "anger_slide_rt",
+      "obs_slider_response", "obs_slider_rt",
+      
+      "psychopy_version", "frame_rate"
+    ))
+
+
+colnames(dta_psypy1)
+
+dta_psypy1$social_nonsocial<- if_else(dta_psypy1$participant<200,"nonsocial", "social")
+
+
+dta_psypy1$condition<- if_else(!is.na(dta_psypy1$rest_started), "rest_started",
+                                        dta_psypy1$condition)
+
+# unique(dta_psypy1$condition)
+# table(is.na(dta_psypy1$condition))
+
+dta_psypy1<- dta_psypy1%>%
+  subset(!is.na(participant))
+
+
+
+dta_psypy1$participant<- sub("_.*", "", dta_psypy1$filename)
+
+table(dta_psypy1$participant)
+# 65
+
+
+# avoid gaps
+dta_psypy1$stim_iaps<- if_else(dta_psypy1$condition == "rest_started", "rest_started",
+                                dta_psypy1$stim_iaps)
+
+dta_psypy1$emotioncategory<- if_else(dta_psypy1$condition == "rest_started", "rest_started",
+                                      if_else(dta_psypy1$condition == "Example Stimuli", dta_psypy1$emotion,
+                                dta_psypy1$emotioncategory))
+
+table(is.na(dta_psypy1$stim_iaps))
+
+
+  
+# #so that zero is rest, so 1 to 4 is pratice
+# dta_psypy1$test_this_n+5 #so that it doesn't overlap with pratice
+
+########################################
+# here let's make sure the trial start at 1 and not zero, because we will need 0 as trigger for trial off in ledalab
+#######################################
+dta_psypy1$trial_no_all<- if_else(dta_psypy1$condition == "rest_started", 1,
+                                      if_else(dta_psypy1$condition == "Example Stimuli",
+                                              dta_psypy1$trial_order+2,
+                                              dta_psypy1$trial_order+6))
+
+unique(dta_psypy1$trial_no_all)
+
+
+
+
+# Split the data frame by the specified column and then iterate over the list to write each
+
+
+```
+
+
+
+```{r}
+# fix unix start and end fir rest period
+# <115 and < 211
+range(dta_psypy1$unixtime_start)
+
+170652740900
+
+tmp_test<- dta_psypy1%>%
+  subset(unixtime_start< 170652740900)
+
+unique(tmp_test$participant)
+unique(tmp_test$condition)
+range(dta_psypy1$unixtime_start)
+# run pnly once
+# dta_psypy1$unixtime_start<- if_else(dta_psypy1$unixtime_start< 170652740900, 
+#                                            round(dta_psypy1$unixtime_start*1000),
+#                                            dta_psypy1$unixtime_start)
+range(dta_psypy1$unixtime_start)
+dta_psypy1$unixtime_end
+
+tmp_test<- dta_psypy1%>%
+  subset(unixtime_end< 170652753000)
+
+range(dta_psypy1$unixtime_end)
+unique(tmp_test$participant)
+unique(tmp_test$condition)
+
+
+```
+
+
+```{r}
+# write out psypy clean files per person
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/behavioural/preprocessed")
+
+# Create a unique identifier for each combination of ssid and screencontent
+dta_psypy1 <- dta_psypy1 %>%
+  mutate(split_column = participant)
+
+# Split the data frame into a list of data frames based on the unique combinations
+tmp_split_df <- split(dta_psypy1, dta_psypy1$split_column)
+
+# Iterate over the list of split data frames and write each to a CSV file
+walk(names(tmp_split_df), function(tmp_splitcol) {
+  write_csv(tmp_split_df[[tmp_splitcol]], paste0('dta_psypy_', tmp_splitcol, ".csv"))
+})
+
+
+```
