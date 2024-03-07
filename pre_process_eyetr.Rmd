@@ -309,7 +309,7 @@ dta_eytr <-
 pattern <- "\\./([0-9]+)_.*"
 
 # Extract the pattern
-
+unique(dta_eytr$stimnopath)
 dta_eytr$participant<-  sub(pattern, "\\1", dta_eytr$filename)
 
 
@@ -324,6 +324,8 @@ dta_eytr$screencontent_no_na <- if_else(is.na(dta_eytr$screencontent), "rest", d
 dta_eytr$stimnopath_no_na <- if_else(is.na(dta_eytr$stimnopath), "rest", 
                                    if_else(dta_eytr$stimnopath == "tStart_rest1_cross", "rest",       
                                            dta_eytr$stimnopath))
+
+unique(dta_eytr$text)
   
 ```
 
@@ -477,6 +479,7 @@ range(dta_eytr_rpx$gaze_x_cor_pix, na.rm = TRUE)
 
 colnames(dta_eytr_rpx)
 
+unique(dta_eytr_rpx$stimnopath)
 dta_eytr_rpx<- dta_eytr_rpx%>%
   group_by(participant)%>%
   arrange(time)
@@ -543,136 +546,89 @@ To DO
 Continue here
 
 ```{r}
+dta_eytr_rpx
 # create start at every screen content
 # Preview unique screen contents and dataset structure
-print(unique(dta_gaze_clean$text))
-print(colnames(dta_gaze_clean))
+print(unique(dta_eytr_rpx$text))
+print(colnames(dta_eytr_rpx))
 
+
+unique(dta_eytr_rpx$trialunq)
+unique(dta_eytr_rpx$pratice_vs_trial)
+unique(dta_eytr_rpx$screencontent)
+unique(dta_eytr_rpx$screencontent_no_na)
+dta_eytr_rpx$trialunq
 # only run this is the previous processing code is not fixed where trialunq includes pratice vs trial
-# dta_gaze_clean$trialunq<- paste0(dta_gaze_clean$pratice_vs_trial,"_",paste0(dta_gaze_clean$screencontent,"_", paste0(dta_gaze_clean$stimnopath)))
 
-# Arrange data by participant ID and time, then identify the first occurrence of each trial
 
-dta_gaze_clean$trialunq
+dta_eytr_rpx$pratice_vs_trial<- ifelse(is.na(dta_eytr_rpx$pratice_vs_trial), "rest", dta_eytr_rpx$pratice_vs_trial)
 
-dta_gaze_clean <- dta_gaze_clean %>%
-  arrange(ssid, time) %>%
-  group_by(ssid, screencontent) %>%
-  mutate(is_firststart = !duplicated(trialunq)) # Use '!' to correctly identify the first start
+
+dta_eytr_rpx$trialunq<- paste0(dta_eytr_rpx$pratice_vs_trial,"_",paste0(dta_eytr_rpx$screencontent,"_", paste0(dta_eytr_rpx$stimnopath)))
+table(is.na(dta_eytr_rpx$trialunq))
+
+unique(dta_eytr_rpx$trialunq)
+unique(dta_eytr_rpx$text)
+
+dta_eytr_rpx <- dta_eytr_rpx %>%
+  arrange(participant, time) %>%
+  group_by(ssid, screencontent_no_na) %>%
+  mutate(is_firststart = !duplicated(trialunq)) %>%
+  ungroup()# Use '!' to correctly identify the first start
 
 # Preview the data to ensure the above operation worked as intended
-print(head(dta_gaze_clean))
+print(head(dta_eytr_rpx))
 
 # Create a zero-time column where the first occurrence of each trial is marked with its time, others as NA
-dta_gaze_clean <- dta_gaze_clean %>%
+dta_eytr_rpx <- dta_eytr_rpx %>%
   mutate(zero = if_else(is_firststart, time, NA_real_)) # Use NA_real_ for consistency in numeric columns
 
 # Propagate the zero times down each group to fill in the NAs
-dta_gaze_clean <- dta_gaze_clean %>%
-  group_by(ssid, screencontent, trialunq) %>%
+dta_eytr_rpx <- dta_eytr_rpx %>%
+  group_by(ssid, screencontent_no_na, trialunq) %>%
   fill(zero, .direction = "down")%>% # Explicitly mention direction for clarity
   ungroup()
 
 # Calculate the time relative to zero for each trial
-dta_gaze_clean <- dta_gaze_clean %>%
+dta_eytr_rpx <- dta_eytr_rpx %>%
   mutate(timerezero = time - zero)
 
 # Arrange by time for final organization, if necessary
-dta_gaze_clean <- dta_gaze_clean %>%
-  arrange(ssid,time)
+dta_eytr_rpx <- dta_eytr_rpx %>%
+  arrange(participant,time)
 
 # Optionally, print unique zero times to verify the operation
-print(unique(dta_gaze_clean$zero))
+print(unique(dta_eytr_rpx$zero))
 
 # Results stored in 'dta_gaze_clean' with 'timerezero' reflecting time since trial start
 
-
-
 # let's check to see if it looks fine
-range(dta_gaze_clean$timerezero, na.rm = TRUE)
-max(dta_gaze_clean$timerezero, na.rm = TRUE) # `
+range(dta_eytr_rpx$timerezero, na.rm = TRUE)
+max(dta_eytr_rpx$timerezero, na.rm = TRUE) # `
 # now this looks about right ~10~11sec
-
-dta_gaze_clean%>%
-subset(ssid == 1 & dta_gaze_clean$screencontent == "stimuli") %>%
+# 120 seconds in 2 minutes
+dta_eytr_rpx%>%
+subset(ssid == 116 & dta_eytr_rpx$screencontent_no_na == "stimuli") %>%
 ggplot( aes(timerezero, pupil ))+
-  geom_smooth(aes(group = stimnopath), se = F, size = .1)
+  geom_smooth(aes(group = stimnopath_no_na), se = F, size = .1)
 
 
 ```
-
-debug abnormally long timerezero
-```{r eval=FALSE, include=FALSE}
-
-
-
-tmp_test<- dta_gaze_clean%>%
-subset(ssid == 1 & dta_gaze_clean$screencontent == "stimuli"&
-         stimnopath == "10_22__kitchen_still__8YQ2EUQP.mp4")
-
-the issue smees to be because thios sgtimuli is used in pratice and stimuli, so the timerezero is not treatign this trial as unique
-
-
-debug
-tmp_toolong<- dta_gaze_clean%>%
-  subset(timerezero>10)
-
-tmp_less10<- dta_gaze_clean%>%
-  subset(timerezero<10)
-
-# why do we have some abnormally high trials duration randomly
-
-tmpsd5<- tmp_toolong%>%subset(ssid == 38)
-tmpsd5_full<- dta_gaze_clean%>%subset(ssid == 38)
-
-# data from one participant that is too long
-tmpsd5%>%
-  ggplot(aes(gaze_x_cor_pix, gaze_y_cor_pix))+
-  geom_point()+
-  facet_grid(~screencontent)
-
-
-tmpsd5_full%>%
-  ggplot(aes(gaze_x_cor_pix, gaze_x_cor_pix))+
-  geom_point()+
-  facet_grid(~screencontent)
-
-tmpsd5%>%
-  ggplot(aes(time, gaze_x_cor_pix))+
-  geom_point(size = .1)
-tmpsd5_full%>%
-  ggplot(aes(time, gaze_x_cor_pix))+
-  geom_point(size = .1)
-
-table(tmpsd5$stimnopath)
-
- 
-
-```
-
-
-
 
 # create a new time rezero where before stim start, time is negative
 ```{r}
 
-dta_gaze_clean_10s<- dta_gaze_clean%>%
-  subset(timerezero <=10)
 
-library(dplyr)
-
-dta_gaze_clean_10s 
-
-dta_gaze_clean_10s<- dta_gaze_clean_10s %>%
-  group_by(ssid, stimnopath) %>%
-  arrange(ssid, time) %>%
+dta_eytr_rpx<- dta_eytr_rpx %>%
+  group_by(participant, stimnopath_no_na) %>%
+  arrange(participant, time) %>%
   mutate(general_time = row_number() - 1) %>% # This assumes your data starts from 0 and increments
-  group_by(ssid, stimnopath, screencontent, .add = TRUE) %>%
+  group_by(ssid, stimnopath_no_na, screencontent_no_na, .add = TRUE) %>%
   mutate(
     backward_time = max(timerezero) - timerezero, # Calculate backward time for fixation
     time_backward = case_when(
-      screencontent == "stimuli" ~ timerezero, # Use timezero directly for forward time in stimuli
-      screencontent == "fixation" ~ -backward_time, # Use negative backward time for fixation
+      screencontent_no_na == "stimuli" ~ timerezero, # Use timezero directly for forward time in stimuli
+      screencontent_no_na == "fixation" ~ -backward_time, # Use negative backward time for fixation
       TRUE ~ NA_real_ # Fallback case
     )
   ) %>%
@@ -680,182 +636,239 @@ dta_gaze_clean_10s<- dta_gaze_clean_10s %>%
 
 
 
-dta_gaze_clean_10s%>%
-subset(ssid == 1) %>%
-ggplot( aes(timerezero, pupil ))+
-  geom_smooth(aes(group = stimnopath), se = F, size = .1)+
-  geom_vline(xintercept = 0, linetype = "dashed")+
-    facet_grid(~screencontent)+
-  ylim(15,30)+
-  xlim(-2,10)
-
-
-dta_gaze_clean_10s%>%
-subset(ssid == 1) %>%
+dta_eytr_rpx%>%
+subset(ssid == 116 & screencontent_no_na!= "rest") %>%
 ggplot( aes(time_backward, pupil ))+
-  geom_smooth(aes(group = stimnopath), se = F, size = .1)+
-    geom_vline(xintercept = 0, linetype = "dashed")+
-    facet_grid(~screencontent)+
-    ylim(15,30)+
-   xlim(-2,10)
+  geom_smooth(aes(group = stimnopath_no_na), se = F, size = .1)+
+  geom_vline(xintercept = 0, linetype = "dashed")
+    # facet_grid(~screencontent_no_na)
+  
 
-# gaze quick check
-dta_gaze_clean_10s%>%
-subset(ssid == 1) %>%
-ggplot( aes(time_backward, gaze_ ))+
-  geom_smooth(aes(group = stimnopath), se = F, size = .1)+
-    geom_vline(xintercept = 0, linetype = "dashed")+
-    facet_grid(~screencontent)+
-    ylim(15,30)+
-   xlim(-2,10)
+
+
   
 
 ```
 
 
-check for an issue where the gazepoint would store duplicat times within each participant
-
-```{r}
-
-library(dplyr)
-
-# Detect and flag duplicates based on event_id and time within each ssid
-dta_gaze_clean_10s <- dta_gaze_clean_10s %>%
-  group_by(ssid) %>%
-  mutate(duplicated_event_id = duplicated(event_id) | duplicated(event_id, fromLast = TRUE),
-         duplicated_time = duplicated(time) | duplicated(time, fromLast = TRUE)) %>%
-  ungroup()
-
-
-dta_gaze_clean_10s$event_id
-table(dta_gaze_clean_10s$duplicated_event_id)
-table(dta_gaze_clean_10s$duplicated_time)
-
-# tmp_test<- subset(dta_gaze_clean_10s,duplicated_event_id == TRUE )
-dta_gaze_clean_10s$screencontent
-
-# tmp_test_stim<- dta_gaze_clean_10s%>%subset(screencontent == "stimuli" & ssid == 10)
-
-
-table(tmp_test_stim$trialunq)
-dta_gaze_clean_10s$pratice_vs_trial
-
-dta_gaze_clean_10s%>%
-  subset(pratice_vs_trial!= "Pratice"& screencontent!= "fixation") %>%
-  group_by(ssid,stimnopath)%>%
-  mutate(nrows_tmp = n())%>%
-  ggplot(aes(ssid, stimnopath, fill = nrows_tmp))+
-  geom_tile()
-  # facet_grid(~screencontent)
-
-
-# 1500 is what we would expectfor 15-0 hz,
-
-dta_gaze_clean_10s%>%
-  subset(pratice_vs_trial!= "Pratice"& screencontent!= "fixation") %>%
-  group_by(ssid,stimnopath)%>%
-  mutate(nrows_tmp = n())%>%
-  group_by(ssid)%>%
-  summarise_if(is.numeric, mean, na.rm = T)%>%
-  ggplot(aes(ssid, nrows_tmp))+
-  geom_point()+
-  geom_bar(stat = "identity", width = .1) 
-
-
-options(scipen = 999)
-dta_gaze_clean_10s%>%
-  # subset(pratice_vs_trial!= "Pratice"& screencontent!= "fixation") %>%
-  group_by(ssid)%>%
-  mutate(sampling_iti = time-lag(time))%>% #0.0062870 this is the expected for 150hz
-    mutate(event_iti = event_id-lag(event_id))%>%
-  # summarise_if(is.numeric, mean, na.rm = T)%>%
-  ggplot(aes(event_iti))+
-  geom_histogram(nbin = 300)
-
-
-# no need to exclude duplicates
-# i gues the question is wether when rem,oving duplciates do we get normal ranges or abnormally longeoneway.test(
-
-
-
-
-dta_gaze_clean_10s%>%
-subset(duplicated_event_id == FALSE)%>%
-  group_by(ssid)%>%
-  mutate(sampling_iti = time-lag(time))%>% #0.0062870 this is the expected for 150hz
-    mutate(event_iti = event_id-lag(event_id))%>%
-  # summarise_if(is.numeric, mean, na.rm = T)%>%
-  ggplot(aes(sampling_iti))+
-  geom_histogram(nbins = 300)+
-    xlim(-.01,.01)
-  
-
-
-dta_gaze_clean_10s%>%
-  subset(duplicated_event_id == FALSE)%>%
-  subset(pratice_vs_trial!= "Pratice"& screencontent!= "fixation") %>%
-  group_by(ssid,stimnopath)%>%
-  mutate(nrows_tmp = n())%>%
-  ggplot(aes(ssid, stimnopath, fill = nrows_tmp))+
-  geom_tile()
-  # facet_grid(~sc
-
-```
 
 # Filter out rows where either event_id or time is duplicated within each ssid
 
 ```{r}
-nrow(dta_gaze_clean_10s_nodup )/nrow(dta_gaze_clean_10s)
+
+dta_eytr_rpx <- dta_eytr_rpx %>%
+  group_by(participant) %>%
+  mutate(duplicated_event_id = duplicated(event_id) | duplicated(event_id, fromLast = TRUE),
+         duplicated_time = duplicated(time) | duplicated(time, fromLast = TRUE)) %>%
+  ungroup()
+
+table(dta_eytr_rpx$duplicated_event_id)
 
 
-dta_gaze_clean_10s_nodup <- dta_gaze_clean_10s %>%
+
+dta_eytr_rpx_nodup <- dta_eytr_rpx %>%
   filter(!duplicated_event_id & !duplicated_time)
 
 
+tmp_test<-  dta_eytr_rpx %>%
+  subset(duplicated_event_id & duplicated_time)
+nrow(dta_eytr_rpx_nodup )/nrow(dta_eytr_rpx)         
+# 0.8980762
 
-         
-
+# don'\t subset as this sems to happen at the end or start of screens and mighht cutout our isfirst start -==- TRUE
 ```
 
 
 
 select variables for gazepath
 ```{r}
-dta_gaze_clean_10s_nodup$subject<- dta_gaze_clean_10s_nodup$ssid
-dta_gaze_clean_10s_nodup$trial <- dta_gaze_clean_10s_nodup$trialUnq
+dta_eytr_rpx$subject<- dta_eytr_rpx$ssid
+
+dta_eytr_rpx<- dta_eytr_rpx%>%
+group_by(participant)%>%
+  arrange(time)
 
 
-colnames(dta_gaze_clean_10s_nodup)
-# range(dta_gaze_clean_10s_nodup$pup_interp)
-
-colnames(dta_gaze_clean_10s_nodup)
-
-dta_gaze_clean_10s_nodup$distance<- 600
+dta_eytr_rpx$distance_mm<- 610
 
 
 
-dta_gaze_clean_10s_nodup$trackloss<- if_else(is.na(dta_gaze_clean_10s_nodup$gaze_x_cor_pix) == TRUE, 0, 
-                         if_else(is.na(dta_gaze_clean_10s_nodup$gaze_y_cor_pix) == TRUE, 0, 1))
-unique(dta_gaze_clean_10s_nodup$trackloss)
+dta_eytr_rpx$trackloss<- if_else(is.na(dta_eytr_rpx$gaze_x_cor_pix) == TRUE, 0, 
+                         if_else(is.na(dta_eytr_rpx$gaze_y_cor_pix) == TRUE, 0, 1))
+
+unique(dta_eytr_rpx$trackloss)
 
 # compute proportion of lost data
 
 dta_gaze_clean_10s_nodup$trialunq
 
-dta_gaze_clean_10s_nodup <- dta_gaze_clean_10s_nodup %>%
-  group_by(ssid, trialunq, text)%>%
+dta_eytr_rpx <- dta_eytr_rpx %>%
+  group_by(participant, trialunq, text)%>%
   mutate(gaze_valid_prop = sum(trackloss)/n())%>%
   mutate(gaze_loss_prop = 1 - gaze_valid_prop)%>%
+  group_by(participant)%>%
+  arrange(time)%>%
   ungroup()
 
 
 # check to see this is right
 
-dta_gaze_clean_10s_nodup%>%
+dta_eytr_rpx%>%
   ggplot(aes(gaze_loss_prop))+
   geom_histogram()
 
-dta_gaze_clean_10s_nodup%>%
+dta_eytr_rpx%>%
   ggplot(aes(gaze_valid_prop))+
   geom_histogram()
 ```
+
+
+select for gazepath
+```{r}
+dta_eytr_rpx$filename
+
+dta_4gazepath<- select(dta_eytr_rpx, 
+                                      c("participant", "session_id", "event_id", "ssid", 
+                                        "text","trialunq","screencontent",
+                                        "screencontent_no_na","pratice_vs_trial",                           "stimnopath",
+                                        "stimnopath_no_na",
+                            "time", "timerezero","time_backward",
+                            "status",
+                            "filename",
+                            "left_gaze_x_cor_pix",
+                            "right_gaze_x_cor_pix",
+                            "left_gaze_y_cor_pix",
+                            "right_gaze_y_cor_pix",  
+                            "gaze_x_cor_pix",  
+                            "gaze_y_cor_pix",
+                            # "pupil",
+                            # "pupil_d",
+                            # "pup_interp_pix",
+                            "distance_mm",
+                            "trackloss", "gaze_loss_prop", "gaze_valid_prop"
+                            )
+                            )
+head(dta_4gazepath)
+
+
+```
+Check gaze data
+```{r}
+library(ggplot2)
+#########################
+# this can be slow if not sumamrised
+dta_4gazepath %>%
+  group_by(ssid,trialunq, screencontent_no_na)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(gaze_x_cor_pix, gaze_y_cor_pix, colour = timerezero))+
+  # geom_contour()
+  geom_point(alpha = .1)+
+  facet_grid(~screencontent_no_na)+
+  xlim(0,1920)+
+  ylim(1080,0)+
+  geom_hline(yintercept = 1080/2)+
+    geom_vline(xintercept = 1920/2)
+
+
+```
+
+
+
+
+# for gaze parsing
+
+```{r}
+
+# Create a unique identifier for each combination of ssid and screencontent
+dta_4gazepath <- dta_4gazepath %>%
+  mutate(split_column = paste0(participant, "_", screencontent_no_na))
+
+# Split the data frame into a list of data frames based on the unique combinations
+unique(dta_4gazepath$split_column)
+tmp_split_df <- split(dta_4gazepath, dta_4gazepath$split_column)
+
+# Log message indicating the start of writing files for gazepath
+message("Writing files for gazepath")
+
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac")
+
+# Iterate over the list of split data frames and write each to a CSV file
+walk(names(tmp_split_df), function(tmp_splitcol) {
+  write_csv(tmp_split_df[[tmp_splitcol]], paste0('gp_', tmp_splitcol, ".csv"))
+})
+
+
+# with prtogres bar
+
+# library(pbapply)
+# 
+# # Assuming tmp_split_df is your list of data frames and names(tmp_split_df) gives their names
+# pblapply(names(tmp_split_df), function(tmp_splitcol) {
+#   write_csv(tmp_split_df[[tmp_splitcol]], paste0('gp_', tmp_splitcol, ".csv"))
+# })
+# 
+# # Create a progress bar
+# pb <- txtProgressBar(min = 0, max = length(names(tmp_split_df)), initial = 0, style = 3)
+# 
+# # Iterate over the list of split data frames
+# walk(names(tmp_split_df), function(tmp_splitcol, index) {
+#   # Update progress bar
+#   setTxtProgressBar(pb, index)
+#   
+#   # Write to CSV
+#   write_csv(tmp_split_df[[tmp_splitcol]], paste0('gp_', tmp_splitcol, ".csv"))
+# }, index = seq_along(names(tmp_split_df)))
+# 
+# # Close the progress bar
+# close(pb)
+
+
+```
+
+
+
+run gazepath to detect fioxationa nd saccades in gaze data
+
+
+# cerate an emoty rscipt mor mark down then run the lines below
+library(gazepath)
+GUI() # 
+
+
+run first stimuli files then fixcation files separately then rest fiules sepaartelly
+note you need to close and restart gazepath after each processing
+
+gazepath settings
+
+left eye x coord: left_gaze_x_cor_pix
+left eye y coord: left_gaze_y_cor_pix
+
+didtance: distance (mm)
+
+right eye x coord: right_gaze_x_cor_pix
+right eye y coord: right_gaze_y_cor_pix
+didtance: distance (mm)
+
+
+sample rate: 150
+screen resolution height (pix): 1080
+screen resolution width (pix): 1920
+
+
+stimuli height (px): 1080 
+stimuli width (px): 1920
+variables to keep: text, participant, pratice_vs_trial, stimnopath_no_na
+
+
+<!-- bristol -->
+
+USE SCREEN SIZE in mm (update accordinly)
+stimuli height mm 275 
+stimuli width mm 485
+
+<!-- previous -->
+<!-- stimuli height mm 300 -->
+<!-- stimuli width mm 530 -->
+
+
