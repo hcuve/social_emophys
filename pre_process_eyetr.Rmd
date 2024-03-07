@@ -536,7 +536,8 @@ dta_eytr_rpx%>%
 
 
 
-
+######################
+TO ADAPT CODE BELOW
 To DO
 # rezeroing times by trial, by participants
 Continue here
@@ -815,8 +816,6 @@ dta_gaze_clean_10s_nodup <- dta_gaze_clean_10s %>%
          
 
 ```
-
-
 
 
 
