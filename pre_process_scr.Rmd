@@ -1,30 +1,628 @@
 ---
-title: "pre_proce"
+title: "pre_process SCR shimmer data - social emophys"
 author: "Helio"
 date: "2024-03-07"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+
+2. Export/create triggers from behavioural data (merge physio with psychopy)
+
+COMBINE TRIGGERS WITH PHYSIO
+
+
+```{r}
+# data_psypy1
+
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio")
+
+
+dta_physio<- read_csv("Physio/110_Session1_GSRPulse_Calibrated_PC.csv")
+View(X110_Session1_GSRPulse_Calibrated_PC)
+
+
+
+
+base_directory <- "Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio" # Change this to your actual base directory path
+
+# Find all subdirectories named "raw" within the base directory
+raw_directories <- list.files(path = base_directory, 
+                              pattern = "export", 
+                              full.names = TRUE, 
+                              recursive = TRUE, 
+                              include.dirs = TRUE)
+
+# Initialize an empty list to store the paths of all CSV files found
+csv_files_paths <- list()
+
+# For each "raw" directory found, list all CSV files within it
+for (dir in raw_directories) {
+  csv_files_in_dir <- list.files(path = dir, pattern = "\\.csv$", full.names = TRUE)
+  csv_files_paths <- c(csv_files_paths, csv_files_in_dir)
+}
+
+# `csv_files_paths` now contains the full paths to all CSV files within any "raw" subfolders
+
+tmp_files <- list.files(pattern = ".csv", recursive = TRUE,
+                        full.names = TRUE)
+
+
+
+# Step 1: Read the first two rows to get column names and units
+library(data.table)
+library(janitor)
+
+# Custom function to read a file and adjust its column names
+fn_read_and_adjust <- function(file_path) {
+  # Read the first two rows to adjust column names
+  header_info <- fread(file_path, nrows = 1, skip = 1, header = FALSE)
+  col_names <- colnames(fread(file_path, nrows = 1, skip = 2, header = FALSE))
+  
+  # Modify column names based on the header info
+  new_col_names <- paste0(col_names, "_", unlist(header_info[1,]))
+  
+  # Now read the full data (skipping the first two rows) and assign new column names
+  data <- fread(file_path, skip = 2, header = FALSE)
+  setnames(data, old = colnames(data), new = new_col_names)
+  
+  # Return the modified data.table
+  return(data)
+}
+
+# List of .csv files, assuming you've already created 'tmp_files' with list.files()
+# tmp_files <- list.files(pattern = "\\.csv$", recursive = TRUE, full.names = TRUE)
+
+# Apply the custom function to each file and combine the results
+dta_gsr <- rbindlist(lapply(tmp_files, fn_read_and_adjust), use.names = TRUE, fill = TRUE, idcol = "filename") %>%
+  janitor::clean_names()
+
+# The 'combined_data' now holds your combined dataset with cleaned and adjusted column names
+
+
+names(dta_physio)<- paste0(colnames(dta_physio_header_info),"_", paste0(dta_physio_header_info[1,]))
+colnames(dta_physio)
+
+
+
+# Load and combine all CSV files
+
+
+# Load and preprocess data
+
+dta_psypy
+dta_psypy <- rbindlist(sapply(tmp_files, fread, simplify = FALSE), use.names = TRUE, idcol = "filename", fill = TRUE) %>%
+    janitor::clean_names()%>%
+
+
+
+colnames(dta_physio)
+
+
+
+dta_physio$...11_NA<-NULL
+
+
+# make clean names
+dta_physio<- dta_physio%>%
+  janitor::clean_names()
+
+
+
+```
+base_directory <- "path/to/your/base/directory" # Change this to your actual base directory path
+
+# This pattern is designed to exactly match "consensys export" directories
+pattern <- "consensys export"
+
+# Find all directories matching the pattern within the base directory
+# Note: `full.names = TRUE` ensures we get the full path, not just the directory names
+# `recursive = TRUE` allows searching within subdirectories of the base directory
+matched_directories <- list.files(path = base_directory, pattern = pattern, full.names = TRUE, recursive = TRUE, include.dirs = TRUE)
+
+# Initialize an empty vector to store the paths of all CSV files found
+csv_files_paths <- vector()
+
+# For each matched directory, list all CSV files within it
+for (dir in matched_directories) {
+  csv_files_in_dir <- list.files(path = dir, pattern = "\\.csv$", full.names = TRUE)
+  csv_files_paths <- c(csv_files_paths, csv_files_in_dir)
+}
+
+# `csv_files_paths` now contains the full paths to all CSV files within any "consensys export" subfolders
+
+
+
+
+# now merge these two datasets based on apprimxate values
+# using approximate join
+
+```{r}
+# Convert to data tables 
+library(data.table)
+# colnames(dta_physio)
+# colnames(db_time4leda)
+setDT(dta_physio) 
+
+# keep some original time
+
+dta_physio$orig_timestamp_dtaphyisio<- dta_physio$gsr_pulse_timestamp_sync_unix_cal_ms
+
+# fix the timestamp issue for participants 114 and below and 210 below
+
+
+
+# the issue was that for these participants we stored the value in seconds rather than illiseconds but just for the rest
+options(scipen = 999)
+# colnames()
+data_psypy1$unixtime_start
+options(scipen = 999)
+range(data_psypy1$unixtime_end)
+
+
+# fix unix start and end fir rest period
+data_psypy1$unixtime_start<- if_else(data_psypy1$condition == "rest_started" &
+                                       data_psypy1$participant<115, 
+                                           round(data_psypy1$unixtime_start*1000),
+                                           data_psypy1$unixtime_start)
+
+
+
+data_psypy1$unixtime_end<- if_else(data_psypy1$condition == "rest_started" &
+                                      data_psypy1$participant<115, 
+                                           round(data_psypy1$unixtime_end*1000),
+                                           data_psypy1$unixtime_end)
+
+setDT(data_psypy1) 
+
+data_psypy1$orig_unixtime_start_psypy<- data_psypy1$unixtime_start
+# hopefully we can use these to check that the merging should actuallymatch what we expect because the difference between this number and the timestamp should be close to zero where we actualy present the stimuli
+
+# Rolling join 
+# start with just one case
+# db_time4leda$participant
+
+data_psypy1
+
+db_time4leda_p110<- data_psypy1%>%
+  subset(participant == 110)
+
+# 
+# 
+# setDT(db_time4leda_p110)
+# setDT(dta_physio)
+
+dta_physio
+
+dt_result <-db_time4leda_p110[dta_physio, on = .( unixtime_start=  gsr_pulse_timestamp_sync_unix_cal_ms), 
+                              roll = "nearest"]
+
+options(scipen = 999)
+
+dt_result$orig_timestamp_dtaphyisio
+
+
+# this means that unix time gets populated by the original physio time
+dt_result$orig_timestamp_dtaphyisio-dt_result$unixtime_start
+
+# the value close to zero here should be the start
+dt_result$orig_timestamp_dtaphyisio-dt_result$orig_unixtime_start_psypy
+
+dt_result%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
+  ggplot(aes(orig_timestamp_dtaphyisio, timediff_phys_start_psypy))+
+  geom_point(size = .0001)
+
+
+dt_result%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
+  ggplot(aes(orig_timestamp_dtaphyisio, gsr_pulse_pp_gto_hr_cal_bpm))+
+  geom_line()
+
+
+# dt_result%>%
+#   mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
+#   ggplot(aes(unixtime_start, gsr_pulse_temperature_bmp280_cal_degrees_celsius))+
+#   geom_line()
+#   geom_point()
+
+# what happens in the merge is that the times get extended such that the rows get merged to the closes one do if you have a range from 0 to 1, .5 below will be merged with the start time of zero whereas > .5 will be merged upwards, but the start should be the value where the time is close to zero
+
+dt_result$trial_no_pract_and_test
+
+dt_result%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
+  ggplot(aes(timediff_phys_start_psypy))+
+  geom_histogram()
+xlim(-10,10)
+
+colnames(dt_result)
+
+dt_result<- dt_result%>%
+  arrange(unixtime_start)%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)
+
 ```
 
-## R Markdown
+# create a range of likely start values use as start
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+# this is less than 10 milliseconds and we use negative so that the stimuli starts slightly before, but we can also do after
+dt_result$start_true<- if_else(dt_result$timediff_phys_start_psypy> -10 & 
+                                 dt_result$timediff_phys_start_psypy <=0, TRUE, NA)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+
+dt_result%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
+  subset(trial_no_pract_and_test == 3)%>%
+  ggplot(aes(orig_timestamp_dtaphyisio, timediff_phys_start_psypy))+
+  geom_point(size = .01)
+  geom_vline(aes(xintercept = orig_timestamp_dtaphyisio[start_true == TRUE]))
+ geom_vline(aes(xintercept = (orig_timestamp_dtaphyisio[start_true == TRUE])+6000))
+
 ```
 
-## Including Plots
+```{r}
 
-You can also embed plots, for example:
+library(dplyr)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# create new variable whioch is TRUE when start of the stim is section is TRUE
+dt_result2<- dt_result %>%
+  # Apply the condition for start_true directly in the mutation
+  group_by(stim_iaps) %>%
+  # Create a helper column for the absolute value of timediff_phys_start_psypy
+  mutate(abs_timediff = abs(timediff_phys_start_psypy)) %>%
+  # Create the new variable where start_true is TRUE only for the smallest absolute timediff
+  mutate(new_variable = start_true & (abs_timediff == min(abs_timediff[start_true], na.rm = TRUE))) %>%
+  # Replace TRUE with NA where start_true is not TRUE
+  mutate(new_variable = ifelse(start_true, new_variable, NA_logical_))%>%
+  # select(-abs_timediff) %>% # Optional: Remove the helper column
+  ungroup()
+    
+
+dt_result2
+
+table(dt_result2$new_variable)
+# fix resp start
+
+dt_result2$unixtime_end<- if_else(dt_result2$condition == "rest_started",
+                                 round(dt_result2$unixtime_end*1000),
+                                 dt_result2$unixtime_end)
+dt_result2%>%
+  subset(new_variable == TRUE & trial_no_pract_and_test>0)%>%
+  mutate(diff_end = orig_timestamp_dtaphyisio+6500-unixtime_end)%>%
+  ggplot(aes(trial_no_pract_and_test, diff_end/1000))+
+  geom_point()
+
+
+# the fact that the unix time end - timestamp end is less than 10 milliseconds suggests that the differemnce. ois about 0
+
+dt_result2$new_variable
+dt_result%>%
+  mutate()
+  
+
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# lets take the lowest negative value as the actual start
+
+```{r}
+
+dt_result2 %>%
+  # Ensure start_true is a logical column (TRUE/NA)
+  mutate(start_true = !is.na(start_true) & start_true) %>%
+  arrange(unixtime_start)%>%
+  subset(new_variable == TRUE)
+
+# create a trigger, add zero when the trigger is off, this is important for ledalab
+
+table(is.na(dt_result2$trial_no_pract_and_test))
+dt_result2<- dt_result2%>%
+  mutate(pre_trigger = trial_no_pract_and_test+1)%>%
+  mutate(trigger = if_else(new_variable == TRUE, pre_trigger, 0))
+
+table(dt_result2$trigger)
+# lets create a fixation trigger (anticipation by 6 seconds)
+
+dt_result2$unixtime_start
+table(dt_result2$new_variable)
+
+table(dt_result2$start_true)
+dt_result2$stim_start_true<- dt_result2$new_variable
+
+table(dt_result2$stim_start_true)
+# first we return the time when stim_start_true is TRUE then substract 6 seconds
+# a potentially simpler weay to do this is by digureing our how mnay rows should 6 s (6000 ms) be at 128 hz
+
+# 1000 ms = 128
+# 6000 ms = 128*6 = 768
+
+
+
+library(dplyr)
+
+dt_result3<- dt_result2%>%
+  mutate(stim_event_index = if_else(stim_start_true == TRUE, row_number(), NA_integer_)) %>%
+  fill(stim_event_index, .direction = "up") %>%
+  mutate(pre_stim_start_true = if_else(row_number() == (stim_event_index - 768), TRUE, FALSE),
+         trigger = if_else(pre_stim_start_true == TRUE, 999, trigger))
+
+
+
+dt_result3<- dt_result2%>%
+    mutate(unixtime_start_6000 = unixtime_start-6000)%>%
+  mutate(pre_stim_start_true_time = if_else(stim_start_true == TRUE,
+                                           unixtime_start, NA))%>%
+arrange(unixtime_start)%>%
+    fill(pre_stim_start_true_time, .direction = "up")%>%
+ 
+
+  mutate(pre_stim_start_true  = if_else(pre_stim_start_true_time-6000 ==unixtime_start_6000, TRUE,FALSE))%>%
+
+  mutate(trigger = if_else(pre_stim_start_true == TRUE, 999,trigger))
+
+
+    # subset(stim_start_true == TRUE)
+ # select(c(unixtime_start, pre_stim_start_true_time,unixtime_start_6000, stim_start_true, pre_stim_start_true,))
+
+# dt_result2$trigger
+table(dt_result3$trigger)
+# dt_result2$trigger<- if_else(!is.na(dt_result2$trigger), dt_result2$trigger, 0)
+# table(dt_result2$trigger)
+
+
+
+# 999 is fixation
+dt_result3$unixtime_end
+dt_result3$unixtime_start
+
+(dt_result3$unixtime_end/1000)/1000
+table(dt_result3$unixtime_start == dt_result3$unixtime_end)
+1706867600786-1706867866597
+# now response time
+
+range(dt_result3$unixtime_end)
+
+
+dt_result3%>%
+  subset(condition  != "rest_started" )%>%
+  select(unixtime_end)
+# dt_result3$unixtime_end<- if_else(dt_result3$condition != "rest_started", 
+#                                             round(dt_result3$unixtime_end*1000),
+#                                             dt_result3$unixtime_end)
+
+dt_result3$stim_iaps
+
+dt_result3<- dt_result3%>%
+    group_by(stim_iaps)%>%
+  mutate(resp_start_true = unixtime_start>unixtime_end)%>%
+  mutate(resp_start_true_sup = !duplicated(resp_start_true))
+
+table(dt_result3$resp_start_true)
+
+table(dt_result3$resp_start_true_sup)
+
+range(dt_result3$unixtime_end)
+table(dt_result3$trigger)
+
+
+
+dt_result3%>%
+  subset(pre_stim_start_true == TRUE)%>%
+  select(unixtime_start, pre_stim_start_true, stim_start_true,trigger,target_time_for_stim_start)
+
+
+
+library(dplyr)
+
+dt_result3 <- dt_result3 %>%
+  group_by(stim_iaps) %>%
+  mutate(resp_start_true = unixtime_start > unixtime_end) %>%
+  mutate(first_true_flag = cumsum(resp_start_true) == 1) %>%
+  mutate(resp_start_true_sup = if_else(resp_start_true & first_true_flag, TRUE, FALSE)) %>%
+  ungroup()
+
+
+dt_result4<- dt_result3
+unique(dt_result3$trigger)
+
+table(dt_result4$resp_start_true_sup )
+table(dt_result4$trigger )
+
+unique(dt_result4$trigger)
+dt_result4$trigger1<- if_else(is.na(dt_result4$trigger) & 
+                            
+                            dt_result4$resp_start_true_sup == TRUE,
+                            111,
+                            dt_result4$trigger)
+
+
+dt_result4$trigger1<- if_else(is.na(dt_result4$trigger1),0,
+                            dt_result4$trigger1)
+
+
+table(dt_result4$trigger1)
+
+
+unique(dt_result3$trigger)
+
+
+
+dt_result4$trigger<-dt_result4$trigger1
+
+
+  
+unique(dt_result3$trigger)
+
+
+dt_result3%>%
+  subset(condition == "rest_started")
+  subset(resp_start_true == TRUE)
+```
+
+
+
+write to ledalab
+```{r}
+colnames(dt_result4)
+
+
+dt_time_trig_gsr<- dt_result4[, c(13,51,63)]
+colnames(dt_time_trig_gsr)
+
+# unique(dt_result2$participant)
+
+dt_time_trig_gsr<- dt_time_trig_gsr%>%
+  arrange(unixtime_start)
+
+# writing a table without column names
+# write.table(dt_time_trig_gsr, "dt_time_trig_gsr.txt", sep=",",  col.names=FALSE)
+
+unique(dt_time_trig_gsr$trigger)
+table(dt_time_trig_gsr$trigger)
+
+
+
+write.table(dt_time_trig_gsr, 
+            file = "dt_time_trig_gsr_pre_post_trig.txt", sep = "\t",
+            row.names = FALSE, 
+            col.names = FALSE)
+  
+    
+    # dt_time_trig_gsr_no0$trigger[dt_time_trig_gsr$trigger == 0]<- ""
+
+write.table(dt_time_trig_gsr_no0[,2:3], 
+            file = "dt_time_trig_gsr_no0.txt", sep = "\t",
+            row.names = FALSE, 
+            col.names = FALSE)
+
+```
+
+combine the ledalab output with behavioural data and check if we have what we would expect
+
+3. Plot Physio data in R and Ledalab
+
+```{r}
+
+dta_leda_era_110 <- read_delim("dt_time_trig_gsr_pre_post_trig_era.txt")
+
+data_psypy1
+
+
+
+dta_leda_era_110<- dta_leda_era_110%>%
+  janitor::clean_names()
+
+dta_leda_era_110$trigger<- as.numeric(dta_leda_era_110$event_nid)
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lead(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(pre_post_stim, cda_amp_sum_z))+
+  stat_summary(geom = "pointrange")
+
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lead(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(cda_amp_sum_z, cda_amp_sum_z_post))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)
+
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lag(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(cda_amp_sum_z, cda_amp_sum_z_post))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)
+
+```
+
+```{r}
+
+dta_leda_era_110$trigger
+table(dta_leda_era_110$trigger)
+
+
+dt_result4$trigger
+
+dta_leda_era_110_v1<- left_join(dta_leda_era_110,dt_result4)
+
+
+# plot emotion category vs SCR
+dta_leda_era_110_v1%>%
+  # subset(new_variable == TRUE)%>%
+  # subset(pre_stim_start_true == TRUE)%>%
+  subset(resp_start_true == TRUE)%>%
+  mutate(cda_phasic_max_z = scale(cda_scr))%>%
+  ggplot(aes(emotioncategory, cda_phasic_max_z))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")
+
+
+dta_leda_era_110_v1%>%
+  mutate(cda_phasic_max_z = scale(cda_scr))%>%
+  ggplot(aes(emotioncategory, cda_phasic_max_z))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")
+
+
+# tonic
+dta_leda_era_110_v1%>%
+  mutate(cda_tonic_z = scale(cda_tonic))%>%
+  ggplot(aes(emotioncategory, cda_tonic_z))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")
+
+
+# plot intensity vs SCR for response
+dta_leda_era_110_v1%>%
+  # mutate(cda_tonic_z = scale(cda_tonic))%>%
+    mutate(cda_phasic_max_z = scale(cda_scr))%>%
+  mutate(int_slider_response_z = scale(int_slider_response))%>%
+    subset(new_variable == TRUE)%>%# stim
+  # subset(pre_stim_start_true == TRUE)%>%
+
+  # subset(resp_start_true == TRUE)%>%
+  ggplot(aes(int_slider_response_z, cda_phasic_max_z))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  ggpubr::stat_cor()
+  stat_summary(geom = "pointrange")
+          
+  
+  
+dta_leda_era_110_v1%>%
+  mutate(cda_phasic_max_z = scale(cda_scr))%>%
+  mutate(val_slider_response_z = scale(val_slider_response))%>%
+ 
+  ggplot(aes(val_slider_response_z, cda_phasic_max_z))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  ggpubr::stat_cor()
+  stat_summary(geom = "pointrange")
+  
+  
+  
+          
+
+```
+
