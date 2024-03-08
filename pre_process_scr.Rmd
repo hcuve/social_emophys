@@ -12,46 +12,55 @@ output: html_document
 COMBINE TRIGGERS WITH PHYSIO
 
 
+Set-up: where I load libraries and create objects for later use (such as color schemes etc).
+```{r setup, include=FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(data.table)
+library(janitor)
+library(purrr)
+
+# Define paths
+data_path <- "./Data backup/DataChecks/R code and data/feb 6"
+ctrl_data_path <- file.path(data_path, "ctrl")
+
+
+```
+
+
+load files 
 ```{r}
 # data_psypy1
 
-setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio")
+base_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio" # Change this to your actual base directory path
 
 
-dta_physio<- read_csv("Physio/110_Session1_GSRPulse_Calibrated_PC.csv")
-View(X110_Session1_GSRPulse_Calibrated_PC)
+# List immediate subdirectories first (non-recursive)
+# subdirs <- list.dirs(path = base_directory, recursive = FALSE, full.names = TRUE)
 
+# Initialize a vector to hold directories that match the "Export" pattern
+export_dirs <- c()
 
-
-
-base_directory <- "Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio" # Change this to your actual base directory path
-
-# Find all subdirectories named "raw" within the base directory
-raw_directories <- list.files(path = base_directory, 
-                              pattern = "export", 
-                              full.names = TRUE, 
-                              recursive = TRUE, 
-                              include.dirs = TRUE)
-
-# Initialize an empty list to store the paths of all CSV files found
-csv_files_paths <- list()
-
-# For each "raw" directory found, list all CSV files within it
-for (dir in raw_directories) {
-  csv_files_in_dir <- list.files(path = dir, pattern = "\\.csv$", full.names = TRUE)
-  csv_files_paths <- c(csv_files_paths, csv_files_in_dir)
+# Now, for each immediate subdir, look one level down for "Export" folders
+for (dir in subdirs) {
+  cat("Checking in:", dir, "\n") # Simple progress feedback
+  # Assuming "Export" directories are directly under these subdirs
+  potential_exports <- list.dirs(path = dir, recursive = FALSE, full.names = TRUE)
+  matched_exports <- grep("Consensys", potential_exports, value = TRUE)
+  export_dirs <- c(export_dirs, matched_exports)
 }
 
-# `csv_files_paths` now contains the full paths to all CSV files within any "raw" subfolders
+# export_dirs now contains paths to directories matching the "Export" pattern
+# Find all sub directories named "raw" within the base directory
 
-tmp_files <- list.files(pattern = ".csv", recursive = TRUE,
-                        full.names = TRUE)
+export_dirs
 
+# export_dir <- list.files(path = base_directory, 
+#                               pattern = "Export", 
+#                               full.names = TRUE, 
+#                               recursive = TRUE, 
+#                               include.dirs = TRUE)
 
-
-# Step 1: Read the first two rows to get column names and units
-library(data.table)
-library(janitor)
 
 # Custom function to read a file and adjust its column names
 fn_read_and_adjust <- function(file_path) {
@@ -70,10 +79,102 @@ fn_read_and_adjust <- function(file_path) {
   return(data)
 }
 
+
+
+```
+
+recurssive folder search
+```{r}
+base_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio"
+
+# Ensure this directory exists and R can access it. If there are access issues, consider absolute paths or check permissions.
+# List immediate subdirectories first (non-recursive)
+subdirs <- list.dirs(path = base_directory, recursive = FALSE, full.names = TRUE)
+
+
+# Initialize an empty vector to store the paths of all desired CSV files
+csv_files_paths <- c()
+
+# For each "Export" directory, look one level deeper
+for (export_dir in export_dirs) {
+    # List subdirectories within the current "Export" directory
+    subdirs_in_export <- list.dirs(path = export_dir, recursive = FALSE, full.names = TRUE)
+    
+    # Filter out directories that contain "uncalibrated" in their name
+    filtered_subdirs <- grep("uncalibrated", subdirs_in_export, value = TRUE, invert = TRUE, ignore.case = TRUE)
+    
+    # For each filtered subdirectory, list CSV files
+    for (subdir in filtered_subdirs) {
+        # List all CSV files in the subdirectory
+        csv_files_in_subdir <- list.files(path = subdir, pattern = "\\.csv$", full.names = TRUE)
+        
+        # Add the found files to the collection
+        csv_files_paths <- c(csv_files_paths, csv_files_in_subdir)
+    }
+}
+
+# Proceed with applying the custom function to the list of CSV files
+
+# Apply the custom function to each CSV file and combine the results
+
+# grep("_PC",csv_files_paths)
+# 
+# tmp_test <-csv_files_paths[grep("_PC",csv_files_paths)]
+# 
+# tmp_test[grep("GSR",tmp_test)]
+
+combined_data <- rbindlist(lapply(csv_files_paths, fn_read_and_adjust), use.names = TRUE, fill = TRUE, idcol = "filename") %>%
+  janitor::clean_names()
+
+# 'combined_data' now contains your adjusted and combined dataset
+
+
+
+# why is 217 000
+
+
+
+```
+
+
+```{r}
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated")
 # List of .csv files, assuming you've already created 'tmp_files' with list.files()
-# tmp_files <- list.files(pattern = "\\.csv$", recursive = TRUE, full.names = TRUE)
+tmp_files <- list.files(pattern = "\\._PCcsv$", recursive = FALSE, full.names = TRUE)
+
+
+tmp_files <- list.files(pattern = "GSR.*PC\\.csv$", recursive = FALSE, full.names = TRUE)
+
+tmp_files_SD <- list.files(pattern = "GSR.*SD\\.csv$", recursive = FALSE, full.names = TRUE)
+
+tmp_files
+tmp_files_SD
+
+rm(fn_extract_identifiers)
+
+# Extract identifiers
+
+# Regular expression to capture the pattern before "_" and after "./"
+pattern <- "\\./([0-9]+)_.*"
+
+# Extract the pattern
+identifiers_tmp_files_PC <- sub(pattern, "\\1",  tmp_files)
+identifiers_tmp_files_SD <- sub(pattern, "\\1", tmp_files_SD)
+
+# Compare and find common identifiers
+common_identifiers <- intersect(identifiers_tmp_files, identifiers_tmp_files_SD)
+
+# Display the common identifiers
+common_identifiers
+
+
+
 
 # Apply the custom function to each file and combine the results
+
+
+
 dta_gsr <- rbindlist(lapply(tmp_files, fn_read_and_adjust), use.names = TRUE, fill = TRUE, idcol = "filename") %>%
   janitor::clean_names()
 
