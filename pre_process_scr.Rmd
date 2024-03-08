@@ -196,6 +196,8 @@ unique_identifiers_SD
 
 load gsr data
 ```{r}
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated")
 ###################################################
 # Handling file imports from PC and SD sources:
 # - This process primarily relies on PC files, but switches to SD files in the absence of a corresponding PC file.
@@ -224,10 +226,6 @@ rm(dta_gsr)
 # 5. Adds a column indicating the filename from which the data was read.
 # 6. This approach ensures proper data type handling by skipping header rows during the full data read.
 
-
-library(data.table)
-library(dplyr)
-library(janitor)
 
 # Function to read a dataset and adjust column names based on the first two rows
 # Overview:
@@ -259,10 +257,10 @@ fn_read_and_adjust <- function(file_path) {
 # Clean column names using `janitor::clean_names` for consistency
 # Assuming tmp_files is a list of file paths
 tmp_files
+
 dta_gsr <- rbindlist(lapply(tmp_files, fn_read_and_adjust), use.names = TRUE, fill = TRUE) %>%
   janitor::clean_names()%>%
   select(filename, matches("gsr"))
-
 
 
 colnames(dta_gsr)
@@ -270,8 +268,11 @@ unique(dta_gsr$filename)
 
 head(dta_gsr)
 dta_gsr$filename
+
+# taskes a bit of time
 dta_gsr<- dta_gsr%>%
-  mutate(participant = sub("_.*", "", filename))
+  mutate(participant = sub("_.*", "", filename),
+         session = gsub(".*_(Session\\d+)_.*", "\\1", filename))
 
 
 
@@ -279,8 +280,11 @@ dta_gsr<- dta_gsr%>%
 # 000 is 217 coded by mistake by the students
 dta_gsr$participant <- ifelse(dta_gsr$participant == '000', '217', dta_gsr$participant)
 
-
 unique(dta_gsr$participant)
+unique(dta_gsr$session)
+
+# this had NAS
+test<- dta_gsr%>%subset(participant == 226)
 # 
 # [1] "217" "101" "102" "103" "104" "105" "106" "107" "108" "109" "110" "111" "112" "113"
 # [15] "114" "115" "116" "117" "118" "120" "121" "122" "123" "124" "125" "126" "127" "128"
@@ -320,9 +324,7 @@ unique(dta_gsr$participant)
 
 combine with timestamps from psychopy
 
-```{r}
-
-
+```{r eval=FALSE, include=FALSE}
 # keep some original time
 
 dta_gsr$orig_timestamp_gsr<- dta_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
@@ -370,297 +372,316 @@ dt_result$orig_timestamp_dtaphyisio-dt_result$unixtime_start
 # the value close to zero here should be the start
 dt_result$orig_timestamp_dtaphyisio-dt_result$orig_unixtime_start_psypy
 
+
+
+
+tmp_test_psypy_gsr_test2<- dta_merged%>%
+  subset(participant == 134)
+
+
 tmp_test_psypy_gsr%>%
   mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
   ggplot(aes(orig_timestamp_gsr, timediff_phys_start_psypy))+
   geom_point(size = .0001)
 
+tmp_merged%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
+  ggplot(aes(orig_timestamp_gsr, timediff_phys_start_psypy))+
+  geom_point(size = .0001)
+
+
+
 
 tmp_test_psypy_gsr%>%
   mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
   ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
-  geom_line()
+  geom_line()+
+  geom_vline(aes())
+  
+
+tmp_test2<- tmp_test_psypy_gsr%>%subset(trial_no_all== 10)
+unique(tmp_test2$stim_iaps)
+# so 
+# 120*128
+# 15360
 
 
-tmp_test_psypy_gsr_test2<- dta_merged%>%
-  subset(participant == 134)
+tmp_merged%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-unixtime_start)%>%
+  # group_by()
+  # mutate(timenew = orig_timestamp_gsr[trigger!= 0])%>%
+  ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
+  geom_line()+
+  geom_vline(data = tmp_merged %>% filter(trigger != 0),
+             aes(xintercept = orig_timestamp_gsr), color = "red")
+
+
+# This code visualizes the alignment of physiological responses (GSR data) with experimental events (PsychoPy data) for the first two trials. It arranges the data by the start time of events, calculates the time differences between the PsychoPy and GSR timestamps, and visualizes these alongside GSR skin conductance levels. Vertical red lines highlight events or stimuli presentations with non-zero triggers, aiding in the examination of response timing relative to stimuli. This analysis is crucial for verifying the temporal accuracy of the experimental data alignment in the initial trials.
+
+
+tmp_merged %>%subset(trial_no_all > 9 & trial_no_all < 15)%>%
+  arrange(unixtime_start)%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-unixtime_start)%>%
+  
+      mutate(time = unixtime_start-unixtime_start[1])%>%
+    # subset(time < 190000)%>%
+  ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s,
+             colour = trial_no_all))+
+  geom_line()+
+  geom_vline(data = tmp_merged %>% 
+               filter(trigger != 0)%>%
+               subset(trial_no_all > 9 & trial_no_all < 15),
+
+             aes(xintercept = orig_timestamp_gsr), color = "red", size = .1)+
+   geom_line()+
+  geom_point(aes(y = timediff_phys_start_psypy/10000),size = .00000000001)
+
+# this code shows that trial_no_all start appearing before the trial, this is ebacuse ofg the nar join we did earlier which essentially combines psychopy times based on near points, so the row wil be puished to the enares point and then replicated untyil it vhsanges this cases t
+# so trial_number and posychopy information before the marker is largely innacurate and might eb safer to 1 - ignorte any additiopnal psychpopyn info oteh than just the time used to create start_true andn create 
+
+
+
+options(scipen = 999)
+
+tmp_merged<- tmp_merged%>%
+  arrange(orig_timestamp_gsr)
+
+
+
+dta_filtered<- dta_filtered%>%
+  arrange(orig_timestamp_gsr)
+
+tmp_merged$orig_timestamp_gsr[tmp_merged$start_true == TRUE]-
+
+dta_filtered$gsr_pulse_timestamp_sync_unix_cal_ms[dta_filtered$start_true == TRUE]
+
+# tmp_merged$tmp_merged$start_true == TRUE]-
+tmp_merged
+
+test_merged<- tmp_merged%>%
+  subset(start_true == TRUE)%>%
+  subset(!duplicated(stim_iaps))%>%
+  
+  arrange(orig_timestamp_gsr)
+
+test_merged$orig_timestamp_gsr-
+dta_filtered$orig_timestamp_gsr[dta_filtered$start_true == TRUE]
+# 
+# dta_filtered%>%subset(start_true == TRUE)
+# dta_filtered$orig_timestamp_gsr-dta_filtered$gsr_pulse_timestamp_sync_unix_cal_ms
 ```
 
 
-library(dplyr)
-library(data.table)
-library(ggplot2)
 
-# Assuming dta_psypy1 and dta_gsr are already loaded and prepared
+
+# trying a more efficient way of merging psychopy timsetamps to gsr using data.table
+
+##### 
+to worrk on
+note as data gets bigger we will lielly need to do one file at a a time
+##### 
+
+
 ```{r}
 # Convert data.frames to data.tables for efficiency in large datasets
-setDT(dta_psypy1)
-setDT(dta_gsr)
-
-# Using a rolling join to merge datasets based on time proximity
-dta_merged <- dta_psypy1[dta_gsr, on = .(participant, unixtime_start = gsr_pulse_timestamp_sync_unix_cal_ms), roll = "nearest"]
 
 
+participants <- unique(dta_psypy1$participant)
+# unique(tmp_test_psypy_gsr$stim_iaps)
+participant_id = 134
+p = 134
+for (participant_id in participants) {
+  # Filter participant data from each dataset
+  tmp_psypy <- dta_psypy1[participant == participant_id]%>%
+     select(participant,social_nonsocial,stim_iaps,trial_no_all,unixtime_start,orig_unixtime_start_psypy, unixtime_end)
+  tmp_gsr <- dta_gsr[participant == participant_id]
+  
+  tmp_merged <- tmp_psypy[tmp_gsr, on = .(unixtime_start = gsr_pulse_timestamp_sync_unix_cal_ms), roll = "nearest"]%>%
+    arrange(unixtime_start)
+  
+  # Compute time difference and establish start_true flag
+  
+  # Creating start_true flag based on timediff
+# dta_merged[, timediff_phys_start_psypy := orig_unixtime_start_psypy - orig_timestamp_gsr]
+# dta_merged[, start_true := fifelse(timediff_phys_start_psypy > 0 & timediff_phys_start_psypy <= 10, TRUE, NA)]
+  # colnames(tmp_merged)
+  tmp_merged[, timediff_phys_start_psypy := orig_unixtime_start_psypy - unixtime_start] #positive means stimuli hasnt started yet
+  tmp_merged[, start_true := fifelse(timediff_phys_start_psypy > -10 & timediff_phys_start_psypy <= 0, TRUE,FALSE)]
+  
+  # Processing triggers based on key variables and conditions
+  # tmp_merged$unixtime_end
 
-
-
-# Perform a rolling join within each participant
-# Assume 'participant' is your grouping variable and 'unixtime_start' & 'gsr_pulse_timestamp_sync_unix_cal_ms' are the time variables
-rm(dta_merged2)
-
-
-# Creating start_true flag based on timediff
-dta_merged[, timediff_phys_start_psypy := orig_unixtime_start_psypy - orig_timestamp_gsr]
-dta_merged[, start_true := fifelse(timediff_phys_start_psypy > -10 & timediff_phys_start_psypy <= 0, TRUE, NA)]
-
-
-
-# with warning
-
-
-# Create `start_true` flag based on timediff_phys_start_psypy
-dta_merged[, timediff_phys_start_psypy := unixtime_start - gsr_pulse_timestamp_sync_unix_cal_ms]
-
-# Initially set all as NA to handle cases where the condition doesn't apply
-dta_merged[, start_true := NA]
-
-# Update start_true based on the condition, within each participant
-dta_merged[, start_true := fifelse(timediff_phys_start_psypy > -10 & timediff_phys_start_psypy <= 0, TRUE, start_true), by = participant]
-
-# Check if the condition is not met for any participant and issue a warning
-if (any(is.na(dta_merged$start_true))) {
-  warning("The condition for 'start_true' is not met for some participants.")
+  
+# Number of samples=Sampling rate×Time in seconds
+  # we can uswe this to say thjat we wilo look back 768 sampels *=(6 seconds to as ficxa)
+  
+  # just ignore the pre and opost responses for now
+  # Process triggers
+  
+  # tmp_merged$unixtime_start - tmp_merged$orig_timestamp_gsr same
+  tmp_merged <- tmp_merged %>%
+    arrange(unixtime_start)%>%
+    group_by(trial_no_all) %>%
+    mutate(
+           trigger = case_when(
+             trial_no_all == 1 & start_true == TRUE ~ 1, 
+             start_true == FALSE ~ 0, 
+             TRUE ~ as.numeric(trial_no_all) # Default case if needed
+           )) %>%
+    ungroup()
+  
+  
+  # Export the processed data for this participant
+  fwrite(tmp_merged, paste0("processed_data_participant_", participant_id, ".csv"), row.names = FALSE)
 }
 
-
-# Plotting (Example)
-ggplot(dta_merged, aes(x = orig_timestamp_gsr, y = timediff_phys_start_psypy)) +
-  geom_point(aes(color = start_true), size = 1) +
-  geom_vline(data = dta_merged[start_true == TRUE], aes(xintercept = orig_timestamp_gsr), linetype = "dashed", color = "red") +
-  labs(title = "Time Difference by Original GSR Timestamp", x = "Original GSR Timestamp", y = "Time Difference from PsyPy Start")
-
-# Remember to adjust column names and conditions according to your specific dataset structure
 ```
 
 
-# create a range of likely start values use as start
 
 ```{r}
-# this is less than 10 milliseconds and we use negative so that the stimuli starts slightly before, but we can also do after
-tmp_test_psypy_gsr$start_true<- if_else(tmp_test_psypy_gsr$timediff_phys_start_psypy> -10 & 
-                                 tmp_test_psypy_gsr$timediff_phys_start_psypy <=0, TRUE, NA)
-# add something to checl that we have values in this range, if we don't sent a warning
+library(data.table)
+
+# Ensure dta_gsr and dta_psypy1 are data.tables
+setDT(dta_gsr)
+setDT(dta_psypy1)
+
+participant_ids <- unique(c(dta_gsr$participant, dta_psypy1$participant))
+
+dta_gsr$orig_timestamp_gsr
+
+dta_gsr<- dta_gsr%>%
+  subset(participant!= 226)
+
+dta_psypy1
 
 
+dta_gsr
 
-dt_result%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
-  subset(trial_no_pract_and_test == 3)%>%
-  ggplot(aes(orig_timestamp_dtaphyisio, timediff_phys_start_psypy))+
-  geom_point(size = .01)
-  geom_vline(aes(xintercept = orig_timestamp_dtaphyisio[start_true == TRUE]))
- geom_vline(aes(xintercept = (orig_timestamp_dtaphyisio[start_true == TRUE])+6000))
+# participant_id = 213
+rm(participant_id)
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/timestamped")
+
+for (participant_id in participant_ids) {
+  
+  tmp_gsr <- dta_gsr[participant == participant_id]
+  tmp_psypy <- dta_psypy1[participant == participant_id][, .(participant, social_nonsocial, stim_iaps, trial_no_all, unixtime_start,orig_unixtime_start_psypy)]
+  tmp_psypy[, next_unixtime_start := shift(unixtime_start, type = "lead", fill = Inf)]
+  tmp_psypy[, unixtime_end := next_unixtime_start - 1]
+  
+  # Initialize columns in tmp_gsr to match the types from tmp_psypy
+  tmp_gsr[, `:=` (social_nonsocial = as.character(NA), 
+                  stim_iaps = as.character(NA), 
+                  trial_no_all = as.integer(NA), 
+                 psypy_unixtime_start = as.numeric(NA),
+                  orig_unixtime_start_psypy = as.numeric(NA))]
+  
+  # Perform the non-equi join and update
+  tmp_gsr[tmp_psypy, on = .(gsr_pulse_timestamp_sync_unix_cal_ms >= unixtime_start, 
+                            gsr_pulse_timestamp_sync_unix_cal_ms <= unixtime_end), 
+          `:=` (social_nonsocial = i.social_nonsocial, 
+                stim_iaps = i.stim_iaps, 
+                trial_no_all = i.trial_no_all, 
+                psypy_unixtime_start = i.unixtime_start,
+                orig_unixtime_start_psypy = i.orig_unixtime_start_psypy), 
+          by = .EACHI]
+
+  tmp_gsr%>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms)%>%
+    mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all))%>%
+    mutate(trigger = case_when(
+             trial_no_all == 1 & start_true == TRUE ~ 1, 
+             start_true == FALSE ~ 0, 
+             TRUE ~ as.numeric(trial_no_all)))
+  
+  fwrite(tmp_gsr, paste0(participant_id,"_dta_gsr_trig.csv"), row.names = FALSE)
+}
+tmp_gsr$orig_timestamp_gsr
 
 ```
 
+
+trigger = case_when(
+             trial_no_all == 1 & start_true == TRUE ~ 1, 
+             start_true == FALSE ~ 0, 
+             TRUE ~ as.numeric(trial_no_all) #
 ```{r}
+tmp_gsr
+unique(tmp_gsr$trial_no_all)
 
-library(dplyr)
+tmp_gsr$psypy_unixtime_start
 
-# create new variable whioch is TRUE when start of the stim is section is TRUE
-dt_result2<- dt_result %>%
-  # Apply the condition for start_true directly in the mutation
-  group_by(stim_iaps) %>%
-  # Create a helper column for the absolute value of timediff_phys_start_psypy
-  mutate(abs_timediff = abs(timediff_phys_start_psypy)) %>%
-  # Create the new variable where start_true is TRUE only for the smallest absolute timediff
-  mutate(new_variable = start_true & (abs_timediff == min(abs_timediff[start_true], na.rm = TRUE))) %>%
-  # Replace TRUE with NA where start_true is not TRUE
-  mutate(new_variable = ifelse(start_true, new_variable, NA_logical_))%>%
-  # select(-abs_timediff) %>% # Optional: Remove the helper column
-  ungroup()
+dta_filtered <- tmp_gsr %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+  # Filter for trial numbers between 10 and 14 (inclusive)
+  # filter(trial_no_all  <10) %>%
+  # Group by 'trial_no_all' for operations within each trial
+  group_by(trial_no_all) %>%
+  # Arrange by timestamp within each trial group
+
+  # Identify the first row in each trial group (start of the trial)
+  # mutate(start_true = row_number() == 1) %>%
+  # Create 'time' only for the first row in each group; NA otherwise
+  # Identify the first non-NA occurrence in each group
+  mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all)) %>%
+  # Calculate the 'time' value only for the first valid occurrence
+  
+  mutate(time = ifelse(start_true, gsr_pulse_timestamp_sync_unix_cal_ms, NA)) %>%
+  # Use `fill` to propagate the first timestamp down the group
+  fill(time, .direction = "down")%>%
+  ungroup()%>%
+  arrange(gsr_pulse_timestamp_sync_unix_cal_ms)
+
+# Now, plot with 'ggplot2'
+dta_filtered$orig_unixtime_start_psypy-dta_filtered$orig_timestamp_gsr
+
+
+dta_filtered$participant
+
+dta_filtered%>%
+  subset(trial_no_all>15 & trial_no_all<20)%>%
+  mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
+  ggplot( aes(x = gsr_pulse_timestamp_sync_unix_cal_ms, 
+                         y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
+  geom_line() +
+  # Add red vertical lines at 'time' for the start of each trial
+  geom_vline(aes(xintercept = time), color = "red") +
+  geom_vline(aes(xintercept = time+6500), color = "blue") +
+  geom_vline(aes(xintercept = time+1000), linetype = "dashed")+
+geom_vline(aes(xintercept = time-1000), linetype = "dashed")
+  # geom_vline(xintercept = 1709728450000)+
+      # xlim(1709728450000,1709728660000-100000)
+  # labs(colour = "Trial Number")+
+  # geom_point(aes(y = time_diff_psypy_gsr/100000), size = .000000000000001)
+
+  
+  tmp_merged%>%
+      subset(trial_no_all>10 & trial_no_all<18)%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-unixtime_start)%>%
+  # group_by()
+  # mutate(timenew = orig_timestamp_gsr[trigger!= 0])%>%
+  ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
+  geom_line()+
+  geom_vline(data = tmp_merged %>% filter(trigger != 0 & trial_no_all>10 & trial_no_all<18),
+             aes(xintercept = orig_timestamp_gsr), color = "red")+
+     geom_vline(data = tmp_merged %>% filter(trigger != 0 & trial_no_all>10 & trial_no_all<18),
+             aes(xintercept = orig_timestamp_gsr+6500), color = "blue")+
+    geom_vline(data = tmp_merged %>% filter(trigger != 0 & trial_no_all>10 & trial_no_all<18),
+             aes(xintercept = orig_timestamp_gsr+1000), linetype = "dashed")+
+      geom_vline(data = tmp_merged %>% filter(trigger != 0 & trial_no_all>10 & trial_no_all<18),
+             aes(xintercept = orig_timestamp_gsr-1000), linetype = "dashed")+
     
+    geom_vline(xintercept = 1709728450000)+
+    xlim(1709728450000,1709728660000-100000)
 
-dt_result2
-
-table(dt_result2$new_variable)
-# fix resp start
-
-dt_result2$unixtime_end<- if_else(dt_result2$condition == "rest_started",
-                                 round(dt_result2$unixtime_end*1000),
-                                 dt_result2$unixtime_end)
-dt_result2%>%
-  subset(new_variable == TRUE & trial_no_pract_and_test>0)%>%
-  mutate(diff_end = orig_timestamp_dtaphyisio+6500-unixtime_end)%>%
-  ggplot(aes(trial_no_pract_and_test, diff_end/1000))+
-  geom_point()
-
-
-# the fact that the unix time end - timestamp end is less than 10 milliseconds suggests that the differemnce. ois about 0
-
-dt_result2$new_variable
-dt_result%>%
-  mutate()
-  
 
 
 ```
 
-# lets take the lowest negative value as the actual start
+this actually works and agrees with the previopusnone
+just with this for now, but we need to investigate wether this is happening slighlly after we intend it
 
-```{r}
-
-dt_result2 %>%
-  # Ensure start_true is a logical column (TRUE/NA)
-  mutate(start_true = !is.na(start_true) & start_true) %>%
-  arrange(unixtime_start)%>%
-  subset(new_variable == TRUE)
-
-# create a trigger, add zero when the trigger is off, this is important for ledalab
-
-table(is.na(dt_result2$trial_no_pract_and_test))
-dt_result2<- dt_result2%>%
-  mutate(pre_trigger = trial_no_pract_and_test+1)%>%
-  mutate(trigger = if_else(new_variable == TRUE, pre_trigger, 0))
-
-table(dt_result2$trigger)
-# lets create a fixation trigger (anticipation by 6 seconds)
-
-dt_result2$unixtime_start
-table(dt_result2$new_variable)
-
-table(dt_result2$start_true)
-dt_result2$stim_start_true<- dt_result2$new_variable
-
-table(dt_result2$stim_start_true)
-# first we return the time when stim_start_true is TRUE then substract 6 seconds
-# a potentially simpler weay to do this is by digureing our how mnay rows should 6 s (6000 ms) be at 128 hz
-
-# 1000 ms = 128
-# 6000 ms = 128*6 = 768
-
-
-
-library(dplyr)
-
-dt_result3<- dt_result2%>%
-  mutate(stim_event_index = if_else(stim_start_true == TRUE, row_number(), NA_integer_)) %>%
-  fill(stim_event_index, .direction = "up") %>%
-  mutate(pre_stim_start_true = if_else(row_number() == (stim_event_index - 768), TRUE, FALSE),
-         trigger = if_else(pre_stim_start_true == TRUE, 999, trigger))
-
-
-
-dt_result3<- dt_result2%>%
-    mutate(unixtime_start_6000 = unixtime_start-6000)%>%
-  mutate(pre_stim_start_true_time = if_else(stim_start_true == TRUE,
-                                           unixtime_start, NA))%>%
-arrange(unixtime_start)%>%
-    fill(pre_stim_start_true_time, .direction = "up")%>%
- 
-
-  mutate(pre_stim_start_true  = if_else(pre_stim_start_true_time-6000 ==unixtime_start_6000, TRUE,FALSE))%>%
-
-  mutate(trigger = if_else(pre_stim_start_true == TRUE, 999,trigger))
-
-
-    # subset(stim_start_true == TRUE)
- # select(c(unixtime_start, pre_stim_start_true_time,unixtime_start_6000, stim_start_true, pre_stim_start_true,))
-
-# dt_result2$trigger
-table(dt_result3$trigger)
-# dt_result2$trigger<- if_else(!is.na(dt_result2$trigger), dt_result2$trigger, 0)
-# table(dt_result2$trigger)
-
-
-
-# 999 is fixation
-dt_result3$unixtime_end
-dt_result3$unixtime_start
-
-(dt_result3$unixtime_end/1000)/1000
-table(dt_result3$unixtime_start == dt_result3$unixtime_end)
-1706867600786-1706867866597
-# now response time
-
-range(dt_result3$unixtime_end)
-
-
-dt_result3%>%
-  subset(condition  != "rest_started" )%>%
-  select(unixtime_end)
-# dt_result3$unixtime_end<- if_else(dt_result3$condition != "rest_started", 
-#                                             round(dt_result3$unixtime_end*1000),
-#                                             dt_result3$unixtime_end)
-
-dt_result3$stim_iaps
-
-dt_result3<- dt_result3%>%
-    group_by(stim_iaps)%>%
-  mutate(resp_start_true = unixtime_start>unixtime_end)%>%
-  mutate(resp_start_true_sup = !duplicated(resp_start_true))
-
-table(dt_result3$resp_start_true)
-
-table(dt_result3$resp_start_true_sup)
-
-range(dt_result3$unixtime_end)
-table(dt_result3$trigger)
-
-
-
-dt_result3%>%
-  subset(pre_stim_start_true == TRUE)%>%
-  select(unixtime_start, pre_stim_start_true, stim_start_true,trigger,target_time_for_stim_start)
-
-
-
-library(dplyr)
-
-dt_result3 <- dt_result3 %>%
-  group_by(stim_iaps) %>%
-  mutate(resp_start_true = unixtime_start > unixtime_end) %>%
-  mutate(first_true_flag = cumsum(resp_start_true) == 1) %>%
-  mutate(resp_start_true_sup = if_else(resp_start_true & first_true_flag, TRUE, FALSE)) %>%
-  ungroup()
-
-
-dt_result4<- dt_result3
-unique(dt_result3$trigger)
-
-table(dt_result4$resp_start_true_sup )
-table(dt_result4$trigger )
-
-unique(dt_result4$trigger)
-dt_result4$trigger1<- if_else(is.na(dt_result4$trigger) & 
-                            
-                            dt_result4$resp_start_true_sup == TRUE,
-                            111,
-                            dt_result4$trigger)
-
-
-dt_result4$trigger1<- if_else(is.na(dt_result4$trigger1),0,
-                            dt_result4$trigger1)
-
-
-table(dt_result4$trigger1)
-
-
-unique(dt_result3$trigger)
-
-
-
-dt_result4$trigger<-dt_result4$trigger1
-
-
-  
-unique(dt_result3$trigger)
-
-
-dt_result3%>%
-  subset(condition == "rest_started")
-  subset(resp_start_true == TRUE)
-```
 
 
 
