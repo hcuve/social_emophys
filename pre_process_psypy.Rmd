@@ -52,15 +52,36 @@ tmp_files <- list.files(pattern = ".csv")
 # Load and preprocess data
 
 dta_psypy
-dta_psypy <- rbindlist(sapply(tmp_files, fread, simplify = FALSE), use.names = TRUE, idcol = "filename", fill = TRUE) %>%
-    janitor::clean_names()%>%
+
+# dta_psypy <- rbindlist(sapply(tmp_files, fread, simplify = FALSE), use.names = TRUE, idcol = "filename", fill = TRUE) %>%
+#     janitor::clean_names()%>%
+#   mutate(trial_order = if_else(condition == "Example Stimuli", 
+#                               practice_this_trial_n, test_this_trial_n),
+#          trial_index = if_else(condition == "Example Stimuli", 
+#                                practice_this_index, test_this_index)) %>%
+#   select(-matches("this_trial_n|this_index")) %>%
+#   select(-matches("v1"), -matches("v2"))%>%
+#   filter(!is.na(unixtime_start))
+
+# warnings()
+# warning of loosing precision here on unixstart?
+
+
+
+# Modify the sapply call to include a function that ensures 'unixtime.Start' is always treated as 'double'
+dta_psypy <- rbindlist(sapply(tmp_files, function(file) {
+  dt <- fread(file, colClasses = list(double = "unixtime.Start")) # Ensure unixtime.Start is read as double
+  return(dt)
+}, simplify = FALSE), use.names = TRUE, idcol = "filename", fill = TRUE) %>%
+  janitor::clean_names() %>%
   mutate(trial_order = if_else(condition == "Example Stimuli", 
-                              practice_this_trial_n, test_this_trial_n),
+                               practice_this_trial_n, test_this_trial_n),
          trial_index = if_else(condition == "Example Stimuli", 
                                practice_this_index, test_this_index)) %>%
   select(-matches("this_trial_n|this_index")) %>%
-  select(-matches("v1"), -matches("v2"))%>%
+  select(-matches("v1"), -matches("v2")) %>%
   filter(!is.na(unixtime_start))
+
 
 
 # now selct the columsn that we need
@@ -69,8 +90,9 @@ colnames(dta_psypy)
 
 
     # any_of(
-
+range(dta_psypy$unixtime_start)
 dta_psypy
+
 dta_psypy1<- dta_psypy%>%
   select(c(
       "filename", "participant", "session", "date", "exp_name",
@@ -162,23 +184,33 @@ unique(dta_psypy1$trial_no_all)
 # <115 and < 211
 range(dta_psypy1$unixtime_start)
 
-170652740900
+# 170652740900
 
-tmp_test<- dta_psypy1%>%
-  subset(unixtime_start< 170652740900)
+# tmp_test<- dta_psypy1%>%
+#   subset(unixtime_start< 170652740900)
 
 unique(tmp_test$participant)
 unique(tmp_test$condition)
 range(dta_psypy1$unixtime_start)
+
+# dta_psypy1$unixtime_start*1000
 # run pnly once
-# dta_psypy1$unixtime_start<- if_else(dta_psypy1$unixtime_start< 170652740900, 
+# dta_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
+# 
+# dta_psypy1$unixtime_start<- if_else(dta_psypy1$unixtime_start< 170652740900,
 #                                            round(dta_psypy1$unixtime_start*1000),
 #                                            dta_psypy1$unixtime_start)
+
 range(dta_psypy1$unixtime_start)
 dta_psypy1$unixtime_end
 
-tmp_test<- dta_psypy1%>%
-  subset(unixtime_end< 170652753000)
+# tmp_test<- dta_psypy1%>%
+#   subset(unixtime_end< 170652753000)
+
+# dta_psypy1$unixtime_end<- if_else(dta_psypy1$unixtime_end< 170652753000,
+#                                            round(dta_psypy1$unixtime_end*1000),
+#                                            dta_psypy1$unixtime_end)
+
 
 range(dta_psypy1$unixtime_end)
 unique(tmp_test$participant)

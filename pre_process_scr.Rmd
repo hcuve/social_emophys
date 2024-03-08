@@ -83,7 +83,7 @@ fn_read_and_adjust <- function(file_path) {
 
 ```
 
-recurssive folder search
+recursive folder search
 ```{r}
 base_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio"
 
@@ -123,8 +123,8 @@ for (export_dir in export_dirs) {
 # 
 # tmp_test[grep("GSR",tmp_test)]
 
-combined_data <- rbindlist(lapply(csv_files_paths, fn_read_and_adjust), use.names = TRUE, fill = TRUE, idcol = "filename") %>%
-  janitor::clean_names()
+# combined_data <- rbindlist(lapply(csv_files_paths, fn_read_and_adjust), use.names = TRUE, fill = TRUE, idcol = "filename") %>%
+#   janitor::clean_names()
 
 # 'combined_data' now contains your adjusted and combined dataset
 
@@ -137,13 +137,20 @@ combined_data <- rbindlist(lapply(csv_files_paths, fn_read_and_adjust), use.name
 ```
 
 
+simpler approach 
+- search on mac and copy easily to a folder called calibrated
+- note check logbook for notes on data issues
+
+
+GSR data should be sampled at 128 hz 
+
+# 1000 ms = 128
+# 6000 ms = 128*6 = 768
 ```{r}
 
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated")
 # List of .csv files, assuming you've already created 'tmp_files' with list.files()
-tmp_files <- list.files(pattern = "\\._PCcsv$", recursive = FALSE, full.names = TRUE)
-
-
+# tmp_files <- list.files(pattern = "\\._PCcsv$", recursive = FALSE, full.names = TRUE)
 tmp_files <- list.files(pattern = "GSR.*PC\\.csv$", recursive = FALSE, full.names = TRUE)
 
 tmp_files_SD <- list.files(pattern = "GSR.*SD\\.csv$", recursive = FALSE, full.names = TRUE)
@@ -168,8 +175,6 @@ common_identifiers <- intersect(identifiers_tmp_files_PC, identifiers_tmp_files_
 # Display the common identifiers
 common_identifiers
 
-
-
 # Identifiers unique to PC files
 unique_identifiers_PC <- setdiff(identifiers_tmp_files_PC, identifiers_tmp_files_SD)
 
@@ -183,143 +188,180 @@ unique_identifiers_SD
 # [1] "101" "102" "103" "106"
 # > unique_identifiers_SD
 # [1] "105"
+# copy and rename 105 sd to ad _PC, so we can read all pcs again
 
 # then use this info to load PC files and just add sd wheere needed
 
-
-
-
-
-# Apply the custom function to each file and combine the results
-
-
-
-dta_gsr <- rbindlist(lapply(tmp_files, fn_read_and_adjust), use.names = TRUE, fill = TRUE, idcol = "filename") %>%
-  janitor::clean_names()
-
-# The 'combined_data' now holds your combined dataset with cleaned and adjusted column names
-
-
-names(dta_physio)<- paste0(colnames(dta_physio_header_info),"_", paste0(dta_physio_header_info[1,]))
-colnames(dta_physio)
-
-
-
-# Load and combine all CSV files
-
-
-# Load and preprocess data
-
-dta_psypy
-dta_psypy <- rbindlist(sapply(tmp_files, fread, simplify = FALSE), use.names = TRUE, idcol = "filename", fill = TRUE) %>%
-    janitor::clean_names()%>%
-
-
-
-colnames(dta_physio)
-
-
-
-dta_physio$...11_NA<-NULL
-
-
-# make clean names
-dta_physio<- dta_physio%>%
-  janitor::clean_names()
-
-
-
 ```
-base_directory <- "path/to/your/base/directory" # Change this to your actual base directory path
 
-# This pattern is designed to exactly match "consensys export" directories
-pattern <- "consensys export"
+load gsr data
+```{r}
+###################################################
+# Handling file imports from PC and SD sources:
+# - This process primarily relies on PC files, but switches to SD files in the absence of a corresponding PC file.
+# - A notable discrepancy has been observed in the export formats: PC exports contain "sync" within the timestamps, unlike SD exports. This difference may affect how filenames are generated and could imply variations in how data synchronization is handled or represented between the two sources.
+# - It is essential to consider this variation during data processing to ensure consistent naming conventions and to investigate the synchronization status of SD data.
+# - The custom function is applied to each file to adjust for these discrepancies, and the results are subsequently combined.
 
-# Find all directories matching the pattern within the base directory
-# Note: `full.names = TRUE` ensures we get the full path, not just the directory names
-# `recursive = TRUE` allows searching within subdirectories of the base directory
-matched_directories <- list.files(path = base_directory, pattern = pattern, full.names = TRUE, recursive = TRUE, include.dirs = TRUE)
+###################################################
 
-# Initialize an empty vector to store the paths of all CSV files found
-csv_files_paths <- vector()
+tmp_files <- list.files(pattern = "GSR.*PC\\.csv$", recursive = FALSE, full.names = TRUE)
+tmp_files
 
-# For each matched directory, list all CSV files within it
-for (dir in matched_directories) {
-  csv_files_in_dir <- list.files(path = dir, pattern = "\\.csv$", full.names = TRUE)
-  csv_files_paths <- c(csv_files_paths, csv_files_in_dir)
+# do we actually want to store all of thes efiles here, or just load each adjut then save it back due to memory issues
+# try again
+
+# should have removed this before running the code below
+rm(dta_gsr)
+
+# Custom function to read a file and adjust its column names
+# Function to read a dataset and adjust column names based on the first two rows
+# Overview:
+# 1. Reads the first two rows of the file to use as basis for creating unique column names.
+# 2. Combines these two rows to form a single set of column names for the dataset.
+# 3. Reads the entire dataset, skipping the first two rows which were used for column names.
+# 4. Assigns the combined column names to the dataset.
+# 5. Adds a column indicating the filename from which the data was read.
+# 6. This approach ensures proper data type handling by skipping header rows during the full data read.
+
+
+library(data.table)
+library(dplyr)
+library(janitor)
+
+# Function to read a dataset and adjust column names based on the first two rows
+# Overview:
+# 1. Reads the first two rows of the file to use as basis for creating unique column names.
+# 2. Combines these two rows to form a single set of column names for the dataset.
+# 3. Reads the entire dataset, skipping the first two rows which were used for column names.
+# 4. Assigns the combined column names to the dataset.
+# 5. Adds a column indicating the filename from which the data was read.
+# 6. This approach ensures proper data type handling by skipping header rows during the full data read.
+fn_read_and_adjust <- function(file_path) {
+  # Read the first two rows for column names adjustment
+  header_info <- fread(file_path, nrows = 2, header = FALSE)
+  
+  # Combine the first two rows to form the column names, enhancing uniqueness
+  col_names <- paste0(unlist(header_info[1,]), "_", unlist(header_info[2,]))
+  
+  # Read the full dataset, explicitly skipping the first two header rows
+  data <- fread(file_path, skip = 3, header = FALSE) #using 3 just to be sure
+  setnames(data, old = colnames(data), new = col_names) # Assign new column names
+  
+  # Add a column with the filename to keep track of the data source
+  data[, filename := basename(file_path)]
+  
+  return(data)
 }
 
-# `csv_files_paths` now contains the full paths to all CSV files within any "consensys export" subfolders
+
+# Process a list of file paths, adjust their column names, and combine into a single data.table
+# Clean column names using `janitor::clean_names` for consistency
+# Assuming tmp_files is a list of file paths
+tmp_files
+dta_gsr <- rbindlist(lapply(tmp_files, fn_read_and_adjust), use.names = TRUE, fill = TRUE) %>%
+  janitor::clean_names()%>%
+  select(filename, matches("gsr"))
 
 
 
+colnames(dta_gsr)
+unique(dta_gsr$filename)
 
-# now merge these two datasets based on apprimxate values
-# using approximate join
+head(dta_gsr)
+dta_gsr$filename
+dta_gsr<- dta_gsr%>%
+  mutate(participant = sub("_.*", "", filename))
+
+
+
+# Replace '000' with '217' in the participant column
+# 000 is 217 coded by mistake by the students
+dta_gsr$participant <- ifelse(dta_gsr$participant == '000', '217', dta_gsr$participant)
+
+
+unique(dta_gsr$participant)
+# 
+# [1] "217" "101" "102" "103" "104" "105" "106" "107" "108" "109" "110" "111" "112" "113"
+# [15] "114" "115" "116" "117" "118" "120" "121" "122" "123" "124" "125" "126" "127" "128"
+# [29] "129" "130" "131" "132" "133" "134" "135" "136" "201" "202" "203" "204" "205" "206"
+# [43] "207" "208" "209" "210" "211" "212" "213" "214" "215" "216" "218" "219" "220" "221"
+# [57] "222" "224" "225" "226" "227" "228" "229" "230" "231" "232" "233" "234"
+
+```
+
+
+# assuming 1.5 hours times 93 peoples recordinds made at 128 hz, how many rows should we expect this data to have
+
+# Given values
+# hours_per_recording = 1.5
+# seconds_per_hour = 3600
+# sampling_rate_hz = 128
+# number_of_participants = 93
+# 
+# # Calculate total seconds per recording
+# seconds_per_recording = hours_per_recording * seconds_per_hour
+# 
+# # Calculate number of samples per recording
+# samples_per_recording = seconds_per_recording * sampling_rate_hz
+# 
+# # Calculate total number of rows for all recordings
+# total_rows = samples_per_recording * number_of_participants
+# total_rows
+# 
+# 64281600.0
+# less than expected
+# nrow(dta_gsr)/64281600.0
+
+
+# issue here, when using a different sensor, e.g. fd29 the columns are named ioncomnsistently 
+# e.g. v3_shimmer_fd29_gsr_range_cal" ratyher than v3_gsr_pulse_gsr_range_cal"  
+# so these ietehr need to be renamed manually or programatically
+
+combine with timestamps from psychopy
 
 ```{r}
-# Convert to data tables 
-library(data.table)
-# colnames(dta_physio)
-# colnames(db_time4leda)
-setDT(dta_physio) 
+
 
 # keep some original time
 
-dta_physio$orig_timestamp_dtaphyisio<- dta_physio$gsr_pulse_timestamp_sync_unix_cal_ms
-
-# fix the timestamp issue for participants 114 and below and 210 below
+dta_gsr$orig_timestamp_gsr<- dta_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
 
 
+dta_psypy1$orig_unixtime_start_psypy<- dta_psypy1$unixtime_start
 
-# the issue was that for these participants we stored the value in seconds rather than illiseconds but just for the rest
-options(scipen = 999)
-# colnames()
-data_psypy1$unixtime_start
-options(scipen = 999)
-range(data_psypy1$unixtime_end)
-
-
-# fix unix start and end fir rest period
-data_psypy1$unixtime_start<- if_else(data_psypy1$condition == "rest_started" &
-                                       data_psypy1$participant<115, 
-                                           round(data_psypy1$unixtime_start*1000),
-                                           data_psypy1$unixtime_start)
-
-
-
-data_psypy1$unixtime_end<- if_else(data_psypy1$condition == "rest_started" &
-                                      data_psypy1$participant<115, 
-                                           round(data_psypy1$unixtime_end*1000),
-                                           data_psypy1$unixtime_end)
-
-setDT(data_psypy1) 
-
-data_psypy1$orig_unixtime_start_psypy<- data_psypy1$unixtime_start
+range(dta_psypy1$unixtime_start)
 # hopefully we can use these to check that the merging should actuallymatch what we expect because the difference between this number and the timestamp should be close to zero where we actualy present the stimuli
 
 # Rolling join 
 # start with just one case
 # db_time4leda$participant
 
-data_psypy1
+dta_psypy1
 
-db_time4leda_p110<- data_psypy1%>%
-  subset(participant == 110)
+colnames(dta_psypy1)
 
-# 
-# 
-# setDT(db_time4leda_p110)
-# setDT(dta_physio)
+tmp_test<- dta_psypy1%>%
+  subset(participant == 134)%>%
+  select(participant,social_nonsocial,stim_iaps,trial_no_all,unixtime_start,orig_unixtime_start_psypy, unixtime_end)
 
-dta_physio
+tmp_test_gsr<- dta_gsr%>%
+  subset(participant == 134)
 
-dt_result <-db_time4leda_p110[dta_physio, on = .( unixtime_start=  gsr_pulse_timestamp_sync_unix_cal_ms), 
-                              roll = "nearest"]
+
+setDT(tmp_test) 
+setDT(tmp_test_gsr) 
 
 options(scipen = 999)
+tmp_test$orig_unixtime_start_psypy
+# tmp_test$unixtime_start
+# tmp_test$unixtime_end
+# tmp_test_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
+tmp_test_psypy_gsr <-tmp_test[tmp_test_gsr, on = .( unixtime_start=  gsr_pulse_timestamp_sync_unix_cal_ms), 
+                              roll = "nearest"]
 
-dt_result$orig_timestamp_dtaphyisio
+
+tmp_test_psypy_gsr$orig_timestamp_dtaphyisio
 
 
 # this means that unix time gets populated by the original physio time
@@ -328,48 +370,86 @@ dt_result$orig_timestamp_dtaphyisio-dt_result$unixtime_start
 # the value close to zero here should be the start
 dt_result$orig_timestamp_dtaphyisio-dt_result$orig_unixtime_start_psypy
 
-dt_result%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
-  ggplot(aes(orig_timestamp_dtaphyisio, timediff_phys_start_psypy))+
+tmp_test_psypy_gsr%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
+  ggplot(aes(orig_timestamp_gsr, timediff_phys_start_psypy))+
   geom_point(size = .0001)
 
 
-dt_result%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
-  ggplot(aes(orig_timestamp_dtaphyisio, gsr_pulse_pp_gto_hr_cal_bpm))+
+tmp_test_psypy_gsr%>%
+  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
+  ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
   geom_line()
 
 
-# dt_result%>%
-#   mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
-#   ggplot(aes(unixtime_start, gsr_pulse_temperature_bmp280_cal_degrees_celsius))+
-#   geom_line()
-#   geom_point()
-
-# what happens in the merge is that the times get extended such that the rows get merged to the closes one do if you have a range from 0 to 1, .5 below will be merged with the start time of zero whereas > .5 will be merged upwards, but the start should be the value where the time is close to zero
-
-dt_result$trial_no_pract_and_test
-
-dt_result%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)%>%
-  ggplot(aes(timediff_phys_start_psypy))+
-  geom_histogram()
-xlim(-10,10)
-
-colnames(dt_result)
-
-dt_result<- dt_result%>%
-  arrange(unixtime_start)%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_dtaphyisio)
-
+tmp_test_psypy_gsr_test2<- dta_merged%>%
+  subset(participant == 134)
 ```
+
+
+library(dplyr)
+library(data.table)
+library(ggplot2)
+
+# Assuming dta_psypy1 and dta_gsr are already loaded and prepared
+```{r}
+# Convert data.frames to data.tables for efficiency in large datasets
+setDT(dta_psypy1)
+setDT(dta_gsr)
+
+# Using a rolling join to merge datasets based on time proximity
+dta_merged <- dta_psypy1[dta_gsr, on = .(participant, unixtime_start = gsr_pulse_timestamp_sync_unix_cal_ms), roll = "nearest"]
+
+
+
+
+
+# Perform a rolling join within each participant
+# Assume 'participant' is your grouping variable and 'unixtime_start' & 'gsr_pulse_timestamp_sync_unix_cal_ms' are the time variables
+rm(dta_merged2)
+
+
+# Creating start_true flag based on timediff
+dta_merged[, timediff_phys_start_psypy := orig_unixtime_start_psypy - orig_timestamp_gsr]
+dta_merged[, start_true := fifelse(timediff_phys_start_psypy > -10 & timediff_phys_start_psypy <= 0, TRUE, NA)]
+
+
+
+# with warning
+
+
+# Create `start_true` flag based on timediff_phys_start_psypy
+dta_merged[, timediff_phys_start_psypy := unixtime_start - gsr_pulse_timestamp_sync_unix_cal_ms]
+
+# Initially set all as NA to handle cases where the condition doesn't apply
+dta_merged[, start_true := NA]
+
+# Update start_true based on the condition, within each participant
+dta_merged[, start_true := fifelse(timediff_phys_start_psypy > -10 & timediff_phys_start_psypy <= 0, TRUE, start_true), by = participant]
+
+# Check if the condition is not met for any participant and issue a warning
+if (any(is.na(dta_merged$start_true))) {
+  warning("The condition for 'start_true' is not met for some participants.")
+}
+
+
+# Plotting (Example)
+ggplot(dta_merged, aes(x = orig_timestamp_gsr, y = timediff_phys_start_psypy)) +
+  geom_point(aes(color = start_true), size = 1) +
+  geom_vline(data = dta_merged[start_true == TRUE], aes(xintercept = orig_timestamp_gsr), linetype = "dashed", color = "red") +
+  labs(title = "Time Difference by Original GSR Timestamp", x = "Original GSR Timestamp", y = "Time Difference from PsyPy Start")
+
+# Remember to adjust column names and conditions according to your specific dataset structure
+```
+
 
 # create a range of likely start values use as start
 
 ```{r}
 # this is less than 10 milliseconds and we use negative so that the stimuli starts slightly before, but we can also do after
-dt_result$start_true<- if_else(dt_result$timediff_phys_start_psypy> -10 & 
-                                 dt_result$timediff_phys_start_psypy <=0, TRUE, NA)
+tmp_test_psypy_gsr$start_true<- if_else(tmp_test_psypy_gsr$timediff_phys_start_psypy> -10 & 
+                                 tmp_test_psypy_gsr$timediff_phys_start_psypy <=0, TRUE, NA)
+# add something to checl that we have values in this range, if we don't sent a warning
 
 
 
