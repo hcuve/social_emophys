@@ -163,10 +163,29 @@ identifiers_tmp_files_PC <- sub(pattern, "\\1",  tmp_files)
 identifiers_tmp_files_SD <- sub(pattern, "\\1", tmp_files_SD)
 
 # Compare and find common identifiers
-common_identifiers <- intersect(identifiers_tmp_files, identifiers_tmp_files_SD)
+common_identifiers <- intersect(identifiers_tmp_files_PC, identifiers_tmp_files_SD)
 
 # Display the common identifiers
 common_identifiers
+
+
+
+# Identifiers unique to PC files
+unique_identifiers_PC <- setdiff(identifiers_tmp_files_PC, identifiers_tmp_files_SD)
+
+# Identifiers unique to SD files
+unique_identifiers_SD <- setdiff(identifiers_tmp_files_SD, identifiers_tmp_files_PC)
+
+# Display the unique identifiers
+unique_identifiers_PC
+unique_identifiers_SD
+
+# [1] "101" "102" "103" "106"
+# > unique_identifiers_SD
+# [1] "105"
+
+# then use this info to load PC files and just add sd wheere needed
+
 
 
 
