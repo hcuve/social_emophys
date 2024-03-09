@@ -1,0 +1,152 @@
+---
+title: "Untitled"
+author: "Helio"
+date: "2024-03-09"
+output: html_document
+---
+
+
+
+```{r}
+install.packages("reticulate")
+
+
+library(reticulate)
+
+
+```
+
+library(reticulate)
+
+# Use the reticulate::py_run_string() function to define the Python script as a string in R.
+
+
+```{r}
+
+etwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Videos/136/Raw videos/test")
+
+py_run_string("
+import cv2
+import mediapipe as mp
+import pandas as pd
+
+# Initialize MediaPipe Face Mesh.
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, refine_landmarks=True, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+# Load the video.
+cap = cv2.VideoCapture('/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Videos/136/Raw videos/test')
+
+# Prepare to collect landmarks.
+landmarks_list = []
+
+# Process each frame.
+frame_number = 0
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Convert the frame to RGB.
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    # Detect landmarks.
+    results = face_mesh.process(frame_rgb)
+
+    if results.multi_face_landmarks:
+        for face_landmarks in results.multi_face_landmarks:
+            for i, landmark in enumerate(face_landmarks.landmark):
+                landmarks_list.append({
+                    'frame': frame_number,
+                    'landmark_id': i,
+                    'x': landmark.x,
+                    'y': landmark.y,
+                    'z': landmark.z
+                })
+
+    frame_number += 1
+
+cap.release()
+
+# Convert landmarks to a DataFrame.
+df_landmarks = pd.DataFrame(landmarks_list)
+
+# Save landmarks to CSV.
+df_landmarks.to_csv('face_landmarks.csv', index=False)
+")
+
+# After running the script, the CSV file should be saved in the working directory.
+
+
+
+```{r}
+
+import cv2
+import mediapipe as mp
+import pandas as pd
+
+# Setup MediaPipe face detection
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+mp_face_mesh = mp.solutions.face_mesh
+
+# Specify your video path
+video_path = 'your_video.mp4'
+
+# Create VideoCapture object
+cap = cv2.VideoCapture(video_path)
+
+# Prepare data store for CSV
+results = [] 
+
+with mp_face_mesh.FaceMesh(
+    max_num_faces=1,  # Adjust if you expect multiple faces
+    refine_landmarks=True,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5) as face_mesh:
+
+    while cap.isOpened():
+        success, image = cap.read()
+        if not success:
+            print("Finished processing video.")
+            break
+
+        # Convert to RGB (MediaPipe works with RGB images)
+        image.flags.writeable = False 
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Process with MediaPipe
+        results_mp = face_mesh.process(image)
+
+        # Draw annotations (optional)
+        image.flags.writeable = True
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        if results_mp.multi_face_landmarks:
+            for face_landmarks in results_mp.multi_face_landmarks:
+                mp_drawing.draw_landmarks(
+                    image=image,
+                    landmark_list=face_landmarks,
+                    connections=mp_face_mesh.FACEMESH_TESSELATION,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                    .get_default_face_mesh_tesselation_style())
+
+                # Extract landmarks and store
+                data_row = []
+                for landmark in face_landmarks.landmark:
+                    data_row.extend([landmark.x, landmark.y, landmark.z])
+                results.append(data_row)
+
+        # Show the image (optional)
+        cv2.imshow('MediaPipe Face Detection', image)
+        if cv2.waitKey(5) & 0xFF == 27:
+            break
+
+# Create a CSV file
+df = pd.DataFrame(results, columns=['x1', 'y1', 'z1', 'x2', 'y2', 'z2', ...])
+df.to_csv('face_landmarks.csv', index=False)
+
+cap.release()
+
+
+```

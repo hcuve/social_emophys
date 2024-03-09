@@ -15,8 +15,8 @@ COMBINE TRIGGERS WITH PHYSIO
 Set-up: where I load libraries and create objects for later use (such as color schemes etc).
 ```{r setup, include=FALSE}
 # Load necessary libraries
-library(tidyverse)
-library(data.table)
+require(tidyverse)
+require(data.table)
 library(janitor)
 library(purrr)
 
@@ -283,8 +283,19 @@ dta_gsr$participant <- ifelse(dta_gsr$participant == '000', '217', dta_gsr$parti
 unique(dta_gsr$participant)
 unique(dta_gsr$session)
 
-# this had NAS
-test<- dta_gsr%>%subset(participant == 226)
+
+
+# check nas
+dta_gsr %>%
+  # Group data by 'participant'
+  group_by(participant) %>%
+  # Summarise the data to count NA and non-NA values
+  summarise(
+    num_NA = sum(is.na(gsr_pulse_ppg_a13_cal_m_v)), # Count of NAs
+    num_non_NA = sum(!is.na(gsr_pulse_ppg_a13_cal_m_v)) # Count of non-NAs
+  )
+
+# test<- dta_gsr%>%subset(participant == 226)## this had NAS
 # 
 # [1] "217" "101" "102" "103" "104" "105" "106" "107" "108" "109" "110" "111" "112" "113"
 # [15] "114" "115" "116" "117" "118" "120" "121" "122" "123" "124" "125" "126" "127" "128"
@@ -538,7 +549,7 @@ for (participant_id in participants) {
 ```
 
 
-
+note this below is not6 quite for ledalab  -see ahead
 ```{r}
 library(data.table)
 
@@ -548,10 +559,12 @@ setDT(dta_psypy1)
 
 participant_ids <- unique(c(dta_gsr$participant, dta_psypy1$participant))
 
-dta_gsr$orig_timestamp_gsr
+# backup iorigial times
+dta_gsr$orig_timestamp_gsr<- dta_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
 
-dta_gsr<- dta_gsr%>%
-  subset(participant!= 226)
+dta_psypy1$orig_unixtime_start_psypy<- dta_psypy1$unixtime_start
+
+
 
 dta_psypy1
 
@@ -561,7 +574,7 @@ dta_gsr
 # participant_id = 213
 rm(participant_id)
 
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/timestamped")
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers")
 
 for (participant_id in participant_ids) {
   
@@ -587,31 +600,31 @@ for (participant_id in participant_ids) {
                 orig_unixtime_start_psypy = i.orig_unixtime_start_psypy), 
           by = .EACHI]
 
-  tmp_gsr%>%
+  tmp_gsr<-tmp_gsr%>%
+    ungroup()%>%
     arrange(gsr_pulse_timestamp_sync_unix_cal_ms)%>%
     mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all))%>%
     mutate(trigger = case_when(
              trial_no_all == 1 & start_true == TRUE ~ 1, 
              start_true == FALSE ~ 0, 
-             TRUE ~ as.numeric(trial_no_all)))
+             TRUE ~ as.numeric(trial_no_all)))%>%
+    mutate(gsr_pulse_timerezero_sync_unix_cal_ms = gsr_pulse_timestamp_sync_unix_cal_ms-gsr_pulse_timestamp_sync_unix_cal_ms[1]) # rezero
   
   fwrite(tmp_gsr, paste0(participant_id,"_dta_gsr_trig.csv"), row.names = FALSE)
 }
 tmp_gsr$orig_timestamp_gsr
-
+tmp_gsr$TR
 ```
 
 
-trigger = case_when(
-             trial_no_all == 1 & start_true == TRUE ~ 1, 
-             start_true == FALSE ~ 0, 
-             TRUE ~ as.numeric(trial_no_all) #
+
+just some checks
 ```{r}
 tmp_gsr
 unique(tmp_gsr$trial_no_all)
 
 tmp_gsr$psypy_unixtime_start
-
+colnames(tmp_gsr)
 dta_filtered <- tmp_gsr %>%
     arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
   # Filter for trial numbers between 10 and 14 (inclusive)
@@ -686,12 +699,146 @@ just with this for now, but we need to investigate wether this is happening slig
 
 
 write to ledalab
+
+# Data Preparation for Ledalab Analysis
+# Note: 
+# - Ledalab has very specific format requirements that cna create issues= needs .txt without column names.
+# - The presence of 'NA' values, weird characters, or numbers as characters (e.g "1") even empty spaces can cause loading, opening, or importing issues within Ledalab. It may lead to repeated prompts for specifying variables, which indicates these common problems.
+# - It is crucial to meticulously prepare and clean the data to meet these specific requirements to avoid any operational disruptions in Ledalab.
+
+# Comparative Validation Note:
+# - A manual examination was conducted between a dataset processed mkanually (participant 110) and another processed through this automated script to gtenearte trigger. This was done to ensure that the start times, particularly for GSR (Galvanic Skin Response) data, accurately match when analyzed in Ledalab.
+# - This comparison confirmed that both the timing and the pattern of analysis remain consistent between manually processed and automated datasets. 
+
+
+for ledalab, we'll just write time stamp (original and re zeroed, skin conductance data) and triggers, anyt medatdasta wil be matched later - based on trigger (consider writing ann aggreate macthign file from trigger to psypy?)
+
+this one below export the fulld ataset, but its best to export rest and trials separatelly
+```{r eval=FALSE, include=FALSE}
+
+colnames(tmp_gsr)
+
+
+unique(X126_dta_gsr_trig$trigger)
+
+# Define the directory where participant CSV files are stored
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers")
+
+input_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers"
+
+# Define the output directory for the formatted files
+output_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers/format4leda"
+
+library(dplyr)
+
+# List all CSV files in the directory
+participant_files <- list.files(input_directory, pattern = "\\.csv$", full.names = TRUE)
+
+# Function to process each file
+process_participant_file <- function(file_path) {
+  # Read the CSV file
+  data <- read.csv(file_path)%>%
+    select(gsr_pulse_timerezero_sync_unix_cal_ms,
+           gsr_pulse_timestamp_sync_unix_cal_ms,
+           gsr_pulse_gsr_skin_conductance_cal_u_s,
+           trigger)
+  
+  
+  # Arrange by unixtime_start if needed
+  selected_data <- data %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms)
+  
+  # Construct output file name based on input file name and output directory
+ 
+ # Remove the file extension and append "_ledaform.txt" to construct the output file name
+  file_name_no_ext <- tools::file_path_sans_ext(basename(file_path))
+  output_file_name <- paste0(output_directory, "/", file_name_no_ext, "_ledaform.txt")
+  
+  
+  # Write the selected and potentially arranged data to a new file, format for Ledalab
+  write.table(selected_data, 
+              output_file_name, sep = "\t",
+              row.names = FALSE, 
+              col.names = FALSE)
+  # Print a message indicating progress
+  cat("Processed and written:", output_file_name, "\n")
+}
+
+# Apply the function to each file
+lapply(participant_files, process_participant_file)
+```
+
+
+export trials and rest period separatelly
 ```{r}
-colnames(dt_result4)
 
 
-dt_time_trig_gsr<- dt_result4[, c(13,51,63)]
-colnames(dt_time_trig_gsr)
+input_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers"
+
+# Define the output directory for the formatted files
+output_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers/format4leda"
+# Assuming input_directory and output_directory are defined
+participant_files <- list.files(input_directory, pattern = "\\.csv$", full.names = TRUE)
+
+process_participant_file <- function(file_path) {
+  # Read the CSV file and select relevant columns
+  data <- read.csv(file_path) %>%
+    select(gsr_pulse_timerezero_sync_unix_cal_ms,
+           gsr_pulse_timestamp_sync_unix_cal_ms,
+           gsr_pulse_gsr_skin_conductance_cal_u_s,
+           trigger) %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms)
+
+  # Find indices for trigger conditions
+  first_trigger_2_index <- which(data$trigger == 2)[1]
+  first_trigger_1_index <- which(data$trigger == 1)[1]
+
+  # Function to rezero time
+  rezero_time <- function(df) {
+    df %>%
+      mutate(gsr_pulse_timerezero_sync_unix_cal_ms = gsr_pulse_timerezero_sync_unix_cal_ms -
+               gsr_pulse_timerezero_sync_unix_cal_ms[1])
+  }
+
+  # Data before first occurrence of trigger == 2
+  if (!is.na(first_trigger_2_index) && first_trigger_2_index > 0) {
+    data_before_trigger_2 <- data %>%
+      slice(1:(first_trigger_2_index - 1)) %>%
+      rezero_time()
+
+    # Construct output file name for data before trigger == 2
+    file_name_no_ext <- tools::file_path_sans_ext(basename(file_path))
+    output_file_name_before_trigger_2 <- paste0(output_directory, "/", file_name_no_ext, "_rest_ledaform.txt")
+
+    # Write to file
+    write.table(data_before_trigger_2, output_file_name_before_trigger_2, sep = "\t", row.names = FALSE, col.names = FALSE)
+    cat("Processed and written (before trigger 2):", output_file_name_before_trigger_2, "\n")
+  }
+
+  # Data after first occurrence of trigger == 1, excluding the trigger row itself
+  if (!is.na(first_trigger_1_index) && first_trigger_1_index > 0) {
+    data_after_trigger_1 <- data %>%
+      slice((first_trigger_1_index + 1):n()) %>%
+      rezero_time()
+
+    # Construct output file name for data after trigger == 1
+    output_file_name_after_trigger_1 <- paste0(output_directory, "/", file_name_no_ext, "_pract_nd_trials_ledaform.txt")
+
+    # Write to file
+    write.table(data_after_trigger_1, output_file_name_after_trigger_1, sep = "\t", row.names = FALSE, col.names = FALSE)
+    cat("Processed and written (after trigger 1):", output_file_name_after_trigger_1, "\n")
+  }
+}
+
+
+# Process each file
+lapply(participant_files, process_participant_file)
+
+```
+
+# Process each file
+lapply(participant_files, process_participant_file)
+
 
 # unique(dt_result2$participant)
 
@@ -720,6 +867,8 @@ write.table(dt_time_trig_gsr_no0[,2:3],
             col.names = FALSE)
 
 ```
+
+Run matlab ledalab and use these settings
 
 combine the ledalab output with behavioural data and check if we have what we would expect
 
