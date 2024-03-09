@@ -66,7 +66,7 @@ tmp_unique_identifiers_pc <- setdiff(identifiers_tmp_files_pc, identifiers_tmp_f
 # "101" "102" "106" ADDED DB 103
 # Identifiers unique to SD files
 tmp_unique_identifiers_sd <- setdiff(identifiers_tmp_files_sd, identifiers_tmp_files_pc)
-# "105" "108" "110" "111" "113" "114" "201" "204" "205" "208" "209" "213" "220"
+# "105" "108" "110" "111" "113" "114" "201" "204" "205" "208" "209" "213" "220" #### 119 was mistaklenly set as 118
 # 220 noted missing in logbook
 # way more ECG files didn load to PC than GSR
 
@@ -255,6 +255,8 @@ file_df$filepath <- tmp_combined_list
 # participant_id = 134
 # rm(participant_id)
 # participant_ids
+# 119
+
 for (participant_id in participant_ids) {
   # Find all files for this participant
   participant_files <- file_df[file_df$participant_id == participant_id, ]
@@ -269,9 +271,14 @@ for (participant_id in participant_ids) {
     tmp_ecg <- fread(filepath, skip = 3, header = FALSE)
     
     # Check if there's an extra empty column and remove it if necessary
-    if (ncol(tmp_ecg) > length(column_names)) {
-      tmp_ecg <- tmp_ecg[, -ncol(tmp_ecg), with = FALSE]
-    }
+    # Ensure Consistent Column Removal: You might need a more robust way to check for and remove extra columns. For instance, if the extra columns are always at the end and there's a possibility of having more than one extra column, you might adjust the column removal step based on the difference in lengths:
+    extra_cols <- ncol(tmp_ecg) - length(column_names)
+if (extra_cols > 0) {
+  tmp_ecg <- tmp_ecg[, -((ncol(tmp_ecg)-extra_cols+1):ncol(tmp_ecg)), with = FALSE]
+}
+    # if (ncol(tmp_ecg) > length(column_names)) {
+    #   tmp_ecg <- tmp_ecg[, -ncol(tmp_ecg), with = FALSE]
+    # }
     
     # Assign predefined column names
     setnames(tmp_ecg, old = names(tmp_ecg), new = column_names)
