@@ -1,0 +1,313 @@
+---
+title: "pre_process_ecg"
+author: "Helio"
+date: "2024-03-09"
+output: html_document
+---
+
+
+
+
+ECG signals
+
+
+
+Set-up: where I load libraries and create objects for later use (such as color schemes etc).
+```{r setup, include=FALSE}
+# Load necessary libraries
+require(tidyverse)
+require(data.table)
+library(janitor)
+library(purrr)
+require(readr)
+
+
+```
+
+
+Load files check how many we have on sd vs PC
+# Handling file imports from PC and SD sources:
+# - This process primarily relies on PC files, but switches to SD files in the absence of a corresponding PC file.
+# - A notable discrepancy has been observed in the export formats: PC exports contain "sync" within the timestamps, unlike SD exports. This difference may affect how filenames are generated and could imply variations in how data synchronization is handled or represented between the two sources.
+# - It is essential to consider this variation during data processing to ensure consistent naming conventions and to investigate the synchronization status of SD data.
+# - The custom function is applied to each file to adjust for these discrepancies, and the results are subsequently combined.
+
+
+```{r}
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated")
+
+# List of .csv files, assuming you've already created 'tmp_files' with list.files()
+# tmp_files <- list.files(pattern = "\\._PCcsv$", recursive = FALSE, full.names = TRUE)
+tmp_files_pc <- list.files(pattern = "ECG.*PC\\.csv$", recursive = FALSE, full.names = TRUE)
+
+tmp_files_sd <- list.files(pattern = "ECG.*SD\\.csv$", recursive = FALSE, full.names = TRUE)
+
+tmp_files
+tmp_files_sd
+
+
+# Extract identifiers
+
+# Regular expression to capture the pattern before "_" and after "./"
+pattern <- "\\./([0-9]+)_.*"
+
+# Extract the pattern
+
+identifiers_tmp_files_pc <- sub(pattern, "\\1",  tmp_files_pc)
+identifiers_tmp_files_sd <- sub(pattern, "\\1", tmp_files_sd)
+
+# Compare and find common identifiers
+tmp_common_identifiers <- intersect(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
+
+# Display the common identifiers
+tmp_common_identifiers
+length(tmp_common_identifiers) # 51
+
+# Identifiers unique to PC files
+tmp_unique_identifiers_pc <- setdiff(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
+# "101" "102" "106"
+# Identifiers unique to SD files
+tmp_unique_identifiers_sd <- setdiff(identifiers_tmp_files_sd, identifiers_tmp_files_pc)
+# "105" "108" "110" "111" "113" "114" "201" "204" "205" "208" "209" "213" "220"
+# 220 noted missing in logbook
+# way more ECG files didn load to PC than GSR
+
+
+# now we want to create a list that contains tmp_files_pc plus the tmp_unique_identifiers_sd
+
+# Assuming tmp_unique_identifiers_sd contains unique identifiers like c("101", "102", "106")
+# Create a regular expression pattern that matches any of these identifiers
+pattern_unique_sd <- paste(tmp_unique_identifiers_sd, collapse = "|")
+
+# Use grep to select files from tmp_files_sd that match the unique identifiers
+tmp_selected_files_sd <- tmp_files_sd[grep(pattern_unique_sd, tmp_files_sd)]
+
+# Display the selected files
+tmp_selected_files_sd
+
+# Combine selected_files_sd with tmp_files_pc
+tmp_combined_list <- c(tmp_files_pc,tmp_selected_files_sd)
+
+# Display the combined vector
+
+tmp_combined_list
+# remember to update 000_Session1_ECG_Calibrated_PC to 2176?
+```
+
+```{r}
+###################################################
+
+tmp_combined_list
+# do we actually want to store all of thes efiles here, or just load each adjut then save it back due to memory issues
+setDT(dta_psypy1)
+# dta_psypy1$orig_unixtime_start_psypy<- dta_psypy1$unixtime_start
+
+
+
+# Predefined column names
+column_names <- c( "ecg_timestamp_sync_unix_cal_ms", "ecg_battery_cal_m_v",
+                  "ecg_ecg_emg_status1_cal_no_units", "ecg_ecg_emg_status2_cal_no_units",
+                  "ecg_ecg_ibi_ll_ra_cal_ms", "ecg_ecg_ibi_vx_rl_cal_ms",
+                  "ecg_ecg_la_ra_24bit_cal_m_v", "ecg_ecg_ll_la_24bit_cal_m_v",
+                  "ecg_ecg_ll_ra_24bit_cal_m_v", "ecg_ecg_vx_rl_24bit_cal_m_v",
+                  "ecg_ec_gto_hr_ll_ra_cal_bpm", "ecg_ec_gto_hr_vx_rl_cal_bpm",
+                  "ecg_pressure_bmp280_cal_k_pa", "ecg_temperature_bmp280_cal_degrees_celsius")
+
+
+
+
+for (participant_id in participant_ids) {
+  
+  
+# Read the CSV file, skip the first 3 rows
+# You might also want to check if you need to adjust the argument sep = "," depending on your CSV delimiter
+tmp_ecg <- fread(tmp_combined_list, skip = 3, header = FALSE)
+
+# Check if there's an extra empty column and remove it if necessary
+# This step assumes the extra column is the last one; adjust as necessary
+tmp_ecg <- tmp_ecg[,-"V15"]
+
+setnames(tmp_ecg, old = names(tmp_ecg), new = column_names)
+
+# Add a new column with the filename
+tmp_ecg[, filename := basename(tmp_combined_list[50])]
+# don't actually read and store it here, instead just load to the processing and expoer
+# colnames(dta_ecg)
+
+
+
+tmp_ecg<- tmp_ecg%>%
+  mutate(participant = sub("_.*", "", filename),
+         session = gsub(".*_(Session\\d+)_.*", "\\1", filename))
+
+
+tmp_ecg$orig_timestamp_ecg<- tmp_ecg$ecg_timestamp_sync_unix_cal_ms
+
+
+# merge timestamps
+
+setDT(tmp_ecg)
+  
+  tmp_psypy <- dta_psypy1[participant == participant_id][, .(participant, social_nonsocial, stim_iaps, trial_no_all, unixtime_start, orig_unixtime_start_psypy)]
+  tmp_psypy[, next_unixtime_start := shift(unixtime_start, type = "lead", fill = Inf)]
+  tmp_psypy[, unixtime_end := next_unixtime_start - 1]
+  
+  # Initialize columns in tmp_ecg to match the types from tmp_psypy
+  tmp_ecg[, `:=` (social_nonsocial = as.character(NA), 
+                  stim_iaps = as.character(NA), 
+                  trial_no_all = as.integer(NA), 
+                  psypy_unixtime_start = as.numeric(NA),
+                  orig_unixtime_start_psypy = as.numeric(NA))]
+  
+  # Perform the non-equi join and update
+  tmp_ecg[tmp_psypy, on = .(ecg_timestamp_sync_unix_cal_ms >= unixtime_start, 
+                            ecg_timestamp_sync_unix_cal_ms <= unixtime_end), 
+          `:=` (social_nonsocial = i.social_nonsocial, 
+                stim_iaps = i.stim_iaps, 
+                trial_no_all = i.trial_no_all, 
+                psypy_unixtime_start = i.unixtime_start,
+                orig_unixtime_start_psypy = i.orig_unixtime_start_psypy), 
+          by = .EACHI]
+
+  # Assuming 'dplyr' and 'tidyverse' for the next operations
+  tmp_ecg <- tmp_ecg %>%
+    ungroup() %>%
+    arrange(ecg_timestamp_sync_unix_cal_ms) %>%
+    mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all)) %>%
+    mutate(trigger = case_when(
+             trial_no_all == 1 & start_true == TRUE ~ 1, 
+             start_true == FALSE ~ 0, 
+             TRUE ~ as.numeric(trial_no_all))) %>%
+    mutate(ecg_timerezero_sync_unix_cal_ms = ecg_timestamp_sync_unix_cal_ms - ecg_timestamp_sync_unix_cal_ms[1]) # rezero
+  
+  # Save the updated dataframe to a CSV file
+  fwrite(tmp_ecg, paste0(participant_id, "_dta_ecg_trig.csv"), row.names = FALSE)
+}
+
+
+# check nas
+# range(dta_ecg$ecg_ec_gto_hr_ll_ra_cal_bpm)
+# range(dta_ecg$ecg_ecg_ibi_ll_ra_cal_ms)
+
+```
+
+```{r}
+
+
+
+# Step 1: Read the first two rows to get column names and units
+
+
+# read_delim("110_Session1_GSRPulse_Calibrated_PC.csv", 
+#     delim = "\t", escape_double = FALSE, 
+
+
+dta_ecg_header_info <-  read_delim("116_Session1_ECG_Calibrated_PC.csv", 
+                                    # nrows = 2, 
+                                    skip = 1,
+                                    escape_double = FALSE, 
+                                    delim = "\t")
+
+dta_ecg <-  read_delim("116_Session1_ECG_Calibrated_PC.csv", 
+                                    # nrows = 2, 
+                                    skip = 2,
+                                    escape_double = FALSE, 
+                                    delim = "\t")
+
+colnames(dta_ecg)
+
+
+names(dta_ecg)<- paste0(colnames(dta_ecg_header_info),"_", paste0(dta_ecg_header_info[1,]))
+
+
+dta_ecg$...15_NA<-NULL
+
+
+# make clean names
+dta_ecg<- dta_ecg%>%
+  janitor::clean_names()
+
+
+colnames(dta_ecg)
+
+# ECG heart rate
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ec_gto_hr_ll_ra_cal_bpm))+
+  geom_line()
+  # geom_point()
+
+
+# just ECG
+dta_physio$gsr_pulse_timestamp_sync_unix_cal_ms-lag(dta_physio$gsr_pulse_timestamp_sync_unix_cal_ms)
+dta_ecg$ecg_timestamp_sync_unix_cal_ms-lag(dta_ecg$ecg_timestamp_sync_unix_cal_ms)
+
+
+# Calculate the sample rate given the sampling interval in seconds
+# sampling_interval_seconds = 0.003998047
+# sample_rate = 1 / sampling_interval_seconds
+# 
+# sample_rate
+
+dta_ecg$ecg_ecg_emg_status1_cal_no_units
+dta_ecg$ecg_ecg_emg_status2_cal_no_units
+
+# ecg_ecg_ll_ra_24bit_cal_m_v = ECG signa;
+# ecg_ec_gto_hr_ll_ra_cal_bpm = heart rate
+# ecg_ecg_ibi_ll_ra_cal_ms = IBI
+
+
+
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ecg_ll_ra_24bit_cal_m_v))+
+  geom_line()
+
+
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ecg_ll_ra_24bit_cal_m_v))+
+  geom_line()
+
+
+
+# IBI
+dta_ecg%>%
+  subset(ecg_ecg_ibi_ll_ra_cal_ms!=-1)%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ecg_ibi_ll_ra_cal_ms))+
+  geom_line()
+
+
+# expected cavare plot of R to R interval
+dta_ecg%>%
+  subset(ecg_ecg_ibi_ll_ra_cal_ms!=-1)%>%
+  mutate(ecg_ecg_ibi_ll_ra_cal_ms_lag = lag(ecg_ecg_ibi_ll_ra_cal_ms))%>%
+  ggplot(aes(ecg_ecg_ibi_ll_ra_cal_ms,
+             ecg_ecg_ibi_ll_ra_cal_ms_lag))+
+  geom_point()
+
+
+
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_temperature_bmp280_cal_degrees_celsius))+
+  geom_line()
+
+
+# EGG ecg_ecg_vx_rl_24bit_cal_m_v
+
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ecg_vx_rl_24bit_cal_m_v))+
+  geom_line()
+
+
+```

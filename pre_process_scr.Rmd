@@ -836,39 +836,64 @@ lapply(participant_files, process_participant_file)
 
 ```
 
-# Process each file
-lapply(participant_files, process_participant_file)
+
+# ==============================================================================
+# README: Preparation and Analysis of Ledalab Formatted Files
+# ==============================================================================
+ledaform files
+GSR files were processed to select relevant columns and arrange data by timestamp, ensuring compatibility with Ledalab software. Output files are saved without column names, using tab-separated values (TSV), in line with Ledalab's input requirements. note ledalab has an issue wityh NAs, strringds, empty columsn or even numnumebrsebrs wrriten like "11".
+any issues with loading likely has to do with that
+
+### Output File Format:
+Each file is named after the original participant data file, appended with "_ledaform.txt" to indicate formatting for Ledalab. The files include the following columns:
+  1. **gsr_pulse_timerezero_sync_unix_cal_ms**: Timestamp (Unix time) after rezeroing, indicating synchronized GSR pulse time.
+  2. **gsr_pulse_timestamp_sync_unix_cal_ms**: Original Unix timestamp of the GSR pulse.
+  3. **gsr_pulse_gsr_skin_conductance_cal_u_s**: Calibrated skin conductance level in microsiemens (μS).
+  4. **trigger**: Event marker or trigger signal associated with the measurement.
+
+### Sampling Rate and Downsampling:
+- **Original Sampling Rate**: 128Hz.
+- **Downsampling Target**: 16Hz (or the lowest rate that maintains a frequency above 10Hz), corresponding to a downsampling factor of 8 (128Hz / 8 = 16Hz).
+- **Method**: Use "factor mean" in Ledalab for downsampling, averaging data points within each factor to preserve signal characteristics.
+
+## Importing Data into Ledalab:
+Select 'Data Type 3' (manual definition) upon import to manually specify data structure for accurate interpretation and analysis within Ledalab.
+
+# Analysis Guidelines for Ledalab:
+
+## Preliminary Manual Analysis (GUI):
+Before batch processing, it's essential to manually analyze a one or two files to establish a benchmark for comparison and ensure the analysis settings are correctly configured. This will also serve as a referecne for automated analysis
+
+### Steps for Manual Analysis:
+1. **Open Ledalab's GUI**: Load a files from 'rest' and 'pract_nd_trial' categories to familiarize with the data and settings.
+2. **Configure Analysis Settings**:
+   - Enable **Adaptive Smoothing**: Adjusts the smoothing parameter dynamically for each data segment to improve the signal-to-noise ratio.
+
+3. **Run CDA Analysis**: Perform Continuous Decomposition Analysis to decompose the GSR signal into its tonic and phasic components.
+   - **Optimize Twice**: Enhances the accuracy of the Continuous Decomposition Analysis (CDA) by refining the decomposition parameters iteratively.
+4. **Export event related activation**:
+   - For trials: Analyze event-related data within a window of **1 to 7 seconds** (or **0.5 to 7 seconds** if permissible).
+   - For rest: Use a window of **1 to 120 seconds** to capture the full range of resting data.
+5. **Export and Save Results**: Ensure to save `.mat` files for the analysis results and key plots for later comparison
+also save a mat file of the whole analysis
+
+## Automated Batch Processing:
+After manual analysis, automate the processing for all files using Ledalab's batch mode. This ensures consistent application of the predetermined settings across all files.
+
+### Batch Processing Steps:
+- Visit [Ledalab Batch Mode Documentation](http://www.ledalab.de/documentation.htm#batchmode) for detailed instructions on setting up batch processing.
+
+#### Sample Batch Processing Commands: check the slashes as t5hey differ on windows and mac
+
+- **For Practice and Trials**:
+Ledalab('D:\OneDrive - Nexus365\InteroStudy2020\analysis\DataAnalysisJanuary2020\DataAnalysisJan2020\GP_gsr_forLeda', 'open','text3','downsample', 15, 'smooth',{'adapt'}, 'analyze','CDA', 'optimize',3, 'export_era', [1 7 .01 2],  'overview',1)
+
+Code for automatic rest analysis
+Ledalab('D:\OneDrive - Nexus365\InteroStudy2020\analysis\DataAnalysisJanuary2020\DataAnalysisJan2020\GP_gsr_forLeda', 'open','text3','downsample', 15, 'smooth',{'adapt'}, 'analyze','CDA', 'optimize',3, 'export_era', [1 120 .01 2],  'overview',1)
 
 
-# unique(dt_result2$participant)
+insopect some fo teh saved ouputs and plots and liusyt of problem files any files you can't run in batch mode run manualy
 
-dt_time_trig_gsr<- dt_time_trig_gsr%>%
-  arrange(unixtime_start)
-
-# writing a table without column names
-# write.table(dt_time_trig_gsr, "dt_time_trig_gsr.txt", sep=",",  col.names=FALSE)
-
-unique(dt_time_trig_gsr$trigger)
-table(dt_time_trig_gsr$trigger)
-
-
-
-write.table(dt_time_trig_gsr, 
-            file = "dt_time_trig_gsr_pre_post_trig.txt", sep = "\t",
-            row.names = FALSE, 
-            col.names = FALSE)
-  
-    
-    # dt_time_trig_gsr_no0$trigger[dt_time_trig_gsr$trigger == 0]<- ""
-
-write.table(dt_time_trig_gsr_no0[,2:3], 
-            file = "dt_time_trig_gsr_no0.txt", sep = "\t",
-            row.names = FALSE, 
-            col.names = FALSE)
-
-```
-
-Run matlab ledalab and use these settings
 
 combine the ledalab output with behavioural data and check if we have what we would expect
 
@@ -926,73 +951,4 @@ dta_leda_era_110%>%
 
 ```
 
-```{r}
-
-dta_leda_era_110$trigger
-table(dta_leda_era_110$trigger)
-
-
-dt_result4$trigger
-
-dta_leda_era_110_v1<- left_join(dta_leda_era_110,dt_result4)
-
-
-# plot emotion category vs SCR
-dta_leda_era_110_v1%>%
-  # subset(new_variable == TRUE)%>%
-  # subset(pre_stim_start_true == TRUE)%>%
-  subset(resp_start_true == TRUE)%>%
-  mutate(cda_phasic_max_z = scale(cda_scr))%>%
-  ggplot(aes(emotioncategory, cda_phasic_max_z))+
-  # geom_point()+
-  stat_summary(geom = "pointrange")
-
-
-dta_leda_era_110_v1%>%
-  mutate(cda_phasic_max_z = scale(cda_scr))%>%
-  ggplot(aes(emotioncategory, cda_phasic_max_z))+
-  # geom_point()+
-  stat_summary(geom = "pointrange")
-
-
-# tonic
-dta_leda_era_110_v1%>%
-  mutate(cda_tonic_z = scale(cda_tonic))%>%
-  ggplot(aes(emotioncategory, cda_tonic_z))+
-  # geom_point()+
-  stat_summary(geom = "pointrange")
-
-
-# plot intensity vs SCR for response
-dta_leda_era_110_v1%>%
-  # mutate(cda_tonic_z = scale(cda_tonic))%>%
-    mutate(cda_phasic_max_z = scale(cda_scr))%>%
-  mutate(int_slider_response_z = scale(int_slider_response))%>%
-    subset(new_variable == TRUE)%>%# stim
-  # subset(pre_stim_start_true == TRUE)%>%
-
-  # subset(resp_start_true == TRUE)%>%
-  ggplot(aes(int_slider_response_z, cda_phasic_max_z))+
-  geom_point()+
-  geom_smooth(method = 'lm')+
-  ggpubr::stat_cor()
-  stat_summary(geom = "pointrange")
-          
-  
-  
-dta_leda_era_110_v1%>%
-  mutate(cda_phasic_max_z = scale(cda_scr))%>%
-  mutate(val_slider_response_z = scale(val_slider_response))%>%
- 
-  ggplot(aes(val_slider_response_z, cda_phasic_max_z))+
-  geom_point()+
-  geom_smooth(method = 'lm')+
-  ggpubr::stat_cor()
-  stat_summary(geom = "pointrange")
-  
-  
-  
-          
-
-```
 
