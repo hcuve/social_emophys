@@ -7,10 +7,53 @@ output: html_document
 
 
 
-2. Export/create triggers from behavioural data (merge physio with psychopy)
+Understanding Data Inconsistencies and Solutions
+1. Inconsistent Session Data Between SD and PC:
+
+Issue: We've observed instances where data from the same time period are categorized under different sessions on SD and PC. 
+Implication: It complicates data analysis, as the same physical events may be represented in separate session files, causing confusion and inaccuracies in interpreting participant behavior and responses.
+
+2. Duplicate Participant IDs Across Different Individuals:
+
+Issue: There are cases where files from different individuals have been assigned the same participant ID, 
+
+3. Varied File Sizes and Incomplete Sessions:
+
+Issue: Some files are significantly smaller than others, raising questions about their content and whether all sessions, including those where no actual data was recorded, have been retained.
+Implication: Retaining sessions with no valuable data can clutter the dataset, making analysis more challenging and potentially skewing results.
+Solution: Review the files to identify and exclude sessions with no meaningful data. This step will streamline the dataset, focusing analysis on relevant and substantive data points.
+4. Data Processing Strategy for Tomorrow:
+
+Immediate Task: Focus solely on Heart Rate (HR) data to compute mean values. This simplifies the immediate analysis scope, allowing for a focused approach to understanding the dataset's fundamental aspects.
+Next Steps: Once HR data analysis is complete, the next phase will involve processing facial data, expanding the analysis scope to incorporate additional data dimensions.
+
+5. Proposed Logic for Data Selection:
+its imporatnt to addres the previous points and additionally below
+
+- If both PC and SD data are available: We will choose the file with the larger size, as it is likely to contain the most complete dataset. if that indeed the valid data you stored
+- If only PC data is available: We will use the PC file.
+- If only SD data is available: We will use the SD file.
+
+
+Ultimately, after5 each session we need to organize our data into folders containing usable, final files for each person for each signal type (e.g., all GSR data in a GSR folder). This organization will facilitate our analysis, ensuring we work with the most complete and accurate data possible.
+
+when I am analyzing, I need to just have the files i need to load, and not having to sort out the logic of which file to use
+
+
+
+
+Botwe to self
+to deetct these isues use
+- Data Summarization: We will calculate the total size of the data for each participant to help identify any substantial discrepancies that may indicate missing or incomplete data.
+check nujmber of events in each file (should be 65 or 66)
+- focus on j=redoing the gsr and use hrt fro this data fro the students
+
+2. Export/create triggers from behavioral data (merge physio with psychopy)
 
 COMBINE TRIGGERS WITH PHYSIO
 
+we need top rerun 118 and 110 due to overlapping names
+222 and 223
 
 Set-up: where I load libraries and create objects for later use (such as color schemes etc).
 ```{r setup, include=FALSE}
@@ -30,36 +73,7 @@ ctrl_data_path <- file.path(data_path, "ctrl")
 
 load files 
 ```{r}
-# data_psypy1
 
-base_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio" # Change this to your actual base directory path
-
-
-# List immediate subdirectories first (non-recursive)
-# subdirs <- list.dirs(path = base_directory, recursive = FALSE, full.names = TRUE)
-
-# Initialize a vector to hold directories that match the "Export" pattern
-export_dirs <- c()
-
-# Now, for each immediate subdir, look one level down for "Export" folders
-for (dir in subdirs) {
-  cat("Checking in:", dir, "\n") # Simple progress feedback
-  # Assuming "Export" directories are directly under these subdirs
-  potential_exports <- list.dirs(path = dir, recursive = FALSE, full.names = TRUE)
-  matched_exports <- grep("Consensys", potential_exports, value = TRUE)
-  export_dirs <- c(export_dirs, matched_exports)
-}
-
-# export_dirs now contains paths to directories matching the "Export" pattern
-# Find all sub directories named "raw" within the base directory
-
-export_dirs
-
-# export_dir <- list.files(path = base_directory, 
-#                               pattern = "Export", 
-#                               full.names = TRUE, 
-#                               recursive = TRUE, 
-#                               include.dirs = TRUE)
 
 
 # Custom function to read a file and adjust its column names
@@ -84,7 +98,7 @@ fn_read_and_adjust <- function(file_path) {
 ```
 
 recursive folder search
-```{r}
+```{r eval=FALSE, include=FALSE}
 base_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio"
 
 # Ensure this directory exists and R can access it. If there are access issues, consider absolute paths or check permissions.
@@ -148,54 +162,179 @@ GSR data should be sampled at 128 hz
 # 6000 ms = 128*6 = 768
 ```{r}
 
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated")
-# List of .csv files, assuming you've already created 'tmp_files' with list.files()
-# tmp_files <- list.files(pattern = "\\._PCcsv$", recursive = FALSE, full.names = TRUE)
-tmp_files <- list.files(pattern = "GSR.*PC\\.csv$", recursive = FALSE, full.names = TRUE)
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR")
+# List of .csv files, fromm pc and sd
 
-tmp_files_SD <- list.files(pattern = "GSR.*SD\\.csv$", recursive = FALSE, full.names = TRUE)
+tmp_files_pc <- list.files(pattern = "GSR.*PC\\.csv$", recursive = FALSE, full.names = TRUE)
+unique(tmp_files_pc)
+tmp_files_sd <- list.files(pattern = "GSR.*SD\\.csv$", recursive = FALSE, full.names = TRUE)
 
-tmp_files
-tmp_files_SD
+tmp_files_pc
+tmp_files_sd
 
-rm(fn_extract_identifiers)
 
-# Extract identifiers
+# Extract identifiers and capture the session
 
 # Regular expression to capture the pattern before "_" and after "./"
 pattern <- "\\./([0-9]+)_.*"
 
 # Extract the pattern
-identifiers_tmp_files_PC <- sub(pattern, "\\1",  tmp_files)
-identifiers_tmp_files_SD <- sub(pattern, "\\1", tmp_files_SD)
+identifiers_tmp_files_pc <- sub("^\\./(.+)_GSR.*$", "\\1", tmp_files_pc)
+identifiers_tmp_files_sd <- sub("^\\./(.+)_GSR.*$", "\\1", tmp_files_sd)
 
 # Compare and find common identifiers
-common_identifiers <- intersect(identifiers_tmp_files_PC, identifiers_tmp_files_SD)
+common_identifiers <- intersect(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
 
 # Display the common identifiers
 common_identifiers
 
 # Identifiers unique to PC files
-unique_identifiers_PC <- setdiff(identifiers_tmp_files_PC, identifiers_tmp_files_SD)
-
+# rm(unique_identifiers_PC, unique_identifiers_SD)
+unique_identifiers_pc <- setdiff(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
+unique_identifiers_pc
+#  [1] "101_Session1" "102_Session1" "103_Session3" "104_Session2" "106_Session2" "106_Session3" "107_Session2" "112_Session2" "118_Session2"
+# [10] "119_Session3" "120_Session2" "120_Session3" "124_Session2" "126_Session2" "127_Session2" "127_Session3" "128_Session2" "131_Session2"
+# [19] "135_Session2" "135_Session3" "201_Session3" "202_Session2" "210_Session2" "214_Session3" "214_Session4" "215_Session2" "217_Session2"
+# [28] "220_Session2" "221_Session2" "223_Session4" "224_Session2" "227_Session2" "228_Session2" "228_Session4" "230_Session3" "232_Session2"
+# [37] "233_Session5"
 # Identifiers unique to SD files
-unique_identifiers_SD <- setdiff(identifiers_tmp_files_SD, identifiers_tmp_files_PC)
+unique_identifiers_sd <- setdiff(identifiers_tmp_files_sd, identifiers_tmp_files_pc)
+unique_identifiers_sd
 
-# Display the unique identifiers
-unique_identifiers_PC
-unique_identifiers_SD
 
-# [1] "101" "102" "103" "106"
-# > unique_identifiers_SD
-# [1] "105"
-# copy and rename 105 sd to ad _PC, so we can read all pcs again
+# now if just take the sid, how many people dow e have
 
-# then use this info to load PC files and just add sd wheere needed
+identifiers_tmp_files_pc
+
+# length(unique(gsub("_.*", "", identifiers_tmp_files_pc))) #69
+# length(unique(gsub("_.*", "", identifiers_tmp_files_sd))) #66
+
+tmp1<- unique(gsub("_.*", "", unique_identifiers_pc))
+tmp2<-unique(gsub("_.*", "", unique_identifiers_sd))
+tmp3<-unique(gsub("_.*", "", common_identifiers))
+
+combined_vector <- c(tmp1, tmp2,tmp3) #this shoiuld be 70 but its  45, why
+length(unique(combined_vector)) #70
+# 36+34
+# expecting 70 files
+# Verify against your expectation
+
+# now we want to create a list that contains tmp_files_pc plus the tmp_unique_identifiers_sd
+
+# Assuming tmp_unique_identifiers_sd contains unique identifiers like c("101", "102", "106")
+# Create a regular expression pattern that matches any of these identifiers
+pattern_unique_sd <- paste(unique_identifiers_SD, collapse = "|")
+
+# Use grep to select files from tmp_files_sd that match the unique identifiers
+tmp_selected_files_sd <- tmp_files_sd[grep(pattern_unique_sd, tmp_files_sd)]
+
+# Display the selected files
+tmp_selected_files_sd
+
+# Combine selected_files_sd with tmp_files_pc
+tmp_combined_list <- c(tmp_files,tmp_selected_files_sd)
+
+# Display the combined vector
+
+tmp_combined_list
+# remember to update 000_Session1_ECG_Calibrated_PC to 2176?
+
+# so we are picking up all files
+ grep("223", tmp_combined_list, value=TRUE)
+ grep("223", tmp_files_sd, value=TRUE)
 
 ```
 
-load gsr data
+1. Prioritize Based on Total Data Volume
+If both sources are present for a participant: Compare the total sizes. The source with a larger total size could be considered as having more complete data across sessions, thus, might be preferable.
+If only one source is present for a participant: Use the available source, as it's the only option for that participant.
+2. Implement Decision Logic
+Based on the above interpretation, you can implement logic to automatically decide which source to prioritize for further analysis or processing. Here’s a sample approach:
+
+a. Prefer the Source with More Complete Data Across Sessions
+For participants with both PC and SD files, if the total size of SD files significantly exceeds that of PC files, this suggests that SD recordings might be more complete on average. This could be a basis to prefer SD over PC when both are available, especially if your analysis benefits from more comprehensive datasets.
+
+b. Fallback to Available Data When Only One Source Exists
+For participants with data only from one source, the decision is straightforward as you'll use what's available.
+
+3. Code Example
+
+the code below does not combine sessions PC or SD within a particiopant
+
 ```{r}
+# Assuming tmp_files_pc and tmp_files_sd have already been defined and include full paths
+
+# Combine the lists of files
+length(tmp_files_pc)+length(tmp_files_sd) #161
+all_files <- c(tmp_files_pc, tmp_files_sd)
+
+# Extract information: identifier and source (PC/SD)
+# Create a data frame to hold file information
+file_info <- data.frame(
+  file_path = all_files,
+  file_size = file.info(all_files)$size,
+  identifier = sub("^(.*)_GSR.*\\.csv$", "\\1", basename(all_files)),
+  source = ifelse(grepl("PC\\.csv$", all_files), "PC", "SD")
+)
+# For each identifier, determine which file to keep
+chosen_files <- lapply(unique(file_info$identifier), function(id) {
+  subset_files <- subset(file_info, identifier == id)
+  
+  if (nrow(subset_files) == 1) {
+    return(subset_files$file_path)
+  } else {
+    # Choose the file with the larger size
+    return(subset_files$file_path[which.max(subset_files$file_size)])
+  }
+})
+
+file_info$file_path
+
+file_info$session =  sub(".*_(Session\\d+).*", "\\1", file_info$file_path)
+file_info$participant = sub("./(.+?)_.*", "\\1", file_info$file_path)
+
+
+total_size_per_participant_source<- file_info%>%
+  group_by(participant, source)%>%
+  summarise_at(c("file_size"), sum, na.rm = T)
+
+
+# Pivot the data to have PC and SD sizes side by side for each participant
+library(reshape2)
+
+pivot_total_size <- dcast(total_size_per_participant_source, participant ~ source, value.var="file_size", fill=0)
+
+# Determine the preferred source for each participant
+pivot_total_size$preferred_source <- ifelse(pivot_total_size$SD > pivot_total_size$PC, "SD", "PC")
+
+# Adjust preferred_source for participants with data only from one source
+pivot_total_size$preferred_source <- ifelse(pivot_total_size$PC == 0 & pivot_total_size$SD > 0, "SD", pivot_total_size$preferred_source)
+pivot_total_size$preferred_source <- ifelse(pivot_total_size$SD == 0 & pivot_total_size$PC > 0, "PC", pivot_total_size$preferred_source)
+
+# Optional: For a strict comparison, in case both sizes are equal (unlikely but possible), decide based on a predefined preference
+# This line is optional and can be adjusted based on your specific needs or omitted if not needed
+
+pivot_total_size$preferred_source <- ifelse(pivot_total_size$PC == pivot_total_size$SD, "SD", pivot_total_size$preferred_source)
+
+table(pivot_total_size$preferred_source)
+# now load the files based on this preference
+
+
+# Assuming pivot_total_size and file_info are already defined as shown in your code
+
+# Merge the preference back to the original file_info dataframe to know which files to keep
+file_info <- merge(file_info, pivot_total_size[, c("participant", "preferred_source")], by="participant")
+
+# Filter out files based on the preferred source
+final_files_to_load <- file_info[file_info$source == file_info$preferred_source,]
+
+
+
+```
+
+are there cases where we need to combine SD and PC?
+load gsr data
+
 
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated")
 ###################################################
@@ -214,7 +353,7 @@ tmp_files
 # try again
 
 # should have removed this before running the code below
-rm(dta_gsr)
+# rm(dta_gsr)
 
 # Custom function to read a file and adjust its column names
 # Function to read a dataset and adjust column names based on the first two rows
@@ -235,6 +374,7 @@ rm(dta_gsr)
 # 4. Assigns the combined column names to the dataset.
 # 5. Adds a column indicating the filename from which the data was read.
 # 6. This approach ensures proper data type handling by skipping header rows during the full data read.
+
 fn_read_and_adjust <- function(file_path) {
   # Read the first two rows for column names adjustment
   header_info <- fread(file_path, nrows = 2, header = FALSE)
@@ -253,58 +393,187 @@ fn_read_and_adjust <- function(file_path) {
 }
 
 
+note this below is not6 quite for ledalab  -see ahead
+
+```{r}
+# Predefined column names
+final_files_to_load
+colnames(dta_gsr[,2:12])
+gsr_column_names <- colnames(dta_gsr[,2:12])
+gsr_column_names
+# 1] "gsr_pulse_timestamp_sync_unix_cal_ms"            
+#  [2] "gsr_pulse_battery_cal_m_v"                       
+#  [3] "gsr_pulse_gsr_range_cal_no_units"                
+#  [4] "gsr_pulse_gsr_skin_conductance_cal_u_s"          
+#  [5] "gsr_pulse_gsr_skin_resistance_cal_k_ohms"        
+#  [6] "gsr_pulse_ppg_a13_cal_m_v"                       
+#  [7] "gsr_pulse_ppg_ibi_cal_ms"                        
+#  [8] "gsr_pulse_pp_gto_hr_cal_bpm"                     
+#  [9] "gsr_pulse_pressure_bmp280_cal_k_pa"              
+# [10] "gsr_pulse_temperature_bmp280_cal_degrees_celsius"
+# [11] "gsr_pulse_event_marker_cal_no_units"
+
+
+# Helper function to extract participant ID and session from filename
+extract_info <- function(filename) {
+  parts <- str_match(filename, ".*/(\\d+)_Session(\\d+)_GSRPulse_.*\\.csv$")
+  return(list(participant_id = parts[, 2], session = parts[, 3]))
+}
+
+# Create a dataframe to map participant IDs and sessions to file paths
+flatten(final_files_to_load$file_path)
+file_info_2 <- sapply(final_files_to_load$file_path, 
+                    function(x) extract_info(x), 
+                    simplify = FALSE)
+
+file_df <- do.call(rbind, 
+                   lapply(file_info_2, function(x) data.frame(participant_id = 
+                                                              x$participant_id, 
+                                                            session = x$session, stringsAsFactors = FALSE)))
+
+
+file_df$filepath <- final_files_to_load$file_path
+file_df$file_size <- final_files_to_load$file_size
 # Process a list of file paths, adjust their column names, and combine into a single data.table
 # Clean column names using `janitor::clean_names` for consistency
 # Assuming tmp_files is a list of file paths
-tmp_files
+# file_df$participant_id = file_df$participant_id 
+# participant_id = 136
+rm(participant_id)
 
-dta_gsr <- rbindlist(lapply(tmp_files, fn_read_and_adjust), use.names = TRUE, fill = TRUE) %>%
-  janitor::clean_names()%>%
-  select(filename, matches("gsr"))
+for (participant_id in unique(file_df$participant_id)) {
+  # Find all files for this participant
+  participant_files <- file_df[file_df$participant_id == participant_id, ]
+  
+  # Initialize an empty list to hold session data
+  all_sessions_data <- list()
+  
+  for (i in 1:nrow(participant_files)) {
+    
+    message("\nProcessing Participant ID: ", participant_id)
+    # Load and process each file
+    filepath <- participant_files$filepath[i]
+    session <- participant_files$session[i]
+
+    # Read the CSV file, skip the first 3 rows
+    tmp_gsr <- fread(filepath, skip = 3, header = FALSE)
+    
+    # Check if the dataframe has 10 columns, and if so, add an empty 11th column
+if (ncol(tmp_gsr) == 10) {
+  # Add an 11th column filled with NA
+  tmp_gsr[, V11 := NA]
+}
+
+# Proceed with removing extra columns if necessary
+extra_cols <- ncol(tmp_gsr) - length(gsr_column_names)
+if (extra_cols > 0) {
+  tmp_gsr <- tmp_gsr[, -((ncol(tmp_gsr)-extra_cols+1):ncol(tmp_gsr)), with = FALSE]
+}
+
+# Now assign predefined column names, assuming 'gsr_column_names' is of length 11
+setnames(tmp_gsr, old = names(tmp_gsr), new = gsr_column_names)
 
 
-colnames(dta_gsr)
-unique(dta_gsr$filename)
+    # Assign predefined column names
+    setnames(tmp_gsr, old = names(tmp_gsr), new = gsr_column_names)
+    
+    # Add a new column with the filename
+    filename <- basename(filepath)
+    tmp_gsr[, filename := filename]
+    
+    tmp_gsr[, session := session]
+    
+    # Correct original timestamp column name to match GSRPulse data
+    tmp_gsr[, orig_timestamp_gsr_pulse := gsr_pulse_timestamp_sync_unix_cal_ms]
+    
+    # Merge timestamps and other operations from dta_psypy1
+    tmp_psypy <- dta_psypy1[participant == participant_id, .(participant, social_nonsocial, stim_iaps, trial_no_all, unixtime_start, orig_unixtime_start_psypy)]
+    
+    tmp_psypy[, next_unixtime_start := shift(unixtime_start, type = "lead", fill = Inf)]
+    tmp_psypy[, unixtime_end := next_unixtime_start - 1]
+    
+    # Initialize missing columns in tmp_gsr
+    tmp_gsr[, `:=` (social_nonsocial = as.character(NA), 
+                         stim_iaps = as.character(NA), 
+                         trial_no_all = as.integer(NA), 
+                         psypy_unixtime_start = as.numeric(NA),
+                         orig_unixtime_start_psypy = as.numeric(NA))]
+    
+    # Perform the non-equi join and update
+    tmp_gsr[tmp_psypy, on = .(gsr_pulse_timestamp_sync_unix_cal_ms >= unixtime_start, 
+                                   gsr_pulse_timestamp_sync_unix_cal_ms <= unixtime_end), 
+                 `:=` (social_nonsocial = i.social_nonsocial, 
+                       stim_iaps = i.stim_iaps, 
+                       trial_no_all = i.trial_no_all, 
+                       psypy_unixtime_start = i.unixtime_start,
+                       orig_unixtime_start_psypy = i.orig_unixtime_start_psypy), 
+                 by = .EACHI]
+    
+    # Append the processed session data to the list
+    all_sessions_data[[length(all_sessions_data) + 1]] <- tmp_gsr
+  }
+  
+  # Combine data from all sessions
+  combined_data <- do.call(rbind, all_sessions_data)
+  
+  # Convert combined data to tibble for dplyr operations
+  combined_data <- as_tibble(combined_data)
+  
+  # Apply dplyr operations
+  combined_data <- combined_data %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+    mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all),
+           trigger = case_when(
+             trial_no_all == 1 & start_true == TRUE ~ 1,
+             start_true == FALSE ~ 0,
+             TRUE ~ as.numeric(trial_no_all)),
+           gsr_pulse_timerezero_sync_unix_cal_ms = gsr_pulse_timestamp_sync_unix_cal_ms - first(gsr_pulse_timestamp_sync_unix_cal_ms))
+  
+# Just before writing out the combined_data
+unique_triggers <- length(unique(combined_data$trigger))
+unique_trigger_gt_zero <- combined_data %>% 
+  filter(trigger > 0) %>%
+  count(trigger) %>%
+  filter(n > 1)
 
-head(dta_gsr)
-dta_gsr$filename
+# Check for conditions
+if (unique_triggers != 66 || nrow(unique_trigger_gt_zero) > 0) {
+  warning_message <- paste("Warning: Data integrity checks failed for Participant ID:", participant_id)
+  
+  if (unique_triggers != 66) {
+    warning_message <- paste(warning_message, "\nExpected 66 unique trigger values, but found", unique_triggers)
+  }
+  
+  if (nrow(unique_trigger_gt_zero) > 0) {
+    warning_message <- paste(warning_message, "\nFound trigger values greater than 0 that are present more than once:")
+    for (i in 1:nrow(unique_trigger_gt_zero)) {
+      warning_message <- paste(warning_message, unique_trigger_gt_zero$trigger[i], "(", unique_trigger_gt_zero$n[i], "times);")
+    }
+  }
+  
+  # Print the warning message
+  message(warning_message)
+} else {
+  # If all checks pass, proceed with writing the file
+  fwrite(as.data.table(combined_data), paste0(participant_id, "_allsessions", "_dta_gsr_pulse_trig.csv"), row.names = FALSE)
+  
+  # Print completion message for current participant
+  message("Completed processing for Participant ID: ", participant_id)
+}
+}
 
-# taskes a bit of time
-dta_gsr<- dta_gsr%>%
-  mutate(participant = sub("_.*", "", filename),
-         session = gsub(".*_(Session\\d+)_.*", "\\1", filename))
-
-
-
-# Replace '000' with '217' in the participant column
-# 000 is 217 coded by mistake by the students
-dta_gsr$participant <- ifelse(dta_gsr$participant == '000', '217', dta_gsr$participant)
-
-unique(dta_gsr$participant)
-unique(dta_gsr$session)
-
-
-
-# check nas
-dta_gsr %>%
-  # Group data by 'participant'
-  group_by(participant) %>%
-  # Summarise the data to count NA and non-NA values
-  summarise(
-    num_NA = sum(is.na(gsr_pulse_ppg_a13_cal_m_v)), # Count of NAs
-    num_non_NA = sum(!is.na(gsr_pulse_ppg_a13_cal_m_v)) # Count of non-NAs
-  )
-
-# test<- dta_gsr%>%subset(participant == 226)## this had NAS
-# 
-# [1] "217" "101" "102" "103" "104" "105" "106" "107" "108" "109" "110" "111" "112" "113"
-# [15] "114" "115" "116" "117" "118" "120" "121" "122" "123" "124" "125" "126" "127" "128"
-# [29] "129" "130" "131" "132" "133" "134" "135" "136" "201" "202" "203" "204" "205" "206"
-# [43] "207" "208" "209" "210" "211" "212" "213" "214" "215" "216" "218" "219" "220" "221"
-# [57] "222" "224" "225" "226" "227" "228" "229" "230" "231" "232" "233" "234"
 
 ```
+Participant ID: 208
+Warning: Data integrity checks failed for Participant ID: 208 
+Expected 66 unique trigger values, but found 32
 
+this participant is to be excludethey didn't complete the task
+so we should have 69
+
+
+
+```{r eval=FALSE, include=FALSE}
 
 # assuming 1.5 hours times 93 peoples recordinds made at 128 hz, how many rows should we expect this data to have
 
@@ -332,289 +601,11 @@ dta_gsr %>%
 # issue here, when using a different sensor, e.g. fd29 the columns are named ioncomnsistently 
 # e.g. v3_shimmer_fd29_gsr_range_cal" ratyher than v3_gsr_pulse_gsr_range_cal"  
 # so these ietehr need to be renamed manually or programatically
-
+```
 combine with timestamps from psychopy
+skip this
 
-```{r eval=FALSE, include=FALSE}
-# keep some original time
 
-dta_gsr$orig_timestamp_gsr<- dta_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
-
-
-dta_psypy1$orig_unixtime_start_psypy<- dta_psypy1$unixtime_start
-
-range(dta_psypy1$unixtime_start)
-# hopefully we can use these to check that the merging should actuallymatch what we expect because the difference between this number and the timestamp should be close to zero where we actualy present the stimuli
-
-# Rolling join 
-# start with just one case
-# db_time4leda$participant
-
-dta_psypy1
-
-colnames(dta_psypy1)
-
-tmp_test<- dta_psypy1%>%
-  subset(participant == 134)%>%
-  select(participant,social_nonsocial,stim_iaps,trial_no_all,unixtime_start,orig_unixtime_start_psypy, unixtime_end)
-
-tmp_test_gsr<- dta_gsr%>%
-  subset(participant == 134)
-
-
-setDT(tmp_test) 
-setDT(tmp_test_gsr) 
-
-options(scipen = 999)
-tmp_test$orig_unixtime_start_psypy
-# tmp_test$unixtime_start
-# tmp_test$unixtime_end
-# tmp_test_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
-tmp_test_psypy_gsr <-tmp_test[tmp_test_gsr, on = .( unixtime_start=  gsr_pulse_timestamp_sync_unix_cal_ms), 
-                              roll = "nearest"]
-
-
-tmp_test_psypy_gsr$orig_timestamp_dtaphyisio
-
-
-# this means that unix time gets populated by the original physio time
-dt_result$orig_timestamp_dtaphyisio-dt_result$unixtime_start
-
-# the value close to zero here should be the start
-dt_result$orig_timestamp_dtaphyisio-dt_result$orig_unixtime_start_psypy
-
-
-
-
-tmp_test_psypy_gsr_test2<- dta_merged%>%
-  subset(participant == 134)
-
-
-tmp_test_psypy_gsr%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
-  ggplot(aes(orig_timestamp_gsr, timediff_phys_start_psypy))+
-  geom_point(size = .0001)
-
-tmp_merged%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
-  ggplot(aes(orig_timestamp_gsr, timediff_phys_start_psypy))+
-  geom_point(size = .0001)
-
-
-
-
-tmp_test_psypy_gsr%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
-  ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
-  geom_line()+
-  geom_vline(aes())
-  
-
-tmp_test2<- tmp_test_psypy_gsr%>%subset(trial_no_all== 10)
-unique(tmp_test2$stim_iaps)
-# so 
-# 120*128
-# 15360
-
-
-tmp_merged%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-unixtime_start)%>%
-  # group_by()
-  # mutate(timenew = orig_timestamp_gsr[trigger!= 0])%>%
-  ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
-  geom_line()+
-  geom_vline(data = tmp_merged %>% filter(trigger != 0),
-             aes(xintercept = orig_timestamp_gsr), color = "red")
-
-
-# This code visualizes the alignment of physiological responses (GSR data) with experimental events (PsychoPy data) for the first two trials. It arranges the data by the start time of events, calculates the time differences between the PsychoPy and GSR timestamps, and visualizes these alongside GSR skin conductance levels. Vertical red lines highlight events or stimuli presentations with non-zero triggers, aiding in the examination of response timing relative to stimuli. This analysis is crucial for verifying the temporal accuracy of the experimental data alignment in the initial trials.
-
-
-tmp_merged %>%subset(trial_no_all > 9 & trial_no_all < 15)%>%
-  arrange(unixtime_start)%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-unixtime_start)%>%
-  
-      mutate(time = unixtime_start-unixtime_start[1])%>%
-    # subset(time < 190000)%>%
-  ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s,
-             colour = trial_no_all))+
-  geom_line()+
-  geom_vline(data = tmp_merged %>% 
-               filter(trigger != 0)%>%
-               subset(trial_no_all > 9 & trial_no_all < 15),
-
-             aes(xintercept = orig_timestamp_gsr), color = "red", size = .1)+
-   geom_line()+
-  geom_point(aes(y = timediff_phys_start_psypy/10000),size = .00000000001)
-
-# this code shows that trial_no_all start appearing before the trial, this is ebacuse ofg the nar join we did earlier which essentially combines psychopy times based on near points, so the row wil be puished to the enares point and then replicated untyil it vhsanges this cases t
-# so trial_number and posychopy information before the marker is largely innacurate and might eb safer to 1 - ignorte any additiopnal psychpopyn info oteh than just the time used to create start_true andn create 
-
-
-
-options(scipen = 999)
-
-tmp_merged<- tmp_merged%>%
-  arrange(orig_timestamp_gsr)
-
-
-
-dta_filtered<- dta_filtered%>%
-  arrange(orig_timestamp_gsr)
-
-tmp_merged$orig_timestamp_gsr[tmp_merged$start_true == TRUE]-
-
-dta_filtered$gsr_pulse_timestamp_sync_unix_cal_ms[dta_filtered$start_true == TRUE]
-
-# tmp_merged$tmp_merged$start_true == TRUE]-
-tmp_merged
-
-test_merged<- tmp_merged%>%
-  subset(start_true == TRUE)%>%
-  subset(!duplicated(stim_iaps))%>%
-  
-  arrange(orig_timestamp_gsr)
-
-test_merged$orig_timestamp_gsr-
-dta_filtered$orig_timestamp_gsr[dta_filtered$start_true == TRUE]
-# 
-# dta_filtered%>%subset(start_true == TRUE)
-# dta_filtered$orig_timestamp_gsr-dta_filtered$gsr_pulse_timestamp_sync_unix_cal_ms
-```
-
-
-
-
-# trying a more efficient way of merging psychopy timsetamps to gsr using data.table
-
-##### 
-to worrk on
-note as data gets bigger we will lielly need to do one file at a a time
-##### 
-
-
-```{r}
-# Convert data.frames to data.tables for efficiency in large datasets
-
-
-participants <- unique(dta_psypy1$participant)
-# unique(tmp_test_psypy_gsr$stim_iaps)
-participant_id = 134
-p = 134
-for (participant_id in participants) {
-  # Filter participant data from each dataset
-  tmp_psypy <- dta_psypy1[participant == participant_id]%>%
-     select(participant,social_nonsocial,stim_iaps,trial_no_all,unixtime_start,orig_unixtime_start_psypy, unixtime_end)
-  tmp_gsr <- dta_gsr[participant == participant_id]
-  
-  tmp_merged <- tmp_psypy[tmp_gsr, on = .(unixtime_start = gsr_pulse_timestamp_sync_unix_cal_ms), roll = "nearest"]%>%
-    arrange(unixtime_start)
-  
-  # Compute time difference and establish start_true flag
-  
-  # Creating start_true flag based on timediff
-# dta_merged[, timediff_phys_start_psypy := orig_unixtime_start_psypy - orig_timestamp_gsr]
-# dta_merged[, start_true := fifelse(timediff_phys_start_psypy > 0 & timediff_phys_start_psypy <= 10, TRUE, NA)]
-  # colnames(tmp_merged)
-  tmp_merged[, timediff_phys_start_psypy := orig_unixtime_start_psypy - unixtime_start] #positive means stimuli hasnt started yet
-  tmp_merged[, start_true := fifelse(timediff_phys_start_psypy > -10 & timediff_phys_start_psypy <= 0, TRUE,FALSE)]
-  
-  # Processing triggers based on key variables and conditions
-  # tmp_merged$unixtime_end
-
-  
-# Number of samples=Sampling rate×Time in seconds
-  # we can uswe this to say thjat we wilo look back 768 sampels *=(6 seconds to as ficxa)
-  
-  # just ignore the pre and opost responses for now
-  # Process triggers
-  
-  # tmp_merged$unixtime_start - tmp_merged$orig_timestamp_gsr same
-  tmp_merged <- tmp_merged %>%
-    arrange(unixtime_start)%>%
-    group_by(trial_no_all) %>%
-    mutate(
-           trigger = case_when(
-             trial_no_all == 1 & start_true == TRUE ~ 1, 
-             start_true == FALSE ~ 0, 
-             TRUE ~ as.numeric(trial_no_all) # Default case if needed
-           )) %>%
-    ungroup()
-  
-  
-  # Export the processed data for this participant
-  fwrite(tmp_merged, paste0("processed_data_participant_", participant_id, ".csv"), row.names = FALSE)
-}
-
-```
-
-
-note this below is not6 quite for ledalab  -see ahead
-```{r}
-library(data.table)
-
-# Ensure dta_gsr and dta_psypy1 are data.tables
-setDT(dta_gsr)
-setDT(dta_psypy1)
-
-participant_ids <- unique(c(dta_gsr$participant, dta_psypy1$participant))
-
-# backup iorigial times
-dta_gsr$orig_timestamp_gsr<- dta_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
-
-dta_psypy1$orig_unixtime_start_psypy<- dta_psypy1$unixtime_start
-
-
-
-dta_psypy1
-
-
-dta_gsr
-
-# participant_id = 213
-rm(participant_id)
-
-setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers")
-
-for (participant_id in participant_ids) {
-  
-  tmp_gsr <- dta_gsr[participant == participant_id]
-  tmp_psypy <- dta_psypy1[participant == participant_id][, .(participant, social_nonsocial, stim_iaps, trial_no_all, unixtime_start,orig_unixtime_start_psypy)]
-  tmp_psypy[, next_unixtime_start := shift(unixtime_start, type = "lead", fill = Inf)]
-  tmp_psypy[, unixtime_end := next_unixtime_start - 1]
-  
-  # Initialize columns in tmp_gsr to match the types from tmp_psypy
-  tmp_gsr[, `:=` (social_nonsocial = as.character(NA), 
-                  stim_iaps = as.character(NA), 
-                  trial_no_all = as.integer(NA), 
-                 psypy_unixtime_start = as.numeric(NA),
-                  orig_unixtime_start_psypy = as.numeric(NA))]
-  
-  # Perform the non-equi join and update
-  tmp_gsr[tmp_psypy, on = .(gsr_pulse_timestamp_sync_unix_cal_ms >= unixtime_start, 
-                            gsr_pulse_timestamp_sync_unix_cal_ms <= unixtime_end), 
-          `:=` (social_nonsocial = i.social_nonsocial, 
-                stim_iaps = i.stim_iaps, 
-                trial_no_all = i.trial_no_all, 
-                psypy_unixtime_start = i.unixtime_start,
-                orig_unixtime_start_psypy = i.orig_unixtime_start_psypy), 
-          by = .EACHI]
-
-  tmp_gsr<-tmp_gsr%>%
-    ungroup()%>%
-    arrange(gsr_pulse_timestamp_sync_unix_cal_ms)%>%
-    mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all))%>%
-    mutate(trigger = case_when(
-             trial_no_all == 1 & start_true == TRUE ~ 1, 
-             start_true == FALSE ~ 0, 
-             TRUE ~ as.numeric(trial_no_all)))%>%
-    mutate(gsr_pulse_timerezero_sync_unix_cal_ms = gsr_pulse_timestamp_sync_unix_cal_ms-gsr_pulse_timestamp_sync_unix_cal_ms[1]) # rezero
-  
-  fwrite(tmp_gsr, paste0(participant_id,"_dta_gsr_trig.csv"), row.names = FALSE)
-}
-tmp_gsr$orig_timestamp_gsr
-tmp_gsr$TR
-```
 
 
 
@@ -623,73 +614,80 @@ just some checks
 tmp_gsr
 unique(tmp_gsr$trial_no_all)
 
-tmp_gsr$psypy_unixtime_start
-colnames(tmp_gsr)
-dta_filtered <- tmp_gsr %>%
+tmp_gsr<-  read_csv("136_allsessions_dta_gsr_pulse_trig.csv")
+View(X136_allsessions_dta_gsr_pulse_trig)
+
+# tmp_gsr
+tmp_gsr %>%
     arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
-  # Filter for trial numbers between 10 and 14 (inclusive)
-  # filter(trial_no_all  <10) %>%
-  # Group by 'trial_no_all' for operations within each trial
-  group_by(trial_no_all) %>%
-  # Arrange by timestamp within each trial group
 
-  # Identify the first row in each trial group (start of the trial)
-  # mutate(start_true = row_number() == 1) %>%
-  # Create 'time' only for the first row in each group; NA otherwise
-  # Identify the first non-NA occurrence in each group
-  mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all)) %>%
-  # Calculate the 'time' value only for the first valid occurrence
-  
-  mutate(time = ifelse(start_true, gsr_pulse_timestamp_sync_unix_cal_ms, NA)) %>%
-  # Use `fill` to propagate the first timestamp down the group
-  fill(time, .direction = "down")%>%
-  ungroup()%>%
-  arrange(gsr_pulse_timestamp_sync_unix_cal_ms)
-
-# Now, plot with 'ggplot2'
-dta_filtered$orig_unixtime_start_psypy-dta_filtered$orig_timestamp_gsr
-
-
-dta_filtered$participant
-
-dta_filtered%>%
-  subset(trial_no_all>15 & trial_no_all<20)%>%
-  mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr)%>%
+    # subset(trial_no_all>10 & trial_no_all<18)%>%
+  mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr_pulse)%>%
   ggplot( aes(x = gsr_pulse_timestamp_sync_unix_cal_ms, 
                          y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
-  geom_line() +
-  # Add red vertical lines at 'time' for the start of each trial
-  geom_vline(aes(xintercept = time), color = "red") +
-  geom_vline(aes(xintercept = time+6500), color = "blue") +
-  geom_vline(aes(xintercept = time+1000), linetype = "dashed")+
-geom_vline(aes(xintercept = time-1000), linetype = "dashed")
-  # geom_vline(xintercept = 1709728450000)+
-      # xlim(1709728450000,1709728660000-100000)
-  # labs(colour = "Trial Number")+
-  # geom_point(aes(y = time_diff_psypy_gsr/100000), size = .000000000000001)
+  geom_line() 
+ 
+names(X136_Session1_GSRPulse_Calibrated_PC)<- gsr_column_names
 
+names(X136_Session1_GSRPulse_Calibrated_SD)<- gsr_column_names
+
+tmp_gsr %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+
+    # subset(trial_no_all>10 & trial_no_all<18)%>%
+  # mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr_pulse)%>%
+  ggplot( aes(x = gsr_pulse_timestamp_sync_unix_cal_ms, 
+                         y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
+  geom_line() 
+
+
+X136_Session1_GSRPulse_Calibrated_PC %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+
+    # subset(trial_no_all>10 & trial_no_all<18)%>%
+  # mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr_pulse)%>%
+  ggplot( aes(x = gsr_pulse_timestamp_sync_unix_cal_ms, 
+                         y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
+  geom_line() 
+
+X136_Session1_GSRPulse_Calibrated_SD %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+
+    # subset(trial_no_all>10 & trial_no_all<18)%>%
+  # mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr_pulse)%>%
+  ggplot( aes(x = gsr_pulse_timestamp_sync_unix_cal_ms, 
+                         y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
+  geom_line() 
+ 
   
-  tmp_merged%>%
-      subset(trial_no_all>10 & trial_no_all<18)%>%
-  mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-unixtime_start)%>%
-  # group_by()
-  # mutate(timenew = orig_timestamp_gsr[trigger!= 0])%>%
-  ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
-  geom_line()+
-  geom_vline(data = tmp_merged %>% filter(trigger != 0 & trial_no_all>10 & trial_no_all<18),
-             aes(xintercept = orig_timestamp_gsr), color = "red")+
-     geom_vline(data = tmp_merged %>% filter(trigger != 0 & trial_no_all>10 & trial_no_all<18),
-             aes(xintercept = orig_timestamp_gsr+6500), color = "blue")+
-    geom_vline(data = tmp_merged %>% filter(trigger != 0 & trial_no_all>10 & trial_no_all<18),
-             aes(xintercept = orig_timestamp_gsr+1000), linetype = "dashed")+
-      geom_vline(data = tmp_merged %>% filter(trigger != 0 & trial_no_all>10 & trial_no_all<18),
-             aes(xintercept = orig_timestamp_gsr-1000), linetype = "dashed")+
-    
-    geom_vline(xintercept = 1709728450000)+
-    xlim(1709728450000,1709728660000-100000)
+  
+  # tmp_merged%>%
+  #     # subset(trial_no_all>10 & trial_no_all<18)%>%
+  # mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-unixtime_start)%>%
+  # # group_by()
+  # # mutate(timenew = orig_timestamp_gsr[trigger!= 0])%>%
+  # ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
+  # geom_line()
 
 
+tmp_gsr
 
+tmp_merged_test<- tmp_merged%>%
+  subset(!duplicated(trigger))
+
+
+tmp_merged_test$orig_timestamp_gsr[tmp_merged_test$trigger >0]-
+tmp_gsr$gsr_pulse_timestamp_sync_unix_cal_ms[tmp_gsr$trigger >0]
+
+# [1]  0.0046386719 -0.0004882812  0.0024414062  0.0036621094 -0.0029296875  0.0021972656  0.0019531250  0.0021972656 -0.0009765625
+# [10]  0.0043945312  0.0014648438 -0.0021972656  0.0000000000  0.0026855469  0.0000000000  0.0029296875  0.0004882812 -0.0034179688
+# [19]  0.0039062500  0.0004882812  0.0024414062 -0.0012207031 -0.0017089844 -0.0041503906 -0.0039062500  0.0036621094  0.0043945312
+# [28] -0.0043945312 -0.0046386719  0.0031738281 -0.0031738281 -0.0048828125 -0.0029296875 -0.0041503906  0.0009765625  0.0029296875
+# [37]  0.0048828125 -0.0051269531 -0.0043945312  0.0024414062 -0.0024414062 -0.0014648438 -0.0002441406 -0.0009765625 -0.0014648438
+# [46] -0.0019531250  0.0039062500 -0.0012207031 -0.0002441406 -0.0012207031 -0.0029296875 -0.0014648438  0.0014648438  0.0017089844
+# [55]  0.0021972656  0.0031738281  0.0007324219 -0.0007324219 -0.0036621094  0.0007324219 -0.0019531250  0.0017089844  0.0000000000
+# [64]  0.0041503906  0.0041503906
+# expected
 ```
 
 this actually works and agrees with the previopusnone
@@ -718,16 +716,15 @@ this one below export the fulld ataset, but its best to export rest and trials s
 
 colnames(tmp_gsr)
 
-
-unique(X126_dta_gsr_trig$trigger)
+tmp_gsr$time
 
 # Define the directory where participant CSV files are stored
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers")
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/")
 
-input_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers"
+input_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/"
 
 # Define the output directory for the formatted files
-output_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers/format4leda"
+output_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/format4leda/all unsplit/"
 
 library(dplyr)
 
@@ -772,13 +769,13 @@ lapply(participant_files, process_participant_file)
 export trials and rest period separatelly
 ```{r}
 
-
-input_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers"
+input_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/"
 
 # Define the output directory for the formatted files
-output_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/withtriggers/format4leda"
+output_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/format4leda/"
 # Assuming input_directory and output_directory are defined
 participant_files <- list.files(input_directory, pattern = "\\.csv$", full.names = TRUE)
+
 
 process_participant_file <- function(file_path) {
   # Read the CSV file and select relevant columns

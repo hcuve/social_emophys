@@ -25,15 +25,11 @@ require(readr)
 ```
 
 
-Load files check how many we have on sd vs PC
-# Handling file imports from PC and SD sources:
-# - This process primarily relies on PC files, but switches to SD files in the absence of a corresponding PC file.
-# - A notable discrepancy has been observed in the export formats: PC exports contain "sync" within the timestamps, unlike SD exports. This difference may affect how filenames are generated and could imply variations in how data synchronization is handled or represented between the two sources.
-# - It is essential to consider this variation during data processing to ensure consistent naming conventions and to investigate the synchronization status of SD data.
-# - The custom function is applied to each file to adjust for these discrepancies, and the results are subsequently combined.
+Initiate exploration of strategies to correct file naming inconsistencies due to RA errors. This commit focuses on developing a methodical approach to detect, report, and correct instances where participant identifiers have been reused or incorrectly labeled across our dataset. This is crucial for ensuring data integrity and reliability, especially for identifiers 118, 119, 222, and 223, which have been identified as problematic. The aim is to automate as much of this correction process as possible, reducing the need for manual intervention and decreasing the likelihood of similar issues arising in the future. Details on the proposed solutions and their implementation will be shared in subsequent updates.
 
 
 ```{r}
+
 
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated")
 
@@ -47,12 +43,13 @@ tmp_files_sd <- list.files(pattern = "ECG.*SD\\.csv$", recursive = FALSE, full.n
 # Extract identifiers
 
 # Regular expression to capture the pattern before "_" and after "./"
-pattern <- "\\./([0-9]+)_.*"
+# pattern <- "^\\./(.+)_ECG"
 
-# Extract the pattern
+# sub("^\\./(.+)_ECG.*$", "\\1", tmp_files_pc)
 
-identifiers_tmp_files_pc <- sub(pattern, "\\1",  tmp_files_pc)
-identifiers_tmp_files_sd <- sub(pattern, "\\1", tmp_files_sd)
+
+identifiers_tmp_files_pc <- sub("^\\./(.+)_ECG.*$", "\\1", tmp_files_pc)
+identifiers_tmp_files_sd <- sub("^\\./(.+)_ECG.*$", "\\1", tmp_files_sd)
 
 # Compare and find common identifiers
 tmp_common_identifiers <- intersect(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
@@ -63,12 +60,18 @@ tmp_common_identifiers
 
 # Identifiers unique to PC files
 tmp_unique_identifiers_pc <- setdiff(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
-# "101" "102" "106" ADDED DB 103
+
+# ADDED DB 103
 # Identifiers unique to SD files
 tmp_unique_identifiers_sd <- setdiff(identifiers_tmp_files_sd, identifiers_tmp_files_pc)
-# "105" "108" "110" "111" "113" "114" "201" "204" "205" "208" "209" "213" "220" #### 119 was mistaklenly set as 118
+# [1] "104_Session1" "105_Session1" "107_Session1" "108_Session1" "110_Session1"
+#  [6] "111_Session1" "112_Session1" "113_Session1" "114_Session1" "119_Session2"
+# [11] "120_Session1" "126_Session1" "127_Session1" "201_Session1" "202_Session1"
+# [16] "204_Session1" "205_Session1" "208_Session1" "209_Session1" "213_Session1"
+# [21] "214_Session2" "215_Session1" "220_Session1" "223_Session2" "224_Session1"
+# [26] "230_Session1"
+#### 119 was mistaklenly set as 118
 # 220 noted missing in logbook
-# way more ECG files didn load to PC than GSR
 
 
 # now we want to create a list that contains tmp_files_pc plus the tmp_unique_identifiers_sd
@@ -90,6 +93,11 @@ tmp_combined_list <- c(tmp_files_pc,tmp_selected_files_sd)
 
 tmp_combined_list
 # remember to update 000_Session1_ECG_Calibrated_PC to 2176?
+
+# so we are picking up all files
+ grep("223", tmp_combined_list, value=TRUE)
+ grep("223", tmp_files_sd, value=TRUE)
+
 ```
 
 
@@ -236,6 +244,10 @@ for (participant_id in participant_ids) {
 
 
 load merge triggers and export - so this will still be rawish - i.e no procesing
+
+multisesion as one
+
+223 - dos separately PC and SD have different sessions that are actually the sa
 ```{r}
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/ecg_wtriggers")
 
@@ -257,28 +269,42 @@ file_df$filepath <- tmp_combined_list
 # participant_ids
 # 119
 
-for (participant_id in participant_ids) {
+
+library(data.table) # Ensure data.table is loaded
+library(dplyr)      # Ensure dplyr is loaded
+
+library(readr)
+# X210_Session1_ECG_Calibrated_SD <- read_csv("210_Session1_ECG_Calibrated_SD.csv")
+participant_id = 210
+# participant_id = 223
+View(X210_Session1_ECG_Calibrated_SD)
+
+for (participant_id in unique(file_df$participant_id)) {
   # Find all files for this participant
   participant_files <- file_df[file_df$participant_id == participant_id, ]
   
-  # rm(i)
+  # Initialize an empty list to hold session data
+  all_sessions_data <- list()
+  
   for (i in 1:nrow(participant_files)) {
+    
+    message("\nProcessing Participant ID: ", participant_id)
     # Load and process each file
+    # 210_Session1_ECG_Calibrated_SD.csv
     filepath <- participant_files$filepath[i]
-    session <- participant_files$session[i] # This line captures the session info directly
+    # filepath<- "./210_Session1_ECG_Calibrated_SD.csv"
+    # session = 1
+     # "./223_Session2_ECG_Calibrated_SD.csv"
+    session <- participant_files$session[i]
 
     # Read the CSV file, skip the first 3 rows
     tmp_ecg <- fread(filepath, skip = 3, header = FALSE)
     
-    # Check if there's an extra empty column and remove it if necessary
-    # Ensure Consistent Column Removal: You might need a more robust way to check for and remove extra columns. For instance, if the extra columns are always at the end and there's a possibility of having more than one extra column, you might adjust the column removal step based on the difference in lengths:
+    # Remove extra columns if necessary
     extra_cols <- ncol(tmp_ecg) - length(column_names)
-if (extra_cols > 0) {
-  tmp_ecg <- tmp_ecg[, -((ncol(tmp_ecg)-extra_cols+1):ncol(tmp_ecg)), with = FALSE]
-}
-    # if (ncol(tmp_ecg) > length(column_names)) {
-    #   tmp_ecg <- tmp_ecg[, -ncol(tmp_ecg), with = FALSE]
-    # }
+    if (extra_cols > 0) {
+      tmp_ecg <- tmp_ecg[, -((ncol(tmp_ecg)-extra_cols+1):ncol(tmp_ecg)), with = FALSE]
+    }
     
     # Assign predefined column names
     setnames(tmp_ecg, old = names(tmp_ecg), new = column_names)
@@ -287,16 +313,13 @@ if (extra_cols > 0) {
     filename <- basename(filepath)
     tmp_ecg[, filename := filename]
     
-    # Correct original timestamp column name if necessary
-    tmp_ecg[, orig_timestamp_ecg := ecg_timestamp_sync_unix_cal_ms] 
-
+    tmp_ecg[, session := session]
+    
+    # Correct original timestamp column name
+    tmp_ecg[, orig_timestamp_ecg := ecg_timestamp_sync_unix_cal_ms]
     
     # Merge timestamps and other operations from dta_psypy1
-
-    tmp_psypy <- dta_psypy1[participant == participant_id, 
-                            .(participant, social_nonsocial, 
-                              stim_iaps, trial_no_all, unixtime_start, 
-                              orig_unixtime_start_psypy)]
+    tmp_psypy <- dta_psypy1[participant == participant_id, .(participant, social_nonsocial, stim_iaps, trial_no_all, unixtime_start, orig_unixtime_start_psypy)]
     tmp_psypy[, next_unixtime_start := shift(unixtime_start, type = "lead", fill = Inf)]
     tmp_psypy[, unixtime_end := next_unixtime_start - 1]
     
@@ -317,28 +340,36 @@ if (extra_cols > 0) {
                   orig_unixtime_start_psypy = i.orig_unixtime_start_psypy), 
             by = .EACHI]
     
-    # Convert data.table to tibble for further dplyr operations if necessary
-    tmp_ecg <- as_tibble(tmp_ecg)
-    
-    # dplyr operations
-    tmp_ecg <- tmp_ecg %>%
-      arrange(ecg_timestamp_sync_unix_cal_ms) %>%
-      mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all),
-             trigger = case_when(
-               trial_no_all == 1 & start_true == TRUE ~ 1, 
-               start_true == FALSE ~ 0, 
-               TRUE ~ as.numeric(trial_no_all)),
-             ecg_timerezero_sync_unix_cal_ms = ecg_timestamp_sync_unix_cal_ms - first(ecg_timestamp_sync_unix_cal_ms))
-    
-    # table(tmp_ecg$trigger)
-    
-    # Save the updated dataframe to a CSV file
-    fwrite(as.data.table(tmp_ecg), paste0(participant_id, "_Session", session, "_dta_ecg_trig.csv"), row.names = FALSE)
+    # Append the processed session data to the list
+    all_sessions_data[[length(all_sessions_data) + 1]] <- tmp_ecg
   }
+  
+  # Combine data from all sessions
+  combined_data <- do.call(rbind, all_sessions_data)
+  
+  # Convert combined data to tibble for dplyr operations
+  combined_data <- as_tibble(combined_data)
+  
+  # Apply dplyr operations
+  combined_data <- combined_data %>%
+    arrange(ecg_timestamp_sync_unix_cal_ms) %>%
+    mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all),
+           trigger = case_when(
+             trial_no_all == 1 & start_true == TRUE ~ 1,
+             start_true == FALSE ~ 0,
+             TRUE ~ as.numeric(trial_no_all)),
+           ecg_timerezero_sync_unix_cal_ms = ecg_timestamp_sync_unix_cal_ms - first(ecg_timestamp_sync_unix_cal_ms))
+  
+  # Save the combined and processed data to a CSV file
+  fwrite(as.data.table(combined_data), paste0(participant_id, "_allsessions", "_dta_ecg_trig.csv"), row.names = FALSE)
+  
+  # Print completion message for current participant
+  message("Completed processing for Participant ID: ", participant_id)
 }
 
 
 ```
+
 note 103 is mising ecg data but this is present in database so we need to load up manualy from sql
 quick checks
 
