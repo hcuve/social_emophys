@@ -421,7 +421,7 @@ extract_info <- function(filename) {
 }
 
 # Create a dataframe to map participant IDs and sessions to file paths
-flatten(final_files_to_load$file_path)
+# flatten(final_files_to_load$file_path)
 file_info_2 <- sapply(final_files_to_load$file_path, 
                     function(x) extract_info(x), 
                     simplify = FALSE)
@@ -527,7 +527,8 @@ setnames(tmp_gsr, old = names(tmp_gsr), new = gsr_column_names)
              trial_no_all == 1 & start_true == TRUE ~ 1,
              start_true == FALSE ~ 0,
              TRUE ~ as.numeric(trial_no_all)),
-           gsr_pulse_timerezero_sync_unix_cal_ms = gsr_pulse_timestamp_sync_unix_cal_ms - first(gsr_pulse_timestamp_sync_unix_cal_ms))
+           gsr_pulse_timerezero_sync_unix_cal_ms = gsr_pulse_timestamp_sync_unix_cal_ms - first(gsr_pulse_timestamp_sync_unix_cal_ms))%>%
+    mutate(participant = participant_id)
   
 # Just before writing out the combined_data
 unique_triggers <- length(unique(combined_data$trigger))
@@ -603,7 +604,6 @@ so we should have 69
 # so these ietehr need to be renamed manually or programatically
 ```
 combine with timestamps from psychopy
-skip this
 
 
 
@@ -896,56 +896,308 @@ combine the ledalab output with behavioural data and check if we have what we wo
 
 3. Plot Physio data in R and Ledalab
 
+
+
+Pulse rate
+
 ```{r}
-
-dta_leda_era_110 <- read_delim("dt_time_trig_gsr_pre_post_trig_era.txt")
-
-data_psypy1
+colnames(tmp_gsr)
 
 
 
-dta_leda_era_110<- dta_leda_era_110%>%
-  janitor::clean_names()
 
-dta_leda_era_110$trigger<- as.numeric(dta_leda_era_110$event_nid)
+library(readr)
 
-dta_leda_era_110%>%
-  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
-                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
-                                         "post", "pre")
-                                 ))%>%
-  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
-   mutate(cda_amp_sum_z_post = lead(cda_amp_sum_z))%>%
-  subset(pre_post_stim = "stim")%>%
- ggplot(aes(pre_post_stim, cda_amp_sum_z))+
-  stat_summary(geom = "pointrange")
+tmp_gsr <- read_csv("225_allsessions_dta_gsr_pulse_trig.csv")
+table(tmp_gsr$gsr_pulse_ppg_ibi_cal_ms == -1)
+unique(tmp_gsr$trial_no_all)
 
+test<- tmp_gsr%>%
+  subset(gsr_pulse_ppg_ibi_cal_ms!=-1)
 
-dta_leda_era_110%>%
-  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
-                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
-                                         "post", "pre")
-                                 ))%>%
-  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
-   mutate(cda_amp_sum_z_post = lead(cda_amp_sum_z))%>%
-  subset(pre_post_stim = "stim")%>%
- ggplot(aes(cda_amp_sum_z, cda_amp_sum_z_post))+
-  geom_point()+
-  geom_smooth(method = 'lm', se = F)
+unique(test$stim_iaps)
+
+tmp_gsr%>%
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,
+             gsr_pulse_pp_gto_hr_cal_bpm))+
+  geom_line()
 
 
-dta_leda_era_110%>%
-  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
-                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
-                                         "post", "pre")
-                                 ))%>%
-  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
-   mutate(cda_amp_sum_z_post = lag(cda_amp_sum_z))%>%
-  subset(pre_post_stim = "stim")%>%
- ggplot(aes(cda_amp_sum_z, cda_amp_sum_z_post))+
-  geom_point()+
-  geom_smooth(method = 'lm', se = F)
+tmp_gsr%>%
+  subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,
+             gsr_pulse_ppg_ibi_cal_ms))+
+  geom_line()
+
+
+colnames(tmp_gsr)
+tmp_gsr%>%
+  # subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,
+             gsr_pulse_ppg_a13_cal_m_v))+
+  geom_line()
+  xlim(0,10000)
+  
+  
+  
+  tmp_gsr%>%
+  subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+    subset(gsr_pulse_ppg_ibi_cal_ms>400)%>%
+    mutate(ibi_lead = lead(gsr_pulse_ppg_ibi_cal_ms))%>%
+  ggplot(aes(gsr_pulse_ppg_ibi_cal_ms,
+             ibi_lead))+
+  geom_point()
+  
+  
+  # ibi normal range
+  # 600 and 900 milliseconds
+    tmp_gsr%>%
+  subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+      
+    mutate(ibi_lead = lead(gsr_pulse_ppg_ibi_cal_ms))%>%
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,gsr_pulse_ppg_ibi_cal_ms))+
+  geom_point(size = .1)+
+      geom_line(size = .1)+
+      xlim(1500000, 2000000)
+    
+   
+    
+```
+
+
+```{r}
+# Define the maximum number of consecutive NAs to interpolate
+max_consecutive_nas <- 3
+
+# Function to limit interpolation to a maximum number of consecutive NAs
+# Function to perform cubic spline interpolation with a maximum limit on consecutive NAs
+interpolate_limited_na <- function(x, max_consec_na) {
+  # Use na.locf to fill in leading and trailing NAs for spline interpolation
+  x_filled <- na.locf(x, fromLast = TRUE)
+  x_filled <- na.locf(x_filled)
+  # Apply cubic spline interpolation
+  x_spline <- na.spline(x_filled)
+  # Replace the values that were originally NAs and exceed consecutive NA limit
+  na_runs <- rle(is.na(x))
+  too_long <- which(na_runs$lengths > max_consec_na & na_runs$values)
+  for (i in too_long) {
+    start_index <- sum(na_runs$lengths[1:(i-1)]) + 1
+    end_index <- sum(na_runs$lengths[1:i])
+    x_spline[start_index:end_index] <- x[start_index:end_index]
+  }
+  return(x_spline)
+}
+
+
+# Function to identify artifacts based on the first and fourth quartiles of the absolute differences
+ibi_artifacts_quartiles <- function(ibi_values) {
+  ibi_diff <- abs(c(NA, diff(ibi_values))) # Calculate absolute differences, NA for the first undefined difference
+  q1 <- quantile(ibi_diff, 0.30, na.rm = TRUE) # First quartile
+  q3 <- quantile(ibi_diff, 0.70, na.rm = TRUE) # Fourth quartile
+  # Identify indices where the difference is outside the quartiles
+  artifact_indices <- which(ibi_diff < q1 | ibi_diff > q3)
+  ibi_values[artifact_indices] <- NA
+  return(ibi_values)
+}
+
+# IBI
+
+
+
+# Define the directory where your tmp_gsr files are stored
+file_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers"
+
+# List all CSV files in the directory
+files <- list.files(file_directory, pattern = "\\.csv$", full.names = TRUE)
+
+
+# Process and write each file
+lapply(files, function(file_path) {
+  # Load the file
+  tmp_pulse <- read_csv(file_path)%>%
+    select(filename, participant, trigger, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_ppg_ibi_cal_ms)
+  
+  # Apply your data manipulation pipeline
+  processed_data <- tmp_pulse %>%
+    
+    # isolate and clean IBI
+    filter(gsr_pulse_ppg_ibi_cal_ms != -1) %>%
+    mutate(gsr_pulse_ppg_ibi_cal_ms_cleaned = ibi_artifacts_quartiles(gsr_pulse_ppg_ibi_cal_ms)) %>%
+    mutate(gsr_pulse_ppg_ibi_cal_ms_interpolated = interpolate_limited_na(gsr_pulse_ppg_ibi_cal_ms_cleaned, max_consecutive_nas)) %>%
+    
+    # keep just  data window trial windows
+    filter(!is.na(trial_no_all)) %>%
+    group_by(trial_no_all) %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+    mutate(time_end = if_else(!duplicated(trial_no_all), gsr_pulse_timestamp_sync_unix_cal_ms + 7000, NA_real_)) %>%
+    mutate(time_end = if_else(trial_no_all == 1, gsr_pulse_timestamp_sync_unix_cal_ms + 120000, time_end)) %>%
+    fill(time_end, .direction = "down") %>%
+    filter(gsr_pulse_timestamp_sync_unix_cal_ms <= time_end) %>%
+    
+    ungroup() %>%
+    # select variables to keep
+    select(filename, participant, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_ppg_ibi_cal_ms, gsr_pulse_ppg_ibi_cal_ms_cleaned, gsr_pulse_ppg_ibi_cal_ms_interpolated) %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+    group_by(trial_no_all) %>%
+    mutate(pulse_ibi_percent_valid = mean(!is.na(gsr_pulse_ppg_ibi_cal_ms_interpolated)) * 100) %>%
+    ungroup()
+
+  # Construct the output file path
+  output_file_path <- gsub("path/to/your/files", "path/to/your/output/directory", file_path)
+  ppt_1<- unqiue(processed_data$participant)
+  # Write the processed data to a new CSV file
+  write_csv(processed_data, paste0(ppt_1, "pulse_ibi.csv"))
+})
+
 
 ```
 
+delete below
+# Pre-process gsr_pulse_ppg_ibi_cal_ms to handle NA values and interpolate
+ tmp_gsr %>%
+   subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+  # mutate(gsr_pulse_ppg_ibi_cal_ms_na = if_else(gsr_pulse_ppg_ibi_cal_ms > 0, gsr_pulse_ppg_ibi_cal_ms, NA_real_)) %>%
+  mutate(gsr_pulse_ppg_ibi_cal_ms_cleaned = 
+           ibi_artifacts_quartiles(gsr_pulse_ppg_ibi_cal_ms)) %>%
+  mutate(gsr_pulse_ppg_ibi_cal_ms_interpolated = interpolate_limited_na(gsr_pulse_ppg_ibi_cal_ms_cleaned, max_consecutive_nas))%>%
+
+# Main analysis pipeline
+
+  # Filter out trials without valid trial numbers early to simplify downstream analysis
+  filter(!is.na(trial_no_all)) %>%
+  
+  group_by(trial_no_all) %>%
+   arrange(gsr_pulse_timestamp_sync_unix_cal_ms)%>%
+  
+  # Calculate time_end based on conditions, filling forward within each group
+  mutate(time_end = if_else(!duplicated(trial_no_all), gsr_pulse_timestamp_sync_unix_cal_ms + 7000, NA_real_)) %>%
+  mutate(time_end = if_else(trial_no_all == 1, gsr_pulse_timestamp_sync_unix_cal_ms + 120000, time_end)) %>%
+  fill(time_end, .direction = "down") %>%
+  
+  # Exclude data outside of valid time_end ranges
+  filter(gsr_pulse_timestamp_sync_unix_cal_ms <= time_end) %>%
+  
+  ungroup() %>%
+  
+  # Select relevant columns for output, ensuring a clean dataset for analysis
+  select(filename,
+         participant,
+         gsr_pulse_timestamp_sync_unix_cal_ms,
+         social_nonsocial,
+         stim_iaps,
+         trial_no_all,
+         gsr_pulse_ppg_ibi_cal_ms,
+         # gsr_pulse_ppg_ibi_cal_ms_na,
+         gsr_pulse_ppg_ibi_cal_ms_cleaned,
+         gsr_pulse_ppg_ibi_cal_ms_interpolated) %>%
+  
+  # Arrange data by timestamp to ensure chronological order
+  arrange(gsr_pulse_timestamp_sync_unix_cal_ms)%>%
+  group_by(trial_no_all)%>%
+   mutate(pulse_ibi_percent_valid = mean(!is.na(gsr_pulse_ppg_ibi_cal_ms_interpolated)) * 100)
+
+test%>%
+  ggplot(aes(pulse_ibi_percent_valid))+
+  geom_histogram()
+# then load and all sumamrise and average
+  group_by(trial_no_all)%>%
+  summarise_if(is.numeric, mean, na.rm = T)
+  mutate(ibi_percent_valid)
+
+# Use the processed_gsr for further analysis
+unique(test$trial_no_all)
+```
+
+
+
+# table(tmp_gsr$gsr_pulse_ppg_ibi_cal_ms == -1)
+
+unique(tmp_gsr$stim_iaps)
+unique(tmp_gsr$stim_iaps)
+
+table(tmp_gsr$gsr_pulse_ppg_ibi_cal_ms> 0)
+unique(tmp_gsr$trial_no_all)
+unique(test$trial_no_all)
+
+test<- tmp_gsr %>%
+  group_by(trial_no_all)%>%
+  mutate(time_end = if_else(start_true == TRUE, 
+                            gsr_pulse_timestamp_sync_unix_cal_ms + 7000, NA)) %>%
+  mutate(time_end = if_else(trigger == 1, 
+                            gsr_pulse_timestamp_sync_unix_cal_ms + 120000, time_end)) %>%
+  
+   # Fill down NA values in time_end within each group; replace with the nearest non-NA value above
+  fill(time_end, .direction = "down") %>%
+   # subset(trigger>0)%>%
+  mutate(gsr_pulse_ppg_ibi_cal_ms_na = if_else(gsr_pulse_ppg_ibi_cal_ms >0, gsr_pulse_ppg_ibi_cal_ms, NA))%>%
+  
+  ungroup()%>%
+  mutate(gsr_pulse_ppg_ibi_cal_ms_cleaned = ibi_artifacts_quartiles(gsr_pulse_ppg_ibi_cal_ms_na)) %>%
+  mutate(gsr_pulse_ppg_ibi_cal_ms_interpolated = interpolate_limited_na(gsr_pulse_ppg_ibi_cal_ms_cleaned, max_consecutive_nas))%>%
+
+# now exclude periods before ansd after trial
+ filter(!is.na(trial_no_all))%>%
+    group_by(trial_no_all)%>%
+  filter(gsr_pulse_timestamp_sync_unix_cal_ms <= time_end)%>%
+  arrange(gsr_pulse_timestamp_sync_unix_cal_ms)%>%
+  select(filename, gsr_pulse_timestamp_sync_unix_cal_ms,
+         social_nonsocial,
+         stim_iaps,
+         trial_no_all,
+         # trigger,
+         gsr_pulse_ppg_ibi_cal_ms,
+         gsr_pulse_ppg_ibi_cal_ms_na,
+         gsr_pulse_ppg_ibi_cal_ms_cleaned,
+         
+         gsr_pulse_ppg_ibi_cal_ms_interpolated
+         )
+
+         
+         
+   unique(test$trial_no_all)      
+         
+  
+
+  
+
+```
+
+# heart rate
+colnames(tmp_gsr)
+
+
+# Decide on max consecutive NAs to fill
+max_consec_nas_to_fill_hr <- 128
+
+# Function to limit filling to gaps of a certain size
+limited_fill_hr <- function(x, max_gap) {
+  na_runs <- rle(is.na(x))
+  too_long <- which(na_runs$lengths > max_gap & na_runs$values)
+  for (i in too_long) {
+    indices <- sum(na_runs$lengths[1:(i-1)]) + (1:na_runs$lengths[i])
+    x[indices] <- NA  # Reset these values to NA
+  }
+  return(na.approx(x, na.rm = FALSE))
+}
+
+range(tmp_gsr)
+
+tmp_gsr %>%
+  # subset(gsr_pulse_ppg_ibi_cal_ms!=-1)%>%
+  mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(gsr_pulse_pp_gto_hr_cal_bpm > 35 &
+                                                    gsr_pulse_pp_gto_hr_cal_bpm < 200, 
+                                                  gsr_pulse_pp_gto_hr_cal_bpm, NA))%>%
+  mutate(hr_zscore = scale(gsr_pulse_pp_gto_hr_cal_bpm_na))%>%
+  
+mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(abs(hr_zscore)<3,gsr_pulse_pp_gto_hr_cal_bpm_na, NA))%>%
+mutate(gsr_pulse_pp_gto_hr_cal_bpm_interp = limited_fill_hr(gsr_pulse_pp_gto_hr_cal_bpm_na, 128))%>%           
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,  gsr_pulse_pp_gto_hr_cal_bpm_interp))+
+  geom_point(size = .1)+
+  geom_line(size = .1)+
+   # geom_line(aes(y = gsr_pulse_pp_gto_hr_cal_bpm), size = .1, colour = "blue")+
+  geom_line(aes(y = gsr_pulse_pp_gto_hr_cal_bpm_na), size = .1, colour = "pink")+
+  xlim(5000, 730000)
+
+
+```
 
