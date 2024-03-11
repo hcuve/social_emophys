@@ -872,3 +872,126 @@ stimuli width mm 485
 <!-- stimuli width mm 530 -->
 
 
+
+load gazepath data
+```{r}
+# load all fix and saccades
+# setwd("~/Library/CloudStorage/GoogleDrive-helioclemente.c@gmail.com/My Drive/2022 - University Of Birmingham/Deepfakes/Deepfake_RProject/Data")
+# Bristol data
+
+
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/Gazepath results")
+
+# load data
+library(readr)
+tmp_filelist <- list.files(pattern = ".csv")
+
+dta_gp_all_fix_sacc <- rbindlist(sapply(tmp_filelist, fread, simplify = FALSE),
+                use.names = TRUE, idcol = "filename2")%>%
+  janitor::clean_names()
+
+
+colnames(dta_psypy1)
+
+dta_psypy1$stim_iaps
+
+
+# Create 'screencontent' based on 'text'
+
+unique(dta_gp_all_fix_sacc$text)
+
+unique(dta_psypy1$condition)
+
+library(dplyr)
+
+dta_gp_all_fix_sacc <- dta_gp_all_fix_sacc %>%
+  mutate(
+    screencontent = case_when(
+      grepl("fix", text) ~ "fixation_cross",
+      grepl("stim", text) ~ "stimuli",
+      grepl("rest", text) ~ "rest",
+      TRUE ~ NA_character_ # Provides an NA value where none of the above conditions are met
+    ),
+    screencontent_no = case_when(
+      screencontent == "rest" ~ 1,
+      screencontent == "fixation_cross" ~ 2,
+      screencontent == "stimuli" ~ 3,
+      TRUE ~ NA_real_ # Ensures that a numeric NA is returned if none of the conditions match
+    )
+  )
+
+
+# create pratice vs ytrial
+library(stringi)
+unique(dta_psypy1$stim_iaps)
+
+unique(dta_gp_all_fix_sacc$text)
+
+unique(dta_gp_all_fix_sacc$participant)
+
+# dta_gp_all_fix_sacc$participant<- substr(dta_gp_all_fix_sacc$participant, 4,6)
+
+dta_gp_all_fix_sacc$participant
+
+dta_gp_all_fix_sacc$stim_iaps <- paste0(sub(".*_([^_]+)\\.jpg.*", "\\1", dta_gp_all_fix_sacc$text), ".jpg")
+  
+
+
+
+dta_gp_all_fix_sacc
+
+```
+
+now create averages for gaze
+
+
+```{r}
+dta_gp_all_fix_sacc
+# compute means and max fixation duration
+
+unique(dta_gp_all_fix_sacc$screencontent)
+
+dta_gp_all_fix_sacc_stim<- dta_gp_all_fix_sacc%>%
+  subset(screencontent == "stimuli")%>%
+  select(-screencontent, -screencontent_no)
+
+colnames(dta_gp_all_fix_sacc_stim)
+
+
+
+  # First, group by the main categories
+dta_gp_all_fix_sacc_stim_agg <- dta_gp_all_fix_sacc_stim %>%
+  group_by(participant, text, trial, stim_iaps) %>%
+  summarise(
+    mean_dwell_dur = mean(duration, na.rm = TRUE),
+    mean_fix_dur = mean(duration[value == "f"], na.rm = TRUE),
+    mean_sac_dur = mean(duration[value == "s"], na.rm = TRUE),
+    sum_dwell_dur = sum(duration, na.rm = TRUE),
+    sum_fix_dur = sum(duration[value == "f"], na.rm = TRUE),
+    sum_sac_dur = sum(duration[value == "s"], na.rm = TRUE),
+    mean_rms = mean(rms, na.rm = TRUE),
+    mean_po_gsd = mean(po_gsd_sac_amp[value == "f"], na.rm = TRUE),
+    mean_sac_amp = mean(po_gsd_sac_amp[value == "s"], na.rm = TRUE),
+    count_fix = sum(value == "f"),
+    count_sacc = sum(value == "s")
+    # .groups = "drop" # This explicitly drops the grouping instead of keeping it
+  )%>%
+
+  # Optionally, ungroup if you want to remove the grouping structure
+  ungroup()
+
+
+dta_gp_all_fix_sacc_stim_agg
+
+
+# dta_gp_agg_fix_sacc_w_of_aoixy_stim1<- dta_gp_agg_fix_sacc_w_of_aoixy_stim1%>%
+#   mutate(across(c(mean_dwell_dur, mean_fix_dur, mean_sac_dur, 
+#                   sum_dwell_dur, sum_fix_dur, sum_sac_dur, 
+#                   # mean_rms, mean_po_gsd, mean_sac_amp, 
+#                   count_fix, count_sacc),
+#                 ~replace(., is.na(.) | is.nan(.), 0)))%>%
+#   group_by(ssid, participant, text, pratice_vs_trial, stimnopath, filename2, trial,aoi_name) %>%
+#   summarise_if(is.numeric, mean, na.rm = T)
+
+  
+```
