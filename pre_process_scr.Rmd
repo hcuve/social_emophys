@@ -9,6 +9,9 @@ output: html_document
 
 Understanding Data Inconsistencies and Solutions
 1. Inconsistent Session Data Between SD and PC:
+- session 1 in pc = sesiion 1 sd = 
+SD are put into one sessi
+
 
 Issue: We've observed instances where data from the same time period are categorized under different sessions on SD and PC. 
 Implication: It complicates data analysis, as the same physical events may be represented in separate session files, causing confusion and inaccuracies in interpreting participant behavior and responses.
@@ -165,7 +168,8 @@ GSR data should be sampled at 128 hz
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR")
 # List of .csv files, fromm pc and sd
 
-tmp_files_pc <- list.files(pattern = "GSR.*PC\\.csv$", recursive = FALSE, full.names = TRUE)
+tmp_files_pc <- list.files(pattern = "GSR.*PC\\.csv$", 
+                           recursive = FALSE, full.names = TRUE)
 unique(tmp_files_pc)
 tmp_files_sd <- list.files(pattern = "GSR.*SD\\.csv$", recursive = FALSE, full.names = TRUE)
 
@@ -247,6 +251,8 @@ tmp_combined_list
 
 1. Prioritize Based on Total Data Volume
 If both sources are present for a participant: Compare the total sizes. The source with a larger total size could be considered as having more complete data across sessions, thus, might be preferable.
+
+
 If only one source is present for a participant: Use the available source, as it's the only option for that participant.
 2. Implement Decision Logic
 Based on the above interpretation, you can implement logic to automatically decide which source to prioritize for further analysis or processing. Here’s a sample approach:
@@ -1105,7 +1111,7 @@ fn_read_agg_ibi <-   function(file_path) {
   
   # Assuming all columns except for 'trial_no_all' are numeric and you want to average them
   # Adjust this selection as necessary
-  data %>%
+  data<- data %>%
     group_by(filename, participant, trial_no_all, social_nonsocial, stim_iaps) %>%
     mutate(pulse_ibi_percent_valid = mean(!is.na(gsr_pulse_ppg_ibi_cal_ms_cleaned)) * 100) %>%
     summarise_if(is.numeric, mean, na.rm = TRUE)
@@ -1153,47 +1159,51 @@ mutate(gsr_pulse_pp_gto_hr_cal_bpm_interp = limited_fill_hr(gsr_pulse_pp_gto_hr_
 
 
 # Process and write each file
-lapply(files, function(file_path) {
+library(readr)
+library(dplyr)
+library(zoo) # for na.approx
+
+# Assuming 'files' is a list of file paths
+files <- list.files(path = "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/", pattern = ".*\\.csv$", full.names = TRUE)
+
+files
+
+fn_read_agg_pulse <- function(file_path) {
   # Load the file
-  tmp_pulse_rate <- read_csv(file_path)%>%
-    
-    # tmp_pulse<- tmp_pulse%>%
-    select(filename, participant, trigger, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_pp_gto_hr_cal_bpm)
+  tmp_pulse_rate <- read_csv(file_path) %>%
+    select(filename, participant, trigger, start_true, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_pp_gto_hr_cal_bpm)
   
   # Apply your data manipulation pipeline
   processed_data <- tmp_pulse_rate %>%
-    
-    
-    mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(gsr_pulse_pp_gto_hr_cal_bpm > 35 &
-                                                    gsr_pulse_pp_gto_hr_cal_bpm < 200, 
-                                                  gsr_pulse_pp_gto_hr_cal_bpm, NA))%>%
-  mutate(hr_zscore = scale(gsr_pulse_pp_gto_hr_cal_bpm_na))%>%
-    mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(abs(hr_zscore)<3,gsr_pulse_pp_gto_hr_cal_bpm_na, NA))%>%
-mutate(gsr_pulse_pp_gto_hr_cal_bpm_interp = limited_fill_hr(gsr_pulse_pp_gto_hr_cal_bpm_na, 128)) %>%
-    
-    # keep just  data window trial windows
+    mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(gsr_pulse_pp_gto_hr_cal_bpm > 35 & gsr_pulse_pp_gto_hr_cal_bpm < 200, gsr_pulse_pp_gto_hr_cal_bpm, NA)) %>%
+    mutate(hr_zscore = scale(gsr_pulse_pp_gto_hr_cal_bpm_na, center = TRUE, scale = TRUE)) %>%
+    mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(abs(hr_zscore) < 3, gsr_pulse_pp_gto_hr_cal_bpm_na, NA)) %>%
+    mutate(gsr_pulse_pp_gto_hr_cal_bpm_interp = limited_fill_hr(gsr_pulse_pp_gto_hr_cal_bpm_na, max_consec_nas_to_fill_hr)) %>%
     filter(!is.na(trial_no_all)) %>%
     group_by(trial_no_all) %>%
     arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+    # Ensure start_true is a logical column indicating the start of a trial
     mutate(time_end = if_else(start_true, gsr_pulse_timestamp_sync_unix_cal_ms + 7000, NA_real_)) %>%
     mutate(time_end = if_else(trial_no_all == 1 & start_true, gsr_pulse_timestamp_sync_unix_cal_ms + 120000, time_end)) %>%
     fill(time_end, .direction = "down") %>%
     filter(gsr_pulse_timestamp_sync_unix_cal_ms <= time_end) %>%
-    
     ungroup() %>%
-    # select variables to keep
-    select(filename, participant, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_ppg_ibi_cal_ms, gsr_pulse_ppg_ibi_cal_ms_cleaned, gsr_pulse_ppg_ibi_cal_ms_interpolated) %>%
+    select(filename, participant, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_pp_gto_hr_cal_bpm, gsr_pulse_pp_gto_hr_cal_bpm_na, gsr_pulse_pp_gto_hr_cal_bpm_interp) %>%
     arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
     group_by(trial_no_all) %>%
-    mutate(pulse_ibi_percent_valid = mean(!is.na(gsr_pulse_ppg_ibi_cal_ms_interpolated)) * 100) %>%
-    ungroup()
+    mutate(pulse_rate_percent_valid = mean(!is.na(gsr_pulse_pp_gto_hr_cal_bpm_interp)) * 100) %>%
+    ungroup() %>%
+    group_by(filename, participant, trial_no_all, social_nonsocial, stim_iaps) %>%
+    summarise_if(is.numeric, mean, na.rm = TRUE)
 
-  # Construct the output file path
-  output_file_path <- gsub("path/to/your/files", "path/to/your/output/directory", file_path)
-  ppt_1<- unique(processed_data$participant)
-  # Write the processed data to a new CSV file
-  write_csv(processed_data, paste0(ppt_1, "_pulse_ibi.csv"))
-})
+  return(processed_data)
+}
+
+# Read, process, and aggregate data for each file
+dta_pulse_rate <- bind_rows(lapply(files, fn_read_agg_pulse))
+
+
+# Apply the function to each file and bind the results into a single dataframe
 
 
 
@@ -1201,27 +1211,13 @@ mutate(gsr_pulse_pp_gto_hr_cal_bpm_interp = limited_fill_hr(gsr_pulse_pp_gto_hr_
 file_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/"
 
 
-# Assuming 'files' is a vector of file paths you want to read and process
-files <- list.files(path = file_directory, pattern = "\\.csv$", full.names = TRUE)
-
-# Function to read and process each file
-fn_read_agg_ibi <-   function(file_path) {
-  # Read the file
-  data <- read_csv(file_path)
-  
-  # Assuming all columns except for 'trial_no_all' are numeric and you want to average them
-  # Adjust this selection as necessary
-  data %>%
-    group_by(filename, participant, trial_no_all, social_nonsocial, stim_iaps) %>%
-    mutate(pulse_ibi_percent_valid = mean(!is.na(gsr_pulse_ppg_ibi_cal_ms_cleaned)) * 100) %>%
-    summarise_if(is.numeric, mean, na.rm = TRUE)
-}
+#
 
 # Apply the function to each file and bind the results into a single dataframe
-dta_pulse_ibi <- bind_rows(lapply(files, fn_read_agg_ibi))
+# dta_pulse_ibi <- bind_rows(lapply(files, fn_read_agg_ibi))
 # Process all files and combine the results
 
-table(dta_pulse_ibi$participant)
+table(dta_pulse_rate$participant)
 
 
 ```

@@ -1,0 +1,325 @@
+---
+title: "pre_process_of"
+author: "Helio"
+date: "2024-03-11"
+output: html_document
+---
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval = FALSE, include = FALSE)
+
+# Set working directory to the folder containing subfolders with CSV files
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/OpenFace Processed")
+# Get a list of all CSV files within subfolders using list.files() and recursive = TRUE
+# file_list <- list.files(pattern = "\\.csv$", recursive = FALSE)
+
+
+
+
+# get a list of all the CSV files in your folder and its subfolders
+file_list <- list.files(pattern = "\\.csv$", recursive = FALSE, full.names = TRUE)
+
+# read the CSV files into a list of data frames, and store the filename as a new column in each data frame
+library(dplyr)
+
+install.packages("pbapply")
+
+library(pbapply)
+library(dplyr)
+library(janitor)
+
+# fix 103103
+tmp_data_of_list <- lapply(file_list, function(file) {
+   print(paste("Processing file", file))
+  data <- read.csv(file) %>%
+    select(frame, timestamp, confidence, success, matches("_r")) %>%
+    janitor::clean_names()
+  
+  # Modification here: Create a new data frame with the filename column
+  data <- mutate(data, filename = file)
+  
+  # Now group and summarize
+  data %>%
+    group_by(filename) %>%
+    summarise_if(is.numeric, mean, na.rm = TRUE)
+}) # You can customize the type of progress bar with the progress argument
+
+
+# Combine the data frames into a single data frame
+dta_of_agg <- bind_rows(tmp_data_of_list)
+
+saveRDS(dta_of_agg, "dta_of_agg.rds")
+dta_of_agg<- dta_of_agg%>%
+  select(!matches(c("pose", "p_")))
+
+rm(all_sessions_data, tmp_split_df)
+```
+# explore this for readign specific co;lumsn from the getgo
+library(readr)
+library(dplyr)
+
+# Function to read CSV with specific and pattern-based columns
+read_csv_with_pattern <- function(file, static_cols, pattern) {
+  # Read the header to get column names
+  header <- read_csv(file, n_max = 0)
+  
+  # Identify columns that match the pattern
+  pattern_cols <- names(header)[grepl(pattern, names(header))]
+  
+  # Combine static columns and pattern-matched columns, remove duplicates
+  cols_to_read <- unique(c(static_cols, pattern_cols))
+  
+  # Read only the selected columns from the CSV
+  data <- read_csv(file, col_select = cols_to_read)
+  
+  # Optionally, perform further data processing here
+  data <- mutate(data, filename = file)
+  
+  return(data)
+}
+
+# Example usage
+file_list <- c("path/to/your/file1.csv", "path/to/your/file2.csv")
+static_cols <- c("frame", "timestamp", "confidence", "success")
+pattern <- "_r"
+
+# Apply the function to each file in the list
+tmp_data_of_list <- lapply(file_list, function(file) {
+  read_csv_with_pattern(file, static_cols, pattern)
+})
+
+# Combine the data frames into a single data frame, if needed
+data_combined <- bind_rows(tmp_data_of_list)
+
+
+```{r}
+dta_of_agg
+
+```
+
+unique(dta_off_agg$filename)
+
+
+```{r}
+
+dta_of_agg$participant<-  sub("./(.+?)_.*", "\\1", dta_of_agg$filename)
+
+unique(dta_of_agg$participant)                             
+dta_of_agg$participant<- substr(dta_of_agg$participant,1,3)
+
+# create variables
+
+dta_of_agg<- dta_of_agg%>%
+  mutate(
+  stim_iaps = sub(".*tStart_([^_]*).IAPS.*", "\\1", filename),
+  condition= if_else(grepl('Example', filename), 'Pratice',
+                                   if_else(grepl('IAPS', filename), 'Trial', "rest")),
+  social_nonsocial = if_else(participant<200,"nonsocial", "social"))%>%
+    mutate(trial_no_all = sub(".*IAPS_([^.]*).csv", "\\1", filename))
+
+
+
+dta_of_agg<- dta_of_agg[,c(1:26,28)]
+colnames(dta_of_agg)
+
+dta_of_agg<- dta_of_agg%>%
+mutate(trial_no_all = if_else(grepl("rest", filename),1,
+                                         if_else(grepl("Stimuli_0.csv", trial_no_all),2,
+                                         if_else(grepl("Stimuli_1.csv", trial_no_all),3,   
+                                                 if_else(grepl("Stimuli_2.csv", trial_no_all),4, 
+                                                 if_else(grepl("Stimuli_3.csv", trial_no_all),5,         
+                                                          if_else(condition == "Trial", 
+                                                            as.numeric(trial_no_all)+6, NA)))))))
+
+
+unique(dta_of_agg$trial_no_all)
+
+colnames(dta_of_agg)
+
+
+# average across austres
+
+library(dplyr)
+
+# Assuming 'data' is your dataframe
+
+# Step 1: Dynamically identify AU variables
+au_columns <- names(dta_of_agg)[grepl("au\\d+_r$", names(dta_of_agg))]
+
+# Step 2 and 3: Compute row-wise mean for AU variables and group by desired variables
+dta_of_agg<- dta_of_agg %>%
+  rowwise() %>%
+  mutate(au_average = mean(c_across(all_of(au_columns)), na.rm = TRUE))
+  # ungroup() %>%
+  # group_by(participant, condition, ... ) %>%
+  # Step 4: Summarize to compute the mean of AU averages for each group
+  # summarise(au_mean = mean(au_average, na.rm = TRUE))
+
+dta_of_agg$au_average
+
+```
+
+combine with psychpopy
+
+```{r}
+dta_gsr
+
+saveRDS(dta_gsr, "dta_gsr.rds")
+
+rm(dta_gsr, X126_dta_gsr_trig , X126_dta_gsr_trig_before_trigger_2, X126_dta_gsr_trig_filtered,
+   X136_Session1_GSRPulse_Calibrated_PC, X136_Session1_GSRPulse_Calibrated_SD)
+
+```
+
+
+dta_of_agg
+
+
+
+
+
+
+
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+dta_OF_combined_tmp<- dta_OF_combined [,c(680:717, 719:721,1,3)]%>%
+  # subset(condition == "IAPS")%>%
+  gather(key,au_value, - filename,-ssid,-frame, - timestamp, -stim_iaps, -trial_no_pract_and_test, -pratice_vs_trial, -condition)%>%
+  # mutate(start+time = if_else(timestamp == 2, timestamp))
+  mutate(AU_c_r = substr(key ,6,6))%>%
+  subset(AU_c_r == "r")
+
+
+data_psypy1$participant
+
+dta_psypy1
+
+unique(dta_OF_combined_tmp$trial_no_pract_and_test)
+dta_OF_combined_tmp%>%
+  group_by( filename,ssid, stim_iaps, trial_no_pract_and_test, pratice_vs_trial, condition,key)%>%
+  summarise_if(is.numeric, mean)%>%
+  left_join(data_psypy1%>%subset(participant == 116), by = c("trial_no_pract_and_test",
+                                                             "stim_iaps",
+                                                            "condition"))%>%
+  group_by(key)%>%
+  # mutate(au_value = scale(au_value))%>%
+  group_by(trial_no_pract_and_test, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(val_slider_response, au_value))+
+  geom_point()
+
+
+
+dta_OF_combined_tmp%>%
+  group_by( filename,ssid, stim_iaps, trial_no_pract_and_test, pratice_vs_trial, condition,key)%>%
+  summarise_if(is.numeric, mean)%>%
+  left_join(data_psypy1%>%subset(participant == 116), by = c("trial_no_pract_and_test",
+                                                             "stim_iaps",
+                                                            "condition"))%>%
+  group_by(key)%>%
+  mutate(au_value = scale(au_value))%>%
+  group_by(trial_no_pract_and_test, emotioncategory)%>%
+  subset(!is.na(emotioncategory))%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(emotioncategory, au_value))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")
+
+
+
+dta_OF_combined_tmp%>%
+  group_by( filename,ssid, stim_iaps, trial_no_pract_and_test, pratice_vs_trial, condition,key)%>%
+  summarise_if(is.numeric, mean)%>%
+  left_join(data_psypy1%>%subset(participant == 116), by = c("trial_no_pract_and_test",
+                                                             "stim_iaps",
+                                                            "condition"))%>%
+  group_by(key)%>%
+  # mutate(au_value = scale(au_value))%>%
+  group_by(trial_no_pract_and_test, emotioncategory,key)%>%
+  subset(!is.na(emotioncategory) & au_value>.3)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(key, au_value))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~emotioncategory)
+  
+
+```
+  
+
+
+dta_OF_combined_select_stimuli_agg<- dta_OF_combined_select_stimuli%>%
+  group_by(ssid, practice_stim,stimIAPS)%>%
+  summarise_if(is.numeric, mean, na.rm = T)
+
+colnames(as.data.frame(dta_OF_combined_select_stimuli_agg))
+length(colnames(dta_OF_combined_select_stimuli_agg))
+
+tmp_AUnames
+
+tmp_AUnames<- c("ssid" ,         
+                "practice_stim", 
+                "stimIAPS"   ,   
+                "frame"    ,     
+                "face_id"      , 
+                "timestamp"   ,  
+                "confidence" ,   
+                "success",
+ "AU01_r_Inner_brow_raiser",   
+ "AU02_r_Outer_brow_raiser",   
+ "AU04_r_Brow_lowerer",       
+"AU05_r_Upper_lid_raiser",    
+"AU06_r_Cheek_raiser",        
+"AU07_r_Lid_tightener",       
+"AU09_r_Nose_wrinkler",      
+ "AU10_r_Upper_lip_raiser",    
+"AU12_r_Lip_corner_puller",   
+"AU14_r_Dimpler",             
+"AU15_r_Lip_corner_depressor",
+ "AU17_r_Chin_raiser",         
+"AU20_r_Lip_stretcher",       
+"AU23_r_Lip_tightener",      
+"AU25_r_Lips_part",          
+"AU26_r_Jaw_drop",            
+"AU45_r_Blink",               
+"AU01_c_Inner_brow_raiser",   
+"AU02_c_Outer_brow_raiser",  
+"AU04_c_Brow_lowerer",        
+"AU05_c_Upper_lid_raiser",    
+"AU06_c_Cheek_raiser",        
+"AU07_c_Lid_tightener",      
+"AU09_c_Nose_wrinkler",      
+"AU10_c_Upper_lip_raiser",    
+"AU12_c_Lip_corner_puller",   
+"AU14_c_Dimpler",            
+ "AU15_c_Lip_corner_depressor",
+"AU17_c_Chin_raiser",        
+"AU20_c_Lip_stretcher",       
+"AU23_c_Lip_tightener",      
+"AU25_c_Lips_part",          
+"AU26_c_Jaw_drop",    
+"AU28_c_Lip_suck",    
+"AU45_c_Blink")
+tmp_AUnames
+
+dta_OF_combined_select_stimuli_agg<- dta_OF_combined_select_stimuli_agg2
+dta_OF_combined_select_stimuli_agg2<- dta_OF_combined_select_stimuli_agg
+colnames(dta_OF_combined_select_stimuli_agg)<- tmp_AUnames
+
+dta_OF_combined_select_stimuli_agg
+# AU names
+
+# merge with the rest of the data
+dta_bhv_quest1.1_with_fix_resp_arranged_scr_stim_gaze
+
+dta_OF_combined_select_stimuli_agg$stimIAPS<-as.character(dta_OF_combined_select_stimuli_agg$stimIAPS)
+dta_OF_combined_select_stimuli_agg$ssid<- as.double(dta_OF_combined_select_stimuli_agg$ssid)
+unique(dta_bhv_quest1.1_with_fix_resp_arranged_scr_stim_gaze$stimIAPS)
+
+
