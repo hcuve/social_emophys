@@ -1,0 +1,291 @@
+---
+title: "preprocess_quest"
+author: "Helio"
+date: "2024-03-11"
+output: html_document
+---
+
+
+
+
+
+
+AQ
+IAS
+Demographics
+START
+DASS
+TAS
+SLEEP
+
+AQ_50
+
+
+
+```{r}
+
+# Load necessary library
+library(readr)
+
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Questionnaires/for analysis")
+
+# Assuming your working directory is already set to where the files are
+# For AQ files
+aq_files <- list.files(pattern = "AQ")
+tas_files <- list.files(pattern = "TAS")
+dass_files <- list.files(pattern = "DASS")
+ias_files <- list.files(pattern = "IAS")
+dmg_files <- list.files(pattern = "DEMOG")
+sleep_files <- list.files(pattern = "SLEEP")
+
+
+# Read and combine AQ files
+dta_aq28 <- do.call(rbind, lapply(aq_files, read_csv))%>%
+  janitor::clean_names()
+
+dta_tas21 <- do.call(rbind, lapply(tas_files, read_csv))%>%
+  janitor::clean_names()
+
+dta_dass <- do.call(rbind, lapply(dass_files, read_csv))%>%
+  janitor::clean_names()
+
+dta_ias <- do.call(rbind, lapply(ias_files, read_csv))%>%
+  janitor::clean_names()
+
+
+dta_sleep <- do.call(rbind, lapply(sleep_files, read_csv))%>%
+  janitor::clean_names()
+
+dta_demg <- do.call(rbind, lapply(dmg_files, read_csv))%>%
+  janitor::clean_names()
+
+
+
+library(readr)
+library(dplyr)
+library(janitor)
+```
+# Function to read files and harmonize columns
+read_and_harmonize <- function(file_names) {
+  # Read all files into a list of data frames
+  list_of_dfs <- lapply(file_names, read_csv, col_types = cols())
+
+  # Clean names immediately after reading
+  list_of_dfs <- lapply(list_of_dfs, janitor::clean_names)
+
+  # Identify all unique column names across all data frames
+  all_columns <- unique(unlist(lapply(list_of_dfs, names)))
+
+  # Ensure each data frame has all columns, fill missing ones with NA
+  list_of_dfs <- lapply(list_of_dfs, function(df) {
+    missing_cols <- setdiff(all_columns, names(df))
+    df[missing_cols] <- NA
+    # Optionally, order columns to match the first dataframe for consistency
+    df <- df[, all_columns]
+    return(df)
+  })
+
+  # Combine all data frames into one
+  combined_df <- do.call(rbind, list_of_dfs)
+  return(combined_df)
+}
+
+
+
+```{r}
+
+unique(dta_aq28$participant_public_id)
+# colnames(dta_aq28)
+library(data.table)
+
+
+dta_aq28_1<- dta_aq28%>%
+  select(participant_public_id, participant_completion_code, experiment_version, 
+          task_name, task_version,question_key, response)%>%
+  subset(!is.na(response))%>%
+  mutate(aq28grep_sup = grepl("AQ28_", question_key))%>%
+  subset(aq28grep_sup == TRUE)%>%
+  select(-aq28grep_sup)%>%
+  setDT()%>%
+    dcast(participant_public_id+participant_completion_code + experiment_version+ 
+          task_name+ task_version~ question_key, value.var = "response")%>%
+  janitor::clean_names()%>%
+   mutate(participant = participant_public_id)%>%
+   select(-participant_public_id,-experiment_version,-task_name,
+          -task_version)
+  
+dta_aq28_1
+
+
+# lets manuallys core aq
+
+
+colnames(dta_aq28_1)
+
+```
+
+
+demog
+
+
+```{r}
+
+colnames(dta_demg)
+# delete unecessary columns
+# dta_demg1<- dta_demg[,c(8,12,16,27,28,32,34:35,38)]
+# 
+# colnames(dta_demg1)
+# 
+# # an issue with other?
+# dta_demg1<- dta_demg1[, c(1:5,7:9)]%>%
+
+dta_demg1<- dta_demg%>%
+  subset(!is.na(key) & key== "value")%>%
+  select(participant_public_id,participant_completion_code, experiment_version, 
+          task_name, task_version,key, object_name, response)%>%
+  setDT()%>%
+  dcast(participant_public_id+participant_completion_code + experiment_version+ 
+          task_name+ task_version+key~ object_name, value.var = "response")%>%
+     mutate(participant = participant_public_id)%>%
+   select(-participant_public_id,-experiment_version,-task_name,
+          -task_version)
+  
+
+
+```
+
+TAS
+```{r}
+colnames(dta_tas21)
+dta_tas21_1
+
+
+dta_tas21_1<- dta_tas21%>%
+  select(participant_public_id, participant_completion_code, experiment_version,
+         question_key, response)%>%
+  subset(!is.na(response))%>%
+  mutate(tas_grep_sup = grepl("TAS_", question_key))%>%
+  subset(tas_grep_sup == FALSE & grepl("QUESTIONNAIRE", question_key) == FALSE) %>%
+  select(-tas_grep_sup) %>%
+  setDT()%>%
+    dcast(participant_public_id+participant_completion_code + experiment_version 
+           ~ question_key, value.var = "response")%>%
+  janitor::clean_names()%>%
+   mutate(participant = participant_public_id)%>%
+   select(-participant_public_id,-experiment_version)
+  
+```
+
+TAS AQ merge
+
+```{r}
+cor(dta_tas21_1$tas20_total, dta_aq28_1$aq28_total_cont)
+as.tibble(as.matrix(dta_tas21_1))
+
+left_join(dta_tas21_1, dta_aq28_1)%>%
+  ggplot(aes(as.numeric(aq28_total_cont), as.numeric(tas20_total)))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)+
+  ggpubr::stat_cor()
+
+
+```
+
+DASS
+
+```{r}
+colnames(dta_dass)
+
+dta_dass_1<- dta_dass%>%
+  janitor::clean_names()%>%
+  select(participant_public_id, participant_completion_code,question_key, response)%>%
+  subset(!is.na(response))%>%
+  mutate(dass_grep_sup = grepl("DASS21_", question_key))%>%
+  subset(dass_grep_sup == TRUE) %>%
+  select(-dass_grep_sup) %>%
+  setDT()%>%
+    dcast(participant_public_id+participant_completion_code 
+           ~ question_key, value.var = "response")%>%
+  janitor::clean_names()%>%
+   mutate(participant = participant_public_id)%>%
+   select(-participant_public_id)
+
+dta_dass_1
+
+left_join(dta_tas21_1, dta_dass_1)%>%
+  ggplot(aes(as.numeric(tas20_total), as.numeric(dass21_total)))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)+
+  ggpubr::stat_cor()
+
+
+
+
+
+```
+sleep
+
+```{r}
+colnames(dta_sleep)
+dta_sleep_1
+
+dta_sleep_1
+
+
+test_sleep <- dta_sleep%>%
+  janitor::clean_names()%>%
+  select(participant_public_id, participant_completion_code, 
+          question, page, object_name,key, response)%>%
+  subset(!is.na(response) & !is.na(object_name) )%>%
+
+  # subset(key == "value") %>%
+  mutate(key_new = paste0(object_name,paste0("_", key)))%>%
+  subset(key!= "quantised")%>%
+  select(-key,-object_name)
+  setDT()%>%
+    dcast(participant_public_id+participant_completion_code  +
+           page ~ question, value.var = "response")%>%
+  janitor::clean_names()
+
+write_csv(test_sleep, "test_sleep.csv")
+
+
+
+
+library(readr)
+dta_sleep_1 <- read_csv("structured_sleep_data_with_scores.csv")%>%
+    janitor::clean_names()%>%
+   mutate(participant= participant_id)%>%
+  select(-participant_id, -completion_code)
+
+dta_sleep_1
+
+colnames(dta_sleep_1)
+
+left_join(dta_sleep_1, dta_dass_1)%>%
+  ggplot(aes(total_sleep_score, as.numeric(dass21_total)))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)+
+  ggpubr::stat_cor()
+```
+
+
+
+final files
+```{r}
+dta_demg1
+dta_tas21_1
+dta_aq28_1
+dta_dass_1
+dta_sleep_1
+
+
+
+dta_quest<- left_join(dta_demg1, dta_tas21_1) %>%
+                left_join(., dta_aq28_1) %>%
+                left_join(., dta_dass_1) %>%
+    left_join(., dta_sleep_1) 
+
+dta_quest
+```
+
