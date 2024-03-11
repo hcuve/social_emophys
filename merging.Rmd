@@ -1,0 +1,259 @@
+---
+title: "merge all"
+author: "Helio"
+date: "2024-03-11"
+output: html_document
+---
+
+
+
+```{r}
+dta_psypy1
+
+
+dta_quest
+dta_gp_all_fix_sacc_stim_agg
+dta_leda_era1
+dta_pulse_ibi
+dta_pulse_rate
+
+dta_psypy1$participant<- as.character(dta_psypy1$participant)
+
+# Convert 'participant' column to character in all specified dataframes
+dta_psypy1$participant <- as.character(dta_psypy1$participant)
+dta_quest$participant <- as.character(dta_quest$participant)
+dta_gp_all_fix_sacc_stim_agg$participant <- as.character(dta_gp_all_fix_sacc_stim_agg$participant)
+dta_leda_era1$participant <- as.character(dta_leda_era1$participant)
+dta_pulse_rate$participant <- as.character(dta_pulse_rate$participant)
+dta_pulse_ibi$participant <- as.character(dta_pulse_ibi$participant)
+
+library(dplyr)
+
+
+# Assign modified dataframes to new ones with a suffix of "2"
+dta_psypy1_2 <- dta_psypy1
+dta_quest_2 <- dta_quest
+dta_gp_all_fix_sacc_stim_agg_2 <- dta_gp_all_fix_sacc_stim_agg
+dta_leda_era1_2 <- dta_leda_era1
+dta_pulse_rate_2 <- dta_pulse_rate
+dta_pulse_ibi_2 <- dta_pulse_ibi
+
+
+
+
+unique(dta_psypy1$participant)
+unique(dta_quest$participant)
+unique(dta_gp_all_fix_sacc_stim_agg$participant)
+unique(dta_leda_era1$participant)
+unique(dta_pulse_rate$participant)
+unique(dta_pulse_ibi$participant)
+
+
+# Remove 'filename' column from each dataframe
+
+
+# Remove 'filename' column from each new dataframe with a suffix of "2"
+dta_psypy1_2 <- select(dta_psypy1_2, -filename)
+dta_quest_2 <- select(dta_quest_2, -filename)
+dta_gp_all_fix_sacc_stim_agg_2 <- select(dta_gp_all_fix_sacc_stim_agg_2, -filename)
+dta_leda_era1_2 <- select(dta_leda_era1_2, -filename)
+dta_pulse_rate_2 <- select(dta_pulse_rate_2, -filename)
+dta_pulse_ibi_2 <- select(dta_pulse_ibi_2, -filename)
+
+dta_quest_2<-dta_quest_2%>%
+  janitor::clean_names()
+
+dta_pulse_ibi_2$filename<- NULL
+
+dta_pulse_rate_2$filename<- NULL
+dta_leda_era1_2
+
+dta_pulse_ibi_2$gsr_pulse_timestamp_sync_unix_cal_ms<- NULL
+
+
+
+
+dta_psypy1_2<- dta_psypy1_2%>%
+  select(-matches("_rt"))%>%
+  select(-matches("_started"))%>% 
+   select(-matches("_stopped"))
+
+
+colnames(dta_psypy1_2)
+dta_psypy1_2<- dta_psypy1_2[,c(1,5:11,
+                16:23,
+                26,27)]
+
+
+colnames(dta_psypy1_2)
+
+colnames(dta_quest_2)
+dta_quest_2$key
+dta_quest_2<- dta_quest_2[,c(22, 3:12,14:21,23:53)]
+colnames(dta_gp_all_fix_sacc_stim_agg_2)
+
+
+dta_gp_all_fix_sacc_stim_agg_2<- dta_gp_all_fix_sacc_stim_agg_2[,c(1,4,5:17)]
+
+colnames(dta_leda_era1_2)
+
+# dta_leda_era1_2<- dta_leda_era1_2[,c(1)]
+
+colnames(dta_pulse_rate_2)
+dta_pulse_rate_2$gsr_pulse_timestamp_sync_unix_cal_ms<- NULL
+colnames(dta_pulse_ibi_2)
+colnames(dta_of_agg)
+dta_of_agg$filename<- NULL
+dta_of_agg$timestamp<- NULL
+dta_of_agg$confidence_of<- dta_of_agg$confidence
+
+unique(dta_of_agg$success)
+
+dta_of_agg$success_of<- dta_of_agg$success
+
+dta_of_agg$success<- NULL
+dta_of_agg$confidence<- NULL
+
+dta_psypy_gsr_fixsac_hribi_of<-
+ left_join(dta_quest_2,dta_psypy1_2) %>%
+                left_join(., dta_gp_all_fix_sacc_stim_agg_2) %>%
+                left_join(., dta_leda_era1_2) %>%
+    left_join(., dta_pulse_rate_2) %>%
+    left_join(., dta_pulse_ibi_2) %>%
+  left_join(., dta_of_agg) 
+
+colnames(dta_psypy_gsr_fixsac_hribi_of)
+dta_psypy_gsr_fixsac_hribi_of%>%
+  ggplot(aes(social_nonsocial, int_slider_response,
+             ))+
+  stat_summary(geom = "pointrange")
+  # geom_jitter()
+
+unqiue(dta_psypy_gsr_fixsac_hribi_of$obs_slider_response )
+
+dta_psypy1$obs_slider_response
+
+dta_psypy_gsr_fixsac_hribi_of
+dta_psypy_gsr_fixsac_hribi_of %>%
+  ggplot(aes(social_nonsocial, val_slider_response))+
+  stat_summary(geom = "pointrange")
+
+
+
+
+
+
+colnames(dta_psypy_gsr_fixsac_hribi_of)
+
+dta_psypy_gsr_fixsac_hribi_of$frame<- NULL
+
+dta_psypy_gsr_fixsac_hribi_of_task<- dta_psypy_gsr_fixsac_hribi_of %>%
+  subset(trial_no_all>5)
+
+
+dta_psypy_gsr_fixsac_hribi_of_task$condition<- NULL
+```
+
+
+column_descriptions = {
+    "participant": "Unique identifier for each study participant.",
+    "asd": "Indicates whether the participant is on the Autism Spectrum.",
+    "age": "Age of the participant.",
+    "diagnosis": "Any specific psychological or physical diagnosis reported.",
+    "endocrine": "Information related to endocrine system conditions, if any.",
+    "eye_colour": "The participant's eye color.",
+    "gender": "The participant's gender identity.",
+    "medication": "Details on any medication the participant is taking.",
+    "other_condition": "Any other medical or psychological conditions reported by the participant.",
+    "sex": "Biological sex of the participant.",
+    "specific_age": "More detailed age information, if available.",
+    "app_day": "Day the application was used or the data was collected.",
+    "children": "Indicates whether the participant has children.",
+    "hormones": "Information related to hormonal treatments or conditions.",
+    "menstrual": "Details about the menstrual cycle phase, if relevant.",
+    "non_app_phase": "Indicates phases not tracked by the application, if relevant.",
+    "pregnant": "Indicates whether the participant is pregnant.",
+    "regular": "Indicates regularity of mentrual",
+    "tracking": "menstrual.",
+    "describe_feeling": TAS subscae
+    "external_thinking": "TAS subscae
+    "identify_feeling": TAS subscale
+    "tas20_cutoff": "Cutoff scores for the Toronto Alexithymia Scale-20.",
+    "tas20_total": "Total score on the Toronto Alexithymia Scale-20.",
+    "aq28_imagination_cont": "AQ-28 score related to imagination.",
+    "aq28_numbers_cont": "AQ-28 score related to patterns or numbers.",
+    "aq28_routine_cont": "AQ-28 score related to routine preferences.",
+    "aq28_scale_sum_cont": "Sum of AQ-28 scale scores.",
+    "aq28_social_cont": "AQ-28 score related to social behavior.",
+    "aq28_switching_cont": "AQ-28 score related to switching tasks.",
+    "aq28_total_cont": "Total AQ-28 score.",
+    "aq28_cutoff": "Cutoff score for AQ-28, indicating ASD traits.",
+    "dass21_anx": "DASS-21 anxiety subscale score.",
+    "dass21_cutoff": "Cutoff scores for the Depression, Anxiety, and Stress Scale (DASS-21).",
+    "dass21_dep": "DASS-21 depression subscale score.",
+    "dass21_str": "DASS-21 stress subscale score.",
+    "dass21_total": "Total score on the DASS-21.",
+    "sleep_duration": "Total sleep duration.",
+    "bedtime": "Typical bedtime.",
+    "wake_up_time": "Typical wake-up time.",
+    "my_sleep_is_disturbed": "Indicator of sleep disturbance.",
+    "i_wake_up_too": "Frequency of waking up too early.",
+    "i_wake_up_from": "Reasons for waking up during the night.",
+    "please_select_mostly": "Selection related to sleep or wake behavior.",
+    "i_feel_that_i": "Self-reported feeling related to sleep quality or duration.",
+    "i_think_a_lot": "Indicates if participant often thinks a lot before sleeping.",
+    "i_am_afraid_to": "Fear related to sleep or sleeping environment.",
+    "i_feel_fit_during": "Self-reported fitness or energy levels during the day.",
+    "i_take_sleeping_pills": "Indicates use of sleeping pills or aids.",
+    "total_sleep_score": "Aggregate score assessing sleep quality.",
+    "emotion": "Type of emotion targeted or assessed in the experiment.",
+    "stim_iaps": "Identifier for stimuli used, IAPS.",
+    "stim_description": "Description of the stimulus used in the experiment.",
+    "valence_mean": "Mean valence rating for the stimulus.",
+    "arousal_mean": "Mean arousal rating for the stimulus.",
+    "emotioncategory": 
+    "val_slider_response": "Participant's response on a valence slider.",
+    "int_slider_response": "Participant's response on an intensity slider.",
+    "happy_slide_response": "Response to how happy the participant felt.",
+    "sad_slide_response": "Response to how sad the participant felt.",
+    "fear_slide_response": "Response to how fearful the participant felt.",
+    "disgust_slide_response": "Response to how disgusted the participant felt.",
+    "anger_slide_response": "Response to how angry the participant felt.",
+    "obs_slider_response": "Response to observer-rated sliders, if applicable.",
+    "social_nonsocial": "Indicator of social vs. nonsocial context.",
+    "trial_no_all": "Trial number, including all conditions and repetitions.",
+    "mean_dwell_dur": "Mean duration of dwells (fixations) on stimuli.",
+    "mean_fix_dur": "Mean duration of fixations.",
+    "mean_sac_dur": "Mean duration of saccades.",
+    "sum_dwell_dur": "Sum of dwell durations on stimuli.",
+    "sum_fix_dur": "Sum of fixation durations.",
+    "sum_sac_dur": "Sum of saccade durations.",
+    "mean_rms": "Mean root mean square of some physiological measurement.",
+    "mean_po_gsd": "Placeholder description (specifics needed).",
+    "mean_sac_amp": "Mean amplitude of saccades.",
+    "count_fix": "Count of fixations.",
+    "count_sacc": "Count of saccades.",
+    "gaze_valid_prop": "Proportion of valid gaze data.",
+    "gaze_valid_prop_ppt": "Proportion of valid gaze data per participant.",
+    "cda_n_scr": "Number of skin conductance responses.",
+    "cda_amp_sum": "Sum of amplitudes of conductance responses.",
+    "cda_phasic_max": "Maximum phasic conductance response.",
+    "cda_scr": "Skin conductance response.",
+    "cda_iscr": "Indicator of skin conductance response.",
+    "prop_gsr_resp_ppt": "Proportion of GSR responses per participant.",
+    "gsr_pulse_pp_gto_hr_cal_bpm": "GSR-derived pulse rate in beats per minute.",
+    "gsr_pulse_pp_gto_hr_cal_bpm_na": "Indicator for NA values in GSR-derived pulse BPM.",
+    "gsr_pulse_pp_gto_hr_cal_bpm_interp": "Interpolated GSR-derived pulse BPM.",
+    "pulse_rate_percent_valid": "Percentage of valid pulse rate data.",
+    "gsr_pulse_ppg_ibi_cal_ms": "Inter-beat interval calculated from GSR pulse in milliseconds.",
+    "gsr_pulse_ppg_ibi_cal_ms_cleaned": "Cleaned inter-beat interval data.",
+    "gsr_pulse_ppg_ibi_cal_ms_interpolated": "Interpolated inter-beat interval data.",
+    "pulse_ibi_percent_valid": "Percentage of valid inter-beat interval data.",
+    "au01_r": "Intensity of Action Unit 01 (Inner Brow Raiser) from facial coding.",
+    "au02_r": "Intensity of Action Unit 02 (Outer Brow Raiser).",
+    # Continue with AU descriptions
+    "au45_r": "Intensity of Action Unit 45 (Blink).",
+    "au_average": "Average intensity across all action units.",
+    "confidence_of": "Confidence level of automated facial coding.",
+    "success_of": "Indicator of successful facial coding."
+}

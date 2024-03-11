@@ -904,6 +904,130 @@ combine the ledalab output with behavioural data and check if we have what we wo
 
 
 
+now load ledalab
+
+
+```{r}
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/leda")
+
+# Set the working directory to where your files are located
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/leda")
+
+# List all files with a .txt extension
+file_list <- list.files(pattern = "\\.txt$")
+
+# Use lapply to read each file and then combine them with do.call and rbind
+# dta_leda_era <-  Read files, adding a column with the filename
+dta_leda_era <- do.call(rbind, lapply(file_list, function(file) {
+  data <- read.table(file, header = TRUE, sep = "\t")%>%
+       janitor::clean_names()
+  # Add a new column to store the filename
+  data$filename <- file
+  
+  return(data)
+}))
+  
+
+
+dta_leda_era
+  
+
+
+# all_data now contains the combined data from all files
+dta_psypy1$trial_no_all
+unique( dta_leda_era$event_name)
+dta_leda_era$trial_no_all<- dta_leda_era$event_name
+
+dta_leda_era$filename
+dta_leda_era$participant<- substr(dta_leda_era$filename, 1,3)
+unique(dta_leda_era$participant)
+colnames(dta_leda_era)
+dta_psypy1$trial_no_all
+
+colnames(dta_leda_era)
+dta_leda_era1<- dta_leda_era%>%
+  group_by(participant)%>%
+  arrange(participant,trial_no_all)%>%
+  mutate(prop_gsr_resp_ppt = mean(sum(cda_n_scr>0)/65))%>%
+  select(participant, trial_no_all,cda_n_scr,cda_amp_sum,cda_phasic_max,cda_scr,
+         cda_iscr,prop_gsr_resp_ppt)
+  
+
+colnames(dta_leda_era1)
+
+range(dta_leda_era1$prop_gsr_resp_ppt)
+
+dta_leda_era1%>%
+  group_by(participant)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(prop_gsr_resp_ppt))+
+  geom_histogram()
+
+
+
+dta_leda_era1
+```
+
+
+
+
+dta_leda_era_110$trigger<- as.numeric(dta_leda_era_110$event_nid)
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lead(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(pre_post_stim, cda_amp_sum_z))+
+  stat_summary(geom = "pointrange")
+
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lead(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(cda_amp_sum_z, cda_amp_sum_z_post))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)
+
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lag(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(cda_amp_sum_z, cda_amp_sum_z_post))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)
+
+```
+
+```{r}
+
+dta_leda_era_110$trigger
+table(dta_leda_era_110$trigger)
+
+
+dt_result4$trigger
+
+dta_leda_era_110_v1<- left_join(dta_leda_era_110,dt_result4)
+
+
+
+
+```
+
 Pulse rate
 
 ```{r}

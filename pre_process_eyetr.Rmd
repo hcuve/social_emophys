@@ -960,7 +960,13 @@ colnames(dta_gp_all_fix_sacc_stim)
 
 
   # First, group by the main categories
-dta_gp_all_fix_sacc_stim_agg <- dta_gp_all_fix_sacc_stim %>%
+unique(dta_gp_all_fix_sacc_stim$text)
+
+
+table(is.na(dta_gp_all_fix_sacc_stim$stim_iaps ))
+
+
+dta_gp_all_fix_sacc_stim_agg <- dta_gp_all_fix_sacc_stim$text %>%
   group_by(participant, text, trial, stim_iaps) %>%
   summarise(
     mean_dwell_dur = mean(duration, na.rm = TRUE),
@@ -982,16 +988,33 @@ dta_gp_all_fix_sacc_stim_agg <- dta_gp_all_fix_sacc_stim %>%
 
 
 dta_gp_all_fix_sacc_stim_agg
+unique(dta_gp_all_fix_sacc_stim_agg$stim_iaps)
+
+# add trackloss
+
+colnames(dta_4gazepath)
+dta_4gazepath$split_column
+dta_4gazepath$screencontent_no_na
+
+dta_4gazepath$stimnopath
+trackloss<- dta_4gazepath%>%
+  select(participant, screencontent_no_na,text, gaze_valid_prop)%>%
+  subset(screencontent_no_na == "stimuli")%>%
+  select(-screencontent_no_na)%>%
+  group_by(participant, text) %>%
+  summarise_at(c("gaze_valid_prop"), mean, na.rm = T)%>%
+  mutate(gaze_valid_prop_ppt = mean(gaze_valid_prop, na.rm = T))
 
 
-# dta_gp_agg_fix_sacc_w_of_aoixy_stim1<- dta_gp_agg_fix_sacc_w_of_aoixy_stim1%>%
-#   mutate(across(c(mean_dwell_dur, mean_fix_dur, mean_sac_dur, 
-#                   sum_dwell_dur, sum_fix_dur, sum_sac_dur, 
-#                   # mean_rms, mean_po_gsd, mean_sac_amp, 
-#                   count_fix, count_sacc),
-#                 ~replace(., is.na(.) | is.nan(.), 0)))%>%
-#   group_by(ssid, participant, text, pratice_vs_trial, stimnopath, filename2, trial,aoi_name) %>%
-#   summarise_if(is.numeric, mean, na.rm = T)
+dta_gp_all_fix_sacc_stim_agg<- left_join(dta_gp_all_fix_sacc_stim_agg, 
+                                                 trackloss, by = c("participant", "text"))
+```
 
-  
+
+to merge
+
+```{r}
+
+dta_gp_all_fix_sacc_stim_agg
+
 ```
