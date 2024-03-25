@@ -114,44 +114,189 @@ dta_of_agg$success_of<- dta_of_agg$success
 dta_of_agg$success<- NULL
 dta_of_agg$confidence<- NULL
 
+
+dta_of_agg$success_of
+
+dta_of_agg$trial_no_all
+
 dta_psypy_gsr_fixsac_hribi_of<-
  left_join(dta_quest_2,dta_psypy1_2) %>%
                 left_join(., dta_gp_all_fix_sacc_stim_agg_2) %>%
                 left_join(., dta_leda_era1_2) %>%
     left_join(., dta_pulse_rate_2) %>%
-    left_join(., dta_pulse_ibi_2) %>%
-  left_join(., dta_of_agg) 
-
-colnames(dta_psypy_gsr_fixsac_hribi_of)
-dta_psypy_gsr_fixsac_hribi_of%>%
-  ggplot(aes(social_nonsocial, int_slider_response,
-             ))+
-  stat_summary(geom = "pointrange")
-  # geom_jitter()
-
-unqiue(dta_psypy_gsr_fixsac_hribi_of$obs_slider_response )
-
-dta_psypy1$obs_slider_response
+    left_join(., dta_pulse_ibi_2)
 
 dta_psypy_gsr_fixsac_hribi_of
-dta_psypy_gsr_fixsac_hribi_of %>%
-  ggplot(aes(social_nonsocial, val_slider_response))+
-  stat_summary(geom = "pointrange")
+```
+  
+dta_psypy_gsr_fixsac_hribi_of$trial_no_all
+dta_of_agg$trial_no_all
 
 
+dta_psypy_gsr_fixsac_hribi_of$trial_no_all
+dta_of_agg$stim_iaps
 
 
+colnames(dta_of_agg[,c(1:19,24:26 )])
 
+
+```{r}
+colnames(dta_of_agg)
 
 colnames(dta_psypy_gsr_fixsac_hribi_of)
 
-dta_psypy_gsr_fixsac_hribi_of$frame<- NULL
+colnames(dta_of_agg)
 
-dta_psypy_gsr_fixsac_hribi_of_task<- dta_psypy_gsr_fixsac_hribi_of %>%
+dta_of_agg$frame<-NULL
+dta_of_agg$condition<- NULL
+
+dta_of_agg
+
+dta_psypy_gsr_fixsac_hribi_of$participant
+dta_of_agg$participant
+
+dta_of_agg$stim_iaps
+
+dta_psypy_gsr_fixsac_hribi_of$stim_iaps
+
+unique(dta_psypy_gsr_fixsac_hribi_of$stim_iaps)
+
+unique(dta_of_agg$stim_iaps)
+unique(dta_psypy_gsr_fixsac_hribi_of$trial_no_all)
+unique(dta_of_agg$trial_no_all)
+
+
+dta_of_agg2<-dta_of_agg%>%
+  subset(!is.na(trial_no_all))
+
+colnames(dta_of_agg2)
+
+dta_of_agg2$stim_iaps
+
+dta_psypy_gsr_fixsac_hribi_of$stim_iaps
+
+
+dta_of_agg2$stim_iaps<- NULL
+
+dta_psypy_gsr_fixsac_hribi_of1
+
+table(dta_psypy_gsr_fixsac_hribi_of$participant)
+table(dta_psypy_gsr_fixsac_hribi_of$trial_no_all)
+
+table(dta_of_agg2$trial_no_all)
+
+
+dta_of_agg$stim_iaps
+
+
+
+```
+
+
+
+```{r}
+
+write_csv(dta_psypy_gsr_fixsac_hribi_of, "dta_psypy_gsr_fixsac_hribi_of.csv")
+
+dta_psypy_gsr_fixsac_hribi_of$stim_iaps
+write_csv(dta_of_agg, "dta_of_agg.csv")
+
+unique(dta_of_agg$stim_iaps)
+
+
+dta_of_agg$trial_no_all<- NULL
+dta_of_agg$frame<- NULL
+
+dta_of_agg$condition<- NULL
+
+
+
+dta_psypy_gsr_fixsac_hribi_of<-left_join(dta_psypy_gsr_fixsac_hribi_of, dta_psypy_obs_bel)
+
+
+dta_psypy_gsr_fixsac_hribi_of1<- left_join(dta_psypy_gsr_fixsac_hribi_of, 
+                                          dta_of_agg, by = c("participant", "stim_iaps")) 
+                                          
+
+
+# dta_psypy_gsr_fixsac_hribi_of1$au_average
+# 
+# dta_psypy_gsr_fixsac_hribi_of$obs_slider_response<-NULL
+# # dta_psypy_gsr_fixsac_hribi_of$be;
+# 
+# left_join(dta_psypy_gsr_fixsac_hribi_of, dta_psypy_obs_bel)%>%
+#   group_by(participant,social_nonsocial)%>%
+#   summarise_if(is.numeric, mean, na.rm = T)%>%
+#   ggplot(aes(social_nonsocial, obs_slider_response))+
+#   geom_jitter(width = .1)+
+#   stat_summary(geom = "pointrange")+
+#   ggpubr::stat_anova_test()
+
+```
+
+
+```{r}
+
+
+
+dta_psypy_gsr_fixsac_hribi_of1
+
+dta_psypy_gsr_fixsac_hribi_of1_nopract<- dta_psypy_gsr_fixsac_hribi_of1 %>%
   subset(trial_no_all>5)
 
 
-dta_psypy_gsr_fixsac_hribi_of_task$condition<- NULL
+dta_psypy_gsr_fixsac_hribi_of1$condition<- NULL
+
+
+dta_psypy_gsr_fixsac_hribi_of1$social_nonsocial.x
+dta_psypy_gsr_fixsac_hribi_of1$obs_slider_response<- NULL
+
+
+
+
+```
+  
+
+
+dta_psypy_gsr_fixsac_hribi_of_task2<- dta_psypy_gsr_fixsac_hribi_of1%>%
+  subset(participant> 108)
+
+
+dta_psypy_gsr_fixsac_hribi_of_task2<- dta_psypy_gsr_fixsac_hribi_of_task2%>%
+  subset(participant< 200 |           participant>205)
+
+unique(dta_psypy_gsr_fixsac_hribi_of_task2$participant)
+
+length(unique(dta_psypy_gsr_fixsac_hribi_of_task2$participant))
+
+
+write_csv(dta_psypy_gsr_fixsac_hribi_of_task2, "dta_psypy_gsr_fixsac_hribi_of_task.csv")
+
+
+
+dta_psypy_gsr_fixsac_hribi_of_task2$au_average
+# Install writexl package if you haven't already
+if(!require(writexl)) install.packages("writexl")
+
+# Load the writexl library
+library(writexl)
+
+dta_psypy_gsr_fixsac_hribi_of_task2$au45_r
+# Write the dataframe to an Excel file
+
+dta_psypy_gsr_fixsac_hribi_of_task2$obs_slider_response<- NULL
+
+
+dta_psypy_gsr_fixsac_hribi_of_task2<- left_join(dta_psypy_gsr_fixsac_hribi_of_task2,
+          dta_psypy_gsr_fixsac_hribi_of_task2)
+
+write_xlsx(dta_psypy_gsr_fixsac_hribi_of_task2, "dta_psypy_gsr_fixsac_hribi_of_task.xlsx")
+
+dta_psypy_gsr_fixsac_hribi_of_task2$obs_slider_response
+
+
+dta_psypy_gsr_fixsac_hribi_of_task2
+dta_psypy_gsr_fixsac_hribi_of_task2$bel
 ```
 
 

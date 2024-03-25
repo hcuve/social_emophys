@@ -284,7 +284,10 @@ dta_sleep_1
 dta_quest<- left_join(dta_demg1, dta_tas21_1) %>%
                 left_join(., dta_aq28_1) %>%
                 left_join(., dta_dass_1) %>%
-    left_join(., dta_sleep_1) 
+    left_join(., dta_sleep_1) %>%
+   left_join(., dta_sleep_1) 
+
+
 
 dta_quest
 ```
