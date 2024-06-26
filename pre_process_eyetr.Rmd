@@ -516,7 +516,7 @@ fn_gp_preprocessing = function(dta_eytr) {
   
   
   # dta_eytr$trackloss<- if_else(dta_eytr$status > 0, TRUE, FALSE)
-  dta_eytr$trialunq<- paste0(dta_eytr$pratice_vs_trial,"_",paste0(dta_eytr$screencontent,"_", paste0(dta_eytr$stim)))
+  dta_eytr$trialunq<- paste0(dta_eytr$pratice_vs_trial,"_",paste0(dta_eytr$screencontent,"_", paste0(dta_eytr$stimnopath_no_na)))
   dta_eytr$distance_mm = 600
   
   # min(dta_eytr$pupil, na.rm = TRUE)
@@ -527,6 +527,13 @@ fn_gp_preprocessing = function(dta_eytr) {
     arrange(ssid,time)
 }
 
+
+# unique(paste0(dta_eytr$pratice_vs_trial,"_",paste0(dta_eytr$screencontent,"_", paste0(dta_eytr$stimnopath_no_na))))
+
+# paste0(dta_eytr$pratice_vs_trial,"_",paste0(dta_eytr$screencontent,"_", paste0(dta_eytr$stim)))
+
+
+# trialunq is wrong
 ```
 
 repixelated and minimally processed (e.g. deleting invalid samples), merging left and right eye
@@ -600,7 +607,7 @@ dta_eytr_rpx%>%
     geom_smooth(aes(group = stimnopath_no_na), se = F)+
     # geom_line(aes(y = gaze_y_cor_pix), colour = "blue")+
   facet_grid(~screencontent_no_na)+
-  geom_vline(xintercept = 6.6, linetype = "dashed", colour ="red")+
+  geom_vline(xintercept = 6.6, linetype = "dashed", colour ="red")
   ylab("gaze coordinates")
 
 
@@ -610,10 +617,8 @@ dta_eytr_rpx%>%
 
 
 ######################
-TO ADAPT CODE BELOW
-To DO
 # rezeroing times by trial, by participants
-Continue here
+
 
 ```{r}
 dta_eytr_rpx
@@ -634,11 +639,13 @@ dta_eytr_rpx$trialunq
 dta_eytr_rpx$pratice_vs_trial<- ifelse(is.na(dta_eytr_rpx$pratice_vs_trial), "rest", dta_eytr_rpx$pratice_vs_trial)
 
 
-dta_eytr_rpx$trialunq<- paste0(dta_eytr_rpx$pratice_vs_trial,"_",paste0(dta_eytr_rpx$screencontent,"_", paste0(dta_eytr_rpx$stimnopath)))
+dta_eytr_rpx$trialunq<- paste0(dta_eytr_rpx$pratice_vs_trial,"_",paste0(dta_eytr_rpx$screencontent,"_", paste0(dta_eytr_rpx$stimnopath_no_na)))
+
 table(is.na(dta_eytr_rpx$trialunq))
 
 unique(dta_eytr_rpx$trialunq)
 unique(dta_eytr_rpx$text)
+
 
 dta_eytr_rpx <- dta_eytr_rpx %>%
   arrange(participant, time) %>%
@@ -665,29 +672,44 @@ dta_eytr_rpx <- dta_eytr_rpx %>%
 
 # Arrange by time for final organization, if necessary
 dta_eytr_rpx <- dta_eytr_rpx %>%
-  arrange(participant,time)
+  arrange(participant, time)
+
+dta_eytr_rpx140<- dta_eytr_rpx%>%
+  subset(ssid == 140)
+
+
+dta_eytr_rpx<- dta_eytr_rpx%>%
+  subset(ssid != 140)
+
+unique(dta_eytr_rpx140$screencontent)
+unique(dta_eytr_rpx140$screencontent_no_na)
+
+dta_eytr_rpx140<- dta_eytr_rpx140%>%
+  mutate(rest_1_trial_2 = if_else(dta_eytr_rpx140$screencontent_no_na == "rest",1,2 ))%>%
+  arrange(rest_1_trial_2, time)
+
+# > 1705.112-1705.105
+# [1] 0.007
+# [1] 2
+# > 1/150
+# [1] 0.006666667
+
+dta_eytr_rpx<- bind_rows(dta_eytr_rpx,dta_eytr_rpx140)
+
+
+```
 
 # Optionally, print unique zero times to verify the operation
 print(unique(dta_eytr_rpx$zero))
 
 # Results stored in 'dta_gaze_clean' with 'timerezero' reflecting time since trial start
 
-# let's check to see if it looks fine
-range(dta_eytr_rpx$timerezero, na.rm = TRUE)
-max(dta_eytr_rpx$timerezero, na.rm = TRUE) # `
-# now this looks about right ~10~11sec
-# 120 seconds in 2 minutes
-dta_eytr_rpx%>%
-subset(ssid == 116 & dta_eytr_rpx$screencontent_no_na == "stimuli") %>%
-ggplot( aes(timerezero, pupil ))+
-  geom_smooth(aes(group = stimnopath_no_na), se = F, size = .1)
 
-
-```
 
 # create a new time rezero where before stim start, time is negative
 ```{r}
 
+dta_eytr_rpx$timerezero
 
 dta_eytr_rpx<- dta_eytr_rpx %>%
   group_by(participant, stimnopath_no_na) %>%
@@ -724,7 +746,7 @@ ggplot( aes(time_backward, pupil ))+
 
 # Filter out rows where either event_id or time is duplicated within each ssid
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 dta_eytr_rpx <- dta_eytr_rpx %>%
   group_by(participant) %>%
@@ -752,14 +774,27 @@ nrow(dta_eytr_rpx_nodup )/nrow(dta_eytr_rpx)
 
 select variables for gazepath
 ```{r}
-dta_eytr_rpx$subject<- dta_eytr_rpx$ssid
+dta_eytr_rpx$ssid
+dta_eytr_rpx$participant
+dta_eytr_rpx$subject <- dta_eytr_rpx$ssid
 
+
+# correct the isues with trial unique indicator
+
+  dta_eytr_rpx$trialunq<- paste0(dta_eytr_rpx$pratice_vs_trial,"_",paste0(dta_eytr_rpx$screencontent,"_", paste0(dta_eytr_rpx$stimnopath_no_na)))
+
+unique(  dta_eytr_rpx$trialunq) #expect 129 (64 trials * 2 (fixationa trial) + 1 rest)
+# 
 dta_eytr_rpx<- dta_eytr_rpx%>%
+ mutate(rest_1_trial_2 = if_else(screencontent_no_na == "rest",1,2 ))%>% # we need to do this because of 140 time issues
 group_by(participant)%>%
-  arrange(time)
+  arrange(rest_1_trial_2,time)
+
+dta_eytr_rpx%>%
+  subset(participant==140)
 
 
-dta_eytr_rpx$distance_mm<- 610
+dta_eytr_rpx$distance_mm <- 650
 
 
 
@@ -770,10 +805,10 @@ unique(dta_eytr_rpx$trackloss)
 
 # compute proportion of lost data
 
-dta_gaze_clean_10s_nodup$trialunq
+# dta_gaze_clean_10s_nodup$trialunq #problematic
 
 dta_eytr_rpx <- dta_eytr_rpx %>%
-  group_by(participant, trialunq, text)%>%
+  group_by(participant, text)%>%
   mutate(gaze_valid_prop = sum(trackloss)/n())%>%
   mutate(gaze_loss_prop = 1 - gaze_valid_prop)%>%
   group_by(participant)%>%
@@ -796,6 +831,9 @@ dta_eytr_rpx%>%
 select for gazepath
 ```{r}
 dta_eytr_rpx$filename
+
+
+dta_eytr_rpx$trialunq
 
 dta_4gazepath<- select(dta_eytr_rpx, 
                                       c("participant", "session_id", "event_id", "ssid", 
@@ -829,7 +867,7 @@ library(ggplot2)
 # this can be slow if not sumamrised
 dta_4gazepath %>%
   group_by(ssid,trialunq, screencontent_no_na)%>%
-  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
   ggplot(aes(gaze_x_cor_pix, gaze_y_cor_pix, colour = timerezero))+
   # geom_contour()
   geom_point(alpha = .1)+
