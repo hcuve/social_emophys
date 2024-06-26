@@ -21,14 +21,18 @@ Lookup and referecne tables: lkp_
 Results and Analysis: rlt_
 Consistency and accuracy checks: chk_
 
-Set-up: where I load libraries and create objects for later use (such as color schemes etc).
-
 4. Check gaze data
 
 
 
-
 Set-up: where I load libraries and create objects for later use (such as color schemes etc).
+
+
+version of R
+
+R version 4.4.0 (2024-04-24) -- "Puppy Cup"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin20
 
 ```{r setup, include=FALSE}
 # store date
@@ -42,10 +46,11 @@ require(readr)
 # for reading hdf5 files
 # if (!requireNamespace("BiocManager", quietly = TRUE))
 # install.packages("BiocManager")
-# BiocManager::install(version = "3.18")
+# BiocManager::install(version = "3.19")
 # 
 # BiocManager::install("rhdf5")
 library(rhdf5)
+
 
 
 
@@ -54,23 +59,60 @@ library(rhdf5)
 Data Import / Cleaning: where datasets are imported and cleaned.
 ```{r}
 
-setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking")
+# setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking")
 
 # get hdf files in 
 hdf5_file_path<-"~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking"
   
+# set working directory
+setwd(hdf5_file_path)
 
-  setwd(hdf5_file_path)
+# 
+
+
+```
+
+
+File Listing: It lists all HDF5 files in the given directory (hdf5_file_path).
+
+File Check: If no HDF5 files are found, it returns a message indicating this.
+
+Loop Through Files: For each HDF5 file:
+
+File Information: It prints a message indicating the file being processed.
+Extract Events: Reads the 'MessageEvent' data from the file.
+Filter Events: Keeps only the relevant events (tStart, tEnd, and those with category "VALIDATION").
+Extract Eye Tracking Data: Reads the 'GazepointSampleEvent' data.
+Extract Subject ID: Extracts the subject ID from the file name.
+Event Processing:
+Filters events to keep only start and end messages.
+Creates start and end time references.
+Labels events with screen content (fixation or stimuli) and trial type (practice or trial).
+Extracts the stimulus file name from the event text.
+Data Preparation:
+Converts raw eye-tracking data to a double format.
+Subsets eye-tracking data based on event start and end times.
+Adds metadata (screen content, trial type, stimulus path, subject ID) to eye-tracking data.
+Binds the trial data to a dataframe.
+Sorting and Saving:
+Sorts the dataframe by time.
+Saves the processed eye-tracking data to a CSV file named with the subject ID and the current date.
+Saves the calibration events to a separate CSV file.
+Completion Message: Prints a message indicating that processing is completed.
+
+Return Dataframe: Returns the dataframe with the processed data.
+```{r}
+
+# creating the fucntion
 fn_gp.extractor = function(hdf5_file_path) {
   
-
   hdf_files_list = list.files(hdf5_file_path, pattern = "\\.hdf5$")
   
   if (length(hdf_files_list) == 0){
     
     return(message('No HDF5 files found in the directory provided.'))
   }
-  
+  hdf_files_list1 = hdf_files_list[40]
   
   # pb <- txtProgressBar(min = 0, max = length(hdf_files_list), style = 3)
 
@@ -81,7 +123,10 @@ fn_gp.extractor = function(hdf5_file_path) {
     #note this sometimes fails because e are using a notebook 
     # Extract Events from hdf5, in that case run it from command
     tmp.events =h5read(hdf_files_list[f], '/data_collection/events/experiment/MessageEvent')
+    
+    # tmp.events1 =h5read(hdf_files_list[41], '/data_collection/events/experiment/MessageEvent')
 
+    # tmp.events_tmp<- bind_rows(tmp.events, tmp.events1)
     # check tstop or tend
     tmp.events$keep_drop<- if_else(grepl(c('tStart'), tmp.events$text), "keep",
                                    if_else(grepl(c('tEnd'), tmp.events$text), "keep",
@@ -92,9 +137,17 @@ fn_gp.extractor = function(hdf5_file_path) {
   
   
     # load the eye tracking data
-    tmp.eyetr  = h5read(hdf_files_list[f], '/data_collection/events/eyetracker/GazepointSampleEvent') # note this is updated to GazepointSampleEvent whereas before it was BinocularEyeSampleEvent
+    tmp.eyetr  = h5read(hdf_files_list[f], '/data_collection/events/eyetracker/GazepointSampleEvent') # note this is
+    # 
+    # tmp.eyetr1  = h5read(hdf_files_list[41], '/data_collection/events/eyetracker/GazepointSampleEvent') # note this is
+    #  tmp.eyetr_tmp<- bind_rows(tmp.eyetr, tmp.eyetr1)
+    #  
+    #  tmp.events<- tmp.events_tmp
+    # tmp.eyetr<- tmp.eyetr_tmp
     
-
+    # updated to GazepointSampleEvent whereas before it was BinocularEyeSampleEvent
+    
+f = 40
     # Get subejct id from Events
     ssid = sub("_.*", "", hdf_files_list[f])
       # substr(hdf_files_list[f], 1,3)
@@ -259,10 +312,19 @@ for(e in 1:nrow(tmp.events1)) {
 
 run the fn_gp.extractor
 
+140 had to be re-run separately due to slit session
+
 ```{r }
 
-# not this throws ann error on problematic participants
+# not this throws an error on problematic participants
 tmp_full<- fn_gp.extractor(hdf5_file_path)
+
+
+
+
+tmp_test<-fn_gp.extractor(hdf_files_list[40])
+
+tmp_full
 
 ```
 
@@ -272,12 +334,12 @@ tmp_full<- fn_gp.extractor(hdf5_file_path)
 Now some basic cleaning 
 
 ```{r, cleaning}
-# setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed")
+# setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/raw")
 
 # reads all individual gaze exported files into one big file
 
 library(readr)
-colnames(X101_2024_03_07_gp_data)
+# colnames(X101_2024_03_07_gp_data)
 
 
 read_plus <- function(flnm) {
@@ -310,14 +372,20 @@ pattern <- "\\./([0-9]+)_.*"
 
 # Extract the pattern
 unique(dta_eytr$stimnopath)
+
+length(unique(dta_eytr$ssid))
+length(unique(sub(pattern, "\\1", dta_eytr$filename)))
+
 dta_eytr$participant<-  sub(pattern, "\\1", dta_eytr$filename)
+# dta_eytr$participant<-  dta_eytr$ssid
 
 
 
 
 
 dta_eyetrack
-unique(dta_eyetrack$screencontent)
+
+unique(dta_eytr$screencontent)
 
 dta_eytr$screencontent_no_na <- if_else(is.na(dta_eytr$screencontent), "rest", dta_eytr$screencontent)
 
@@ -470,6 +538,7 @@ dta_eytr_rpx<- fn_gp_preprocessing(dta_eytr)
 colnames(dta_eytr_rpx) 
  
 options(scipen = 999)
+options(scipen = 999)
 range(dta_eytr_rpx$pupil, na.rm = TRUE)
 range(dta_eytr_rpx$pupil_d, na.rm = TRUE)
 range(dta_eytr_rpx$gaze_y_cor_pix, na.rm = TRUE)
@@ -480,6 +549,7 @@ range(dta_eytr_rpx$gaze_x_cor_pix, na.rm = TRUE)
 colnames(dta_eytr_rpx)
 
 unique(dta_eytr_rpx$stimnopath)
+
 dta_eytr_rpx<- dta_eytr_rpx%>%
   group_by(participant)%>%
   arrange(time)
