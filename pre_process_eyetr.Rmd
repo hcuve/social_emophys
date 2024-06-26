@@ -907,7 +907,7 @@ walk(names(tmp_split_df), function(tmp_splitcol) {
 })
 
 
-# with prtogres bar
+# with bar
 
 # library(pbapply)
 # 
