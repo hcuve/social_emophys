@@ -248,7 +248,7 @@ dta_OF_combined_tmp%>%
   # geom_point()+
   stat_summary(geom = "pointrange")+
   facet_grid(~emotioncategory)
-  
+  lme
 
 ```
   
