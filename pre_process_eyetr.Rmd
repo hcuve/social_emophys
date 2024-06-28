@@ -1542,6 +1542,10 @@ dta_gp_all_fix_sacc_stim_agg%>%
   geom_text(aes(label = ssid))
 
 
+
+```
+
+```{r}
 dta_gp_all_fix_sacc_stim_agg%>%
       subset(ssid== 140)%>%
   group_by(participant,stim_iaps)%>%
