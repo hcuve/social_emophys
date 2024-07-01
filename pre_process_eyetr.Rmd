@@ -1094,7 +1094,7 @@ dta_4gazepath%>%
   subset(screencontent == "stimuli")%>%
   ggplot(aes(timerezero,gaze_x_cor_pix))+
   geom_point()+
-  facet_grid(~screencontent
+  facet_grid(~screencontent)
   
   
 ```
@@ -1185,6 +1185,10 @@ install.packages("shiny")
 install.packages("gazepath_1.3.tar.gz", repos = NULL, type = "source")
 library(gazepath)
 GUI()
+
+
+<!-- find old mac versions of r -->
+<!-- https://cran-archive.r-project.org/bin/macosx/base/ -->
 ```{r}
 # install from source
 # download gazepath from source here: https://cran.r-project.org/src/contrib/Archive/gazepath/
@@ -1503,7 +1507,7 @@ dta_gp_all_fix_sacc%>%
 dta_4gazepath$stimnopath
  
  
-```
+```{r}
 
 
 dta_gp_all_fix_sacc_stim_agg<- dta_gp_all_fix_sacc_stim %>%
@@ -1563,9 +1567,6 @@ dta_gp_all_fix_sacc_stim_agg<- dta_gp_all_fix_sacc_stim_agg%>%
       subset(ssid== 140)
 
 
-
-
-```
   
 
 # add trackloss
