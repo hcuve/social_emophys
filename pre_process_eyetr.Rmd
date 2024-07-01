@@ -889,11 +889,13 @@ dta_4gazepath %>%
 
 # Create a unique identifier for each combination of ssid and screencontent
 dta_4gazepath <- dta_4gazepath %>%
-  mutate(split_column = paste0(participant, "_", screencontent_no_na))
+  mutate(split_column = paste0(ssid, "_", text))
 
 # Split the data frame into a list of data frames based on the unique combinations
-unique(dta_4gazepath$split_column)
 tmp_split_df <- split(dta_4gazepath, dta_4gazepath$split_column)
+
+# Log message indicating the start of writing files for gazepath
+message("Writing files for gazepath")
 
 
 
@@ -907,6 +909,11 @@ setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/Emo
 walk(names(tmp_split_df), function(tmp_splitcol) {
   write_csv(tmp_split_df[[tmp_splitcol]], paste0('gp_', tmp_splitcol, ".csv"))
 })
+
+# Message indicating completion
+message("Files successfully written for gazepath")
+
+
 
 
 # with bar
@@ -936,179 +943,6 @@ walk(names(tmp_split_df), function(tmp_splitcol) {
 
 
 ```
-
-# debugging
-(automated description of the problem based on context I provided)
-
-Summary of the Problem:
-You are experiencing inconsistencies when processing eye-tracking data using the gazepath method. Specifically, certain trials appear to be "flipped" or mismatched when processed together, but not when processed separately. The main issues are:
-
-Data Flipping:
-
-When trials 6300.jpg and 111.jpg are processed together, their visualizations match each other’s raw data, indicating a possible mix-up.
-When these trials are processed separately, the visualizations match their respective raw data correctly.
-Consistency Across Runs:
-
-When running the same trials multiple times in a row, you need to ensure the patterns remain consistent.
-Similarly, when running combined trials multiple times, the results should be consistent.
-Order Sensitivity:
-
-Changing the order of the trials might affect the results, indicating a possible issue with how trials are indexed or handled during processing.
-Participant Specificity:
-
-Check if the problem is specific to certain participants or if it occurs across different participants.
-Problematic vs. Good Trials:
-
-Determine if the issue only occurs with problematic trials (6300.jpg and 111.jpg) or if it also affects good trials (112.jpg).
-Goals for Debugging:
-Replicate Patterns Separately:
-
-Verify if processing each trial separately produces correct and consistent results.
-Check Repeatability:
-
-Run the same trial multiple times to ensure the results are consistent each time.
-Combine and Re-run Trials:
-
-Combine multiple trials for a participant and run the processing multiple times to check for consistency.
-Re-arrange and Test Order:
-
-Change the order of trials and run the processing multiple times to see if the order affects the results.
-Cross-Participant Testing:
-
-Test the same problematic trials with data from different participants to see if the issue persists.
-By following these steps, you can identify whether the issue lies in the trial handling, data indexing, or some other part of the processing pipeline. This will help you pinpoint the cause of the data flipping and ensure reliable and consistent processing of your eye-tracking data.
-```{r}
-
-
-
-tmp_140<- dta_4gazepath%>%
-  subset(ssid == 140)
-
-tmp_140
-
-
-tmp_140%>%
-  mutate(duplicated_event_id = duplicated(event_id) | duplicated(event_id, fromLast = TRUE),
-         duplicated_time = duplicated(time) | duplicated(time, fromLast = TRUE)) %>%
-  ungroup()
-tmp_140%>%
-  filter(!duplicated_event_id & !duplicated_time)%>%
-  subset(screencontent == "stimuli")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_point()+
-  facet_grid(~screencontent)
-
-
-# 111
-# 6300
-
-dta_4gazepath%>%
-  subset(ssid == 140)%>%
-  subset(screencontent == "stimuli" & stimnopath_no_na == "111.jpg")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y =gaze_y_cor_pix))+
-  facet_grid(~screencontent)+
-  ggtitle("pp 140; 111.jpg")
-
-
-
-
-dta_4gazepath%>%
-  subset(ssid == 140)%>%
-  subset(screencontent == "stimuli" & stimnopath_no_na == "6300.jpg")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y =gaze_y_cor_pix))+
-  facet_grid(~screencontent)+
-  ggtitle("pp 140; 6300.jpg")
-
-
-dta_4gazepath%>%
-  subset(ssid == 140)%>%
-  subset(screencontent == "stimuli" & stimnopath_no_na == "112.jpg")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y =gaze_y_cor_pix))+
-  facet_grid(~screencontent)+
-  ggtitle("pp 140; 112.jpg")
-
-
-
-
-
-dta_4gazepath%>%
-  subset(ssid == 215)%>%
-  subset(screencontent == "stimuli" & stimnopath_no_na == "111.jpg")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y =gaze_y_cor_pix))+
-  facet_grid(~screencontent)+
-  ggtitle("pp 215; 111.jpg")
-
-
-
-
-dta_4gazepath%>%
-  subset(ssid == 215)%>%
-  subset(screencontent == "stimuli" & stimnopath_no_na == "6300.jpg")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y =gaze_y_cor_pix))+
-  facet_grid(~screencontent)+
-  ggtitle("pp 215; 6300.jpg")
-
-
-dta_4gazepath%>%
-  subset(ssid == 215)%>%
-  subset(screencontent == "stimuli" & stimnopath_no_na == "112.jpg")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y =gaze_y_cor_pix))+
-  facet_grid(~screencontent)+
-  ggtitle("pp 215; 112.jpg")
-
-
-
-dta_4gazepath%>%
-  subset(ssid == 215)%>%
-  subset(screencontent == "stimuli" & stimnopath_no_na == "2457.jpg")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y =gaze_y_cor_pix))+
-  facet_grid(~screencontent)+
-  ggtitle("pp 249; 2457.jpg")
-
-```
-
-
-```{r}
-
-dta_4gazepath%>%
-  # subset(ssid == 142)%>%
-  # mutate(duplicated_event_id = duplicated(event_id) | duplicated(event_id, fromLast = TRUE),
-  #        duplicated_time = duplicated(time) | duplicated(time, fromLast = TRUE)) %>%
-  ungroup()%>%
-  arrange(time)%>%
-  filter(!duplicated_event_id & !duplicated_time)%>%
-  subset(screencontent == "stimuli")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_point()+
-  facet_grid(~screencontent)
-  
-  
-```
-
-
-
-dta_4gazepath%>%
-  subset(ssid == 142)%>%
-  arrange(time)%>%
-  subset(screencontent == "stimuli")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_point()+
-  facet_grid(~screencontent)
-
 
 
 
@@ -1204,8 +1038,6 @@ library(gazepath)
 GUI()
 
 ```
-
-
 
 
 load gazepath data
@@ -1325,6 +1157,8 @@ ggplot()+
 
 
 ```
+  
+  
   
 ```{r}
 
@@ -1466,35 +1300,6 @@ dta_gp_all_fix_sacc_stim<- dta_gp_all_fix_sacc %>%
 dta_gp_all_fix_sacc_stim$trial
 
 
-# debug
-unique(dta_4gazepath$stimnopath)
-
-dta_4gazepath%>%
-      subset(ssid== 140 & stimnopath == "6300.jpg" & screencontent == "stimuli")%>%
-   ggplot(aes(timerezero, gaze_y_cor_pix))+
-  geom_line(aes(y = gaze_x_cor_pix))+
-  geom_line()
-
-
-dta_4gazepath$text
-dta_4gazepath%>%
-      subset(ssid== 140 & stimnopath == "2457.jpg" & screencontent == "stimuli")%>%
-   ggplot(aes(timerezero, gaze_y_cor_pix))+
-  geom_line(aes(y = gaze_x_cor_pix))+
-  geom_line()
-
-tmp<- dta_4gazepath%>%
-      subset(ssid== 141 & stimnopath == "2457.jpg" & screencontent == "stimuli")
-
-tmp1<- dta_4gazepath%>%
-      subset(ssid== 140 & stimnopath == "111.jpg" & screencontent == "stimuli")
-
-
-tmp1<- dta_4gazepath%>%
-      subset(ssid== 141 & stimnopath == "111.jpg" & screencontent == "stimuli")
-
-tmp
-tmp1
 
 ```
 
@@ -1595,5 +1400,220 @@ to merge
 ```{r}
 
 dta_gp_all_fix_sacc_stim_agg
+
+```
+
+
+
+
+
+# debugging
+(automated description of the problem based on context I provided)
+
+Summary of the Problem:
+You are experiencing inconsistencies when processing eye-tracking data using the gazepath method. Specifically, certain trials appear to be "flipped" or mismatched when processed together, but not when processed separately. The main issues are:
+
+Data Flipping:
+
+When trials 6300.jpg and 111.jpg are processed together, their visualizations match each other’s raw data, indicating a possible mix-up.
+When these trials are processed separately, the visualizations match their respective raw data correctly.
+Consistency Across Runs:
+
+When running the same trials multiple times in a row, you need to ensure the patterns remain consistent.
+Similarly, when running combined trials multiple times, the results should be consistent.
+Order Sensitivity:
+
+Changing the order of the trials might affect the results, indicating a possible issue with how trials are indexed or handled during processing.
+Participant Specificity:
+
+Check if the problem is specific to certain participants or if it occurs across different participants.
+Problematic vs. Good Trials:
+
+Determine if the issue only occurs with problematic trials (6300.jpg and 111.jpg) or if it also affects good trials (112.jpg).
+Goals for Debugging:
+Replicate Patterns Separately:
+
+Verify if processing each trial separately produces correct and consistent results.
+Check Repeatability:
+
+Run the same trial multiple times to ensure the results are consistent each time.
+Combine and Re-run Trials:
+
+Combine multiple trials for a participant and run the processing multiple times to check for consistency.
+Re-arrange and Test Order:
+
+Change the order of trials and run the processing multiple times to see if the order affects the results.
+Cross-Participant Testing:
+
+Test the same problematic trials with data from different participants to see if the issue persists.
+By following these steps, you can identify whether the issue lies in the trial handling, data indexing, or some other part of the processing pipeline. This will help you pinpoint the cause of the data flipping and ensure reliable and consistent processing of your eye-tracking data.
+```{r}
+tmp_140<- dta_4gazepath%>%
+  subset(ssid == 140)
+
+tmp_140
+
+
+tmp_140%>%
+  mutate(duplicated_event_id = duplicated(event_id) | duplicated(event_id, fromLast = TRUE),
+         duplicated_time = duplicated(time) | duplicated(time, fromLast = TRUE)) %>%
+  ungroup()
+tmp_140%>%
+  filter(!duplicated_event_id & !duplicated_time)%>%
+  subset(screencontent == "stimuli")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_point()+
+  facet_grid(~screencontent)
+
+
+# 111
+# 6300
+
+dta_4gazepath%>%
+  subset(ssid == 140)%>%
+  subset(screencontent == "stimuli" & stimnopath_no_na == "111.jpg")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y =gaze_y_cor_pix))+
+  facet_grid(~screencontent)+
+  ggtitle("pp 140; 111.jpg")
+
+
+
+
+dta_4gazepath%>%
+  subset(ssid == 140)%>%
+  subset(screencontent == "stimuli" & stimnopath_no_na == "6300.jpg")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y =gaze_y_cor_pix))+
+  facet_grid(~screencontent)+
+  ggtitle("pp 140; 6300.jpg")
+
+
+dta_4gazepath%>%
+  subset(ssid == 140)%>%
+  subset(screencontent == "stimuli" & stimnopath_no_na == "112.jpg")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y =gaze_y_cor_pix))+
+  facet_grid(~screencontent)+
+  ggtitle("pp 140; 112.jpg")
+
+
+
+
+
+dta_4gazepath%>%
+  subset(ssid == 215)%>%
+  subset(screencontent == "stimuli" & stimnopath_no_na == "111.jpg")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y =gaze_y_cor_pix))+
+  facet_grid(~screencontent)+
+  ggtitle("pp 215; 111.jpg")
+
+
+
+
+dta_4gazepath%>%
+  subset(ssid == 215)%>%
+  subset(screencontent == "stimuli" & stimnopath_no_na == "6300.jpg")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y =gaze_y_cor_pix))+
+  facet_grid(~screencontent)+
+  ggtitle("pp 215; 6300.jpg")
+
+
+dta_4gazepath%>%
+  subset(ssid == 215)%>%
+  subset(screencontent == "stimuli" & stimnopath_no_na == "112.jpg")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y =gaze_y_cor_pix))+
+  facet_grid(~screencontent)+
+  ggtitle("pp 215; 112.jpg")
+
+
+
+dta_4gazepath%>%
+  subset(ssid == 215)%>%
+  subset(screencontent == "stimuli" & stimnopath_no_na == "2457.jpg")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y =gaze_y_cor_pix))+
+  facet_grid(~screencontent)+
+  ggtitle("pp 249; 2457.jpg")
+
+```
+
+
+
+```{r}
+
+dta_4gazepath%>%
+  # subset(ssid == 142)%>%
+  # mutate(duplicated_event_id = duplicated(event_id) | duplicated(event_id, fromLast = TRUE),
+  #        duplicated_time = duplicated(time) | duplicated(time, fromLast = TRUE)) %>%
+  ungroup()%>%
+  arrange(time)%>%
+  filter(!duplicated_event_id & !duplicated_time)%>%
+  subset(screencontent == "stimuli")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_point()+
+  facet_grid(~screencontent)
+  
+  
+```
+
+
+
+dta_4gazepath%>%
+  subset(ssid == 142)%>%
+  arrange(time)%>%
+  subset(screencontent == "stimuli")%>%
+  ggplot(aes(timerezero,gaze_x_cor_pix))+
+  geom_point()+
+  facet_grid(~screencontent)
+
+
+
+
+
+# debug
+unique(dta_4gazepath$stimnopath)
+
+dta_4gazepath%>%
+      subset(ssid== 140 & stimnopath == "6300.jpg" & screencontent == "stimuli")%>%
+   ggplot(aes(timerezero, gaze_y_cor_pix))+
+  geom_line(aes(y = gaze_x_cor_pix))+
+  geom_line()
+
+
+dta_4gazepath$text
+
+
+dta_4gazepath%>%
+      subset(ssid== 140 & stimnopath == "2457.jpg" & screencontent == "stimuli")%>%
+   ggplot(aes(timerezero, gaze_y_cor_pix))+
+  geom_line(aes(y = gaze_x_cor_pix))+
+  geom_line()
+  
+  
+```
+
+tmp<- dta_4gazepath%>%
+      subset(ssid== 141 & stimnopath == "2457.jpg" & screencontent == "stimuli")
+
+tmp1<- dta_4gazepath%>%
+      subset(ssid== 140 & stimnopath == "111.jpg" & screencontent == "stimuli")
+
+
+tmp1<- dta_4gazepath%>%
+      subset(ssid== 141 & stimnopath == "111.jpg" & screencontent == "stimuli")
+
+tmp
+tmp1
 
 ```
