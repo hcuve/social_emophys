@@ -916,29 +916,58 @@ message("Files successfully written for gazepath")
 
 
 
-# with bar
 
-# library(pbapply)
-# 
-# # Assuming tmp_split_df is your list of data frames and names(tmp_split_df) gives their names
-# pblapply(names(tmp_split_df), function(tmp_splitcol) {
-#   write_csv(tmp_split_df[[tmp_splitcol]], paste0('gp_', tmp_splitcol, ".csv"))
-# })
-# 
-# # Create a progress bar
-# pb <- txtProgressBar(min = 0, max = length(names(tmp_split_df)), initial = 0, style = 3)
-# 
-# # Iterate over the list of split data frames
-# walk(names(tmp_split_df), function(tmp_splitcol, index) {
-#   # Update progress bar
-#   setTxtProgressBar(pb, index)
-#   
-#   # Write to CSV
-#   write_csv(tmp_split_df[[tmp_splitcol]], paste0('gp_', tmp_splitcol, ".csv"))
-# }, index = seq_along(names(tmp_split_df)))
-# 
-# # Close the progress bar
-# close(pb)
+dta_4gazepath<- dta_4gazepath%>%
+  arrange(ssid, trial_no, timerezero)
+
+unique(dta_4gazepath$screencontent_no_na)
+
+
+dta_4gazepath <- dta_4gazepath %>%
+  mutate(split_column = paste0(ssid, "_", screencontent_no_na))
+
+# Split the data frame into a list of data frames based on the unique combinations
+tmp_split_df <- split(dta_4gazepath, dta_4gazepath$split_column)
+
+dta_4gazepath_stim<- dta_4gazepath%>%
+  subset(screencontent_no_na == "stimuli")
+
+
+dta_4gazepath_fix<- dta_4gazepath%>%
+  subset(screencontent_no_na == "fixation")
+
+
+dta_4gazepath_rest<- dta_4gazepath%>%
+  subset(screencontent_no_na == "rest")
+
+
+
+
+# Split the data frame into a list of data frames based on the unique combinations
+tmp_split_df <- split(dta_4gazepath_stim, dta_4gazepath_stim$split_column)
+
+# Log message indicating the start of writing files for gazepath
+message("Writing files for gazepath")
+
+
+
+# Log message indicating the start of writing files for gazepath
+message("Writing files for gazepath")
+
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac")
+
+# Iterate over the list of split data frames and write each to a CSV file
+walk(names(tmp_split_df), function(tmp_splitcol) {
+  write_csv(tmp_split_df[[tmp_splitcol]], paste0('gp_', tmp_splitcol, ".csv"))
+})
+
+# Message indicating completion
+message("Files successfully written for gazepath")
+
+
+
+
 
 
 
@@ -1615,5 +1644,141 @@ tmp1<- dta_4gazepath%>%
 
 tmp
 tmp1
+
+```{r}
+
+colnames(dta1)
+tmp_140 <- gazepath(dta1, x1 = 17, y1 = 19, x2 = 18, y2 = 20, d1 = 23, d2 = 23, trial = 5,
+height_px = 1080, height_mm = 295,
+width_px = 1920, width_mm = 525, extra_var = c("text","participant","stimnopath_no_na"),
+method = 'gazepath', samplerate = 150)
+install.packages("tidyverse")
+library(tidyverse)
+ppt140%>%
+  subset(stimnopath_no_na == "111.jpg")%>%
+  ggplot(aes(timerezero,right_gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y=right_gaze_y_cor_pix))
+
+
+
+```
+
+
+
+
+```{r}
+
+unique(dta_4gazepath$text)
+
+
+
+dta_4gazepath_stim<- subs
+
+# Function to extract the last part after an underscore
+get_last_part <- function(x) {
+  parts <- strsplit(x, "_")[[1]]
+  return(tail(parts, n=1))
+}
+
+
+# Print the result
+print(result)
+
+
+
+dta_4gazepath$trial_no<- stringr::str_match(dta_4gazepath$text, '(.*)_(.*)')[, -1][,2]
+
+
+dta_4gazepath$trial_no<- if_else(dta_4gazepath$trial_no == "cross",0, as.numeric(dta_4gazepath$trial_no))
+
+
+unique(dta_4gazepath$pratice_vs_trial)
+
+dta_4gazepath$trial_no<- if_else(dta_4gazepath$pratice_vs_trial == "Pratice", 
+                                         dta_4gazepath$trial_no+1,
+                                 if_else(dta_4gazepath$pratice_vs_trial == "Trial",
+                                  dta_4gazepath$trial_no+5,    dta_4gazepath$trial_no))
+
+
+unique(dta_4gazepath$trial_no)
+table(is.na(dta_4gazepath$trial_no))
+
+tmp<- dta_4gazepath%>%subset(pratice_vs_trial == "rest")
+
+unique(tmp$trial_no)
+
+unique(dta_4gazepath$pratice_vs_trial)
+
+# Pratice
+tmp<- dta_4gazepath%>%subset(pratice_vs_trial == "Pratice")
+
+unique(tmp$trial_no)
+
+
+tmp<- dta_4gazepath%>%subset(pratice_vs_trial == "Trial")
+
+unique(tmp$trial_no)
+
+
+dta_4gazepath$trial_no_gpid_stim<- paste0(dta_4gazepath$trial_no, paste0("_"),
+                                          dta_4gazepath$stimnopath_no_na)
+
+
+dta_4gazepath$trial_no<- as.factor(as.numeric(dta_4gazepath$trial_no))
+
+dta_4gazepath
+
+
+
+
+```
+```{r}
+
+
+
+```
+
+
+
+
+
+
+```{r}
+dta_4gazepath_stim
+
+
+dta_140<- dta_4gazepath_stim%>%
+  subset(ssid == 141)
+
+
+# dta_140$trial_no_id_plus5trial<- as.factor(dta_140$trial_no_id_plus5trial)
+
+colnames(dta_140)
+
+dta_140$trial_no<- as.factor(dta_140$trial_no)
+
+dta_140$trial_no<- as.numeric(dta_140$trial_no)
+
+ppt140 <- gazepath(dta_4gazepath_stim, x1 = 17, y1 = 19, x2 = 18, y2 = 20,
+                   d1 = 23, d2 = 23,
+                   trial = 28, #it needs to be character or factor
+height_px = 1080, height_mm = 295,
+width_px = 1920, width_mm = 525, 
+# extra_var = c("text","participant", "trial_no_gpid_stim","trial_no"),
+method = 'gazepath', 
+samplerate = 150)
+```
+```{r}
+ppt140_parsed<- summary(ppt140)
+ppt140_parsed%>%
+  subset(ppt140_parsed$trial_no_id_plus5trial_stim == "5_111.jpg")
+as.factor(dta_140$trial_no_id_plus5trial)
+dta_140%>%
+  subset(stimnopath_no_na == "111.jpg")%>%
+  ggplot(aes(timerezero,right_gaze_x_cor_pix))+
+  geom_line()+
+  geom_line(aes(y=right_gaze_y_cor_pix))
+plot(ppt140, trial_index = 6)
 
 ```
