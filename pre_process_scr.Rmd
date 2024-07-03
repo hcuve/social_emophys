@@ -399,7 +399,7 @@ fn_read_and_adjust <- function(file_path) {
 }
 
 
-note this below is not6 quite for ledalab  -see ahead
+note this below is not quite for ledalab  -see ahead
 
 ```{r}
 # Predefined column names
