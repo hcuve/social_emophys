@@ -887,12 +887,42 @@ dta_4gazepath %>%
 
 ```{r}
 
+# remove event id duplicates - this probably needs to be done earlier
+
+dta_4gazepath
+
+
+dta_4gazepath<- dta_4gazepath%>%
+  group_by(participant,text)%>%
+  arrange(time)%>%
+  # mutate(time1 = time, time2 = lead(time))%>%
+   # mutate(time_diff = time1 -time2)%>%
+  
+   mutate(event_diff = event_id -lead(event_id))%>%
+ mutate(
+        unk_sample_ev = abs(event_diff)< 2,
+        )
+
+dta_4gazepath1<- dta_4gazepath%>%
+  subset(event_diff<2)
+
+unique(dta_4gazepath1$ssid)
+
+
+dta_4gazepath1<- dta_4gazepath1%>%
+  arrange(ssid, trial_no, timerezero)
+```
+
+
+
+
+```{r}
 # Create a unique identifier for each combination of ssid and screencontent
-dta_4gazepath <- dta_4gazepath %>%
+dta_4gazepath1 <- dta_4gazepath1 %>%
   mutate(split_column = paste0(ssid, "_", text))
 
 # Split the data frame into a list of data frames based on the unique combinations
-tmp_split_df <- split(dta_4gazepath, dta_4gazepath$split_column)
+tmp_split_df <- split(dta_4gazepath1, dta_4gazepath1$split_column)
 
 # Log message indicating the start of writing files for gazepath
 message("Writing files for gazepath")
@@ -917,30 +947,28 @@ message("Files successfully written for gazepath")
 
 
 
-dta_4gazepath<- dta_4gazepath%>%
-  arrange(ssid, trial_no, timerezero)
-
-unique(dta_4gazepath$screencontent_no_na)
+unique(dta_4gazepath1$screencontent_no_na)
 
 
-dta_4gazepath <- dta_4gazepath %>%
+dta_4gazepath1 <- dta_4gazepath1 %>%
   mutate(split_column = paste0(ssid, "_", screencontent_no_na))
 
 # Split the data frame into a list of data frames based on the unique combinations
-tmp_split_df <- split(dta_4gazepath, dta_4gazepath$split_column)
+tmp_split_df <- split(dta_4gazepath1, dta_4gazepath1$split_column)
 
-dta_4gazepath_stim<- dta_4gazepath%>%
+dta_4gazepath_stim<- dta_4gazepath1%>%
   subset(screencontent_no_na == "stimuli")
 
 
-dta_4gazepath_fix<- dta_4gazepath%>%
+dta_4gazepath_fix<- dta_4gazepath1%>%
   subset(screencontent_no_na == "fixation")
 
 
-dta_4gazepath_rest<- dta_4gazepath%>%
+dta_4gazepath_rest<- dta_4gazepath1%>%
   subset(screencontent_no_na == "rest")
 
 
+```
 
 
 # Split the data frame into a list of data frames based on the unique combinations
@@ -949,12 +977,6 @@ tmp_split_df <- split(dta_4gazepath_stim, dta_4gazepath_stim$split_column)
 # Log message indicating the start of writing files for gazepath
 message("Writing files for gazepath")
 
-
-
-# Log message indicating the start of writing files for gazepath
-message("Writing files for gazepath")
-
-
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac")
 
 # Iterate over the list of split data frames and write each to a CSV file
@@ -965,16 +987,7 @@ walk(names(tmp_split_df), function(tmp_splitcol) {
 # Message indicating completion
 message("Files successfully written for gazepath")
 
-
-
-
-
-
-
 ```
-
-
-
 
 
 run gazepath to detect fioxationa nd saccades in gaze data
@@ -1685,20 +1698,23 @@ get_last_part <- function(x) {
 # Print the result
 print(result)
 
-
+unique(dta_4gazepath$text)[2]
 
 dta_4gazepath$trial_no<- stringr::str_match(dta_4gazepath$text, '(.*)_(.*)')[, -1][,2]
-
+unique(dta_4gazepath$trial_no)[2]
 
 dta_4gazepath$trial_no<- if_else(dta_4gazepath$trial_no == "cross",0, as.numeric(dta_4gazepath$trial_no))
 
 
+unique(dta_4gazepath$trial_no)
 unique(dta_4gazepath$pratice_vs_trial)
 
 dta_4gazepath$trial_no<- if_else(dta_4gazepath$pratice_vs_trial == "Pratice", 
-                                         dta_4gazepath$trial_no+1,
-                                 if_else(dta_4gazepath$pratice_vs_trial == "Trial",
-                                  dta_4gazepath$trial_no+5,    dta_4gazepath$trial_no))
+                                         dta_4gazepath$trial_no+1,dta_4gazepath$trial_no)
+                                 
+                                 
+dta_4gazepath$trial_no<- if_else(dta_4gazepath$pratice_vs_trial == "Trial",
+                                  dta_4gazepath$trial_no+5,    dta_4gazepath$trial_no)
 
 
 unique(dta_4gazepath$trial_no)
@@ -1733,11 +1749,6 @@ dta_4gazepath
 
 
 ```
-```{r}
-
-
-
-```
 
 
 
@@ -1746,7 +1757,7 @@ dta_4gazepath
 
 ```{r}
 dta_4gazepath_stim
-
+dta_4gazepath_stim
 
 dta_140<- dta_4gazepath_stim%>%
   subset(ssid == 141)
