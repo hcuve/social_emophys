@@ -1222,24 +1222,85 @@ plot.gazepath(gazepath_results$`249`, trial_index = 28)
 
 ```{r}
 
+#loading files
+dta_4gazepath_fix <- readRDS("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/dta_4gazepath_fix.rds")
+colnames(dta_4gazepath_fix)
+
+# formatting the data
+dta_4gazepath_fix <- as.data.frame(as.matrix(dta_4gazepath_fix))
+dta_4gazepath_fix[, c(17, 18, 19, 20, 23, 28)] <- lapply(dta_4gazepath_fix[, c(17, 18, 19, 20, 23, 28)], as.numeric)
+
+# Split the data by participant
+tmp_fix_by_pp <- split(dta_4gazepath_fix, dta_4gazepath_fix$participant)
+
+# Initialize an empty list to store gazepath results
+gazepath_results_fix <- list()
+
+# Initialize an empty dataframe to store summary results
+gp_summary_results_fix <- data.frame()
+
+# Loop through each participant's data
+for (participant_id in names(tmp_fix_by_pp)) {
+  # Get the data for the current participant
+  dta <- tmp_fix_by_pp[[participant_id]]
+
+  # Check if the trial column exists and has values
+  if (!"trial_no" %in% colnames(dta) || all(is.na(dta$trial_no))) {
+    warning(paste("Skipping participant", participant_id, "due to missing or empty 'trial' column"))
+    next
+  }
+
+  # Ensure the trial column is properly formatted
+  dta$trial_no <- as.factor(as.numeric(as.character(dta$trial_no)))
+
+  # Run the gazepath analysis (you can run just the section below if you are running only a single file/particiapnt )
+  rslt_gp_fix <- gazepath(dta, 
+                           x1 = 17, y1 = 19, 
+                           x2 = 18, y2 = 20,
+                           d1 = 23, d2 = 23,
+                           trial = 28, # Ensure this is a character or factor
+                           height_px = 1080, height_mm = 295,
+                           width_px = 1920, width_mm = 525,
+                           extra_var = c("text", "trial_no", "trial_no_gpid_fix", "stimnopath_no_na", "participant"),
+                           method = 'gazepath',
+                           samplerate = 150)
+
+  # Append the gazepath result to the list
+  gazepath_results_fix[[participant_id]] <- rslt_gp_fix
+
+  # Run the summary analysis
+  rslt_fix_sacc_gp_fix <- summary.gazepath(rslt_gp_fix)
+
+  # Bind the summary results into the dataframe
+  gp_summary_results_fix <- bind_rows(gp_summary_results, rslt_fix_sacc_gp_fix)
+}
+
+
+# Save gazepath results to an RDS file
+saveRDS(gazepath_results_fix, "gazepath_results_fix.rds")
+saveRDS(gp_summary_results_fix, "gp_summary_results_fix.rds")
+saveRDS(tmp_fix_by_pp, "tmp_fix_by_pp.rds")
 ```
 
-fix plots
 ```{r}
+# Example plots that compare before and after to make sure that parsed data matched the raw data
+tmp_fix_by_pp$`249` %>%
+  subset(trial_no == 63) %>%
+  ggplot(aes(as.numeric(gaze_x_cor_pix), as.numeric(gaze_y_cor_pix))) +
+  geom_path() +
+  geom_path(aes(y = as.numeric(gaze_y_cor_pix)))+
+  scale_y_reverse()
+
+tmp_fix_by_pp$`249` %>%
+  subset(trial_no == 63) %>%
+  ggplot(aes(as.numeric(timerezero), as.numeric(gaze_x_cor_pix))) +
+  geom_line() +
+  geom_line(aes(y = as.numeric(gaze_y_cor_pix)))+
+  ylim(0, 2000)
+
+plot.gazepath(gazepath_results_fix$`249`, trial_index = 63)
 
 ```
-
-# Rest (all ppts)
-
-```{r}
-
-
-```
-rest plots
-```{r}
-
-```
-
 
 
 
@@ -1248,12 +1309,19 @@ load gazepath data
 
 
 ```{r}
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/Gazepath results/GPRESULTS")
+
 gazepath_results_stim <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/GPRESULTS/gazepath_results.rds")
 gp_summary_results_stim <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/GPRESULTS/gp_summary_results.rds")
-gazepath_results_fix <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/GPRESULTS/gazepath_results_fix.rds")
-gp_summary_results_fix <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/GPRESULTS/gp_summary_results_fix.rds")
-gazepath_results_rest <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/GPRESULTS/gazepath_results_rest.rds")
-gp_summary_results_rest <-readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/GPRESULTS/gp_summary_results_rest.rds")
+
+gazepath_results_fix <- readRDS("gazepath_results_fix.rds")
+gp_summary_results_fix <- readRDS("gp_summary_results_fix.rds")
+
+gazepath_results_rest <- readRDS("gazepath_results_rest.rds")
+gp_summary_results_rest <-readRDS("gp_summary_results_rest.rds")
+
+tmp_rest_by_pp <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/Gazepath results/GPRESULTS/tmp_rest_by_pp.rds")
 
 ```
 
@@ -1289,7 +1357,7 @@ gp_summary_results_stim%>%
 gp_summary_results_fix%>%
   group_by(participant,text)%>%
   mutate(sum_dur = sum(Duration))%>%
-  subset(sum_dur > 4000)%>%
+  # subset(sum_dur > 4000)%>%
   ggplot(aes(sum_dur))+
   geom_histogram()
 
@@ -1314,8 +1382,11 @@ tmp_test<- gp_summary_results_fix%>%
 combine all data into one file
 
 ```{r}
-dta_gp_all_fix_sacc <- bind_rows(gp_summary_results_rest, gp_summary_results_fix, gp_summary_results_stim)%>%
+dta_gp_all_fix_sacc <- rbind(gp_summary_results_rest, gp_summary_results_fix, gp_summary_results_stim)
+
+
 # recreate the screen content
+dta_gp_all_fix_sacc<- dta_gp_all_fix_sacc%>%
   mutate(
     screencontent_no_na = case_when(
       grepl("fix", text) ~ "fixation_cross",
@@ -1324,9 +1395,9 @@ dta_gp_all_fix_sacc <- bind_rows(gp_summary_results_rest, gp_summary_results_fix
       TRUE ~ NA_character_ # Provides an NA value where none of the above conditions are met
     ),
     screencontent_no = case_when(
-      screencontent == "rest" ~ 1,
-      screencontent == "fixation_cross" ~ 2,
-      screencontent == "stimuli" ~ 3,
+      screencontent_no_na == "rest" ~ 1,
+      screencontent_no_na == "fixation_cross" ~ 2,
+      screencontent_no_na == "stimuli" ~ 3,
       TRUE ~ NA_real_ # Ensures that a numeric NA is returned if none of the conditions match
     )
   )%>%
@@ -1334,34 +1405,29 @@ dta_gp_all_fix_sacc <- bind_rows(gp_summary_results_rest, gp_summary_results_fix
   janitor::clean_names()
 
 
+unique(dta_gp_all_fix_sacc$screencontent_no_na)
 
+
+unique(dta_gp_all_fix_sacc$screencontent_no)
 # dta_gp_all_fix_sacc$stim_iaps <- paste0(sub(".*_([^_]+)\\.jpg.*", "\\1", dta_gp_all_fix_sacc$text), ".jpg")
   
-
-
+dta_gp_all_fix_sacc
+# note use trial no - Trial is an index from gazepath
 ```
 
-now create averages for gaze
+create aoi - stim vs not stim
 
 ```{r}
-dta_gp_all_fix_sacc
+dta_gp_all_fix_sacc_stim<- dta_gp_all_fix_sacc%>%
+  subset(screencontent_no == 3)
 # compute means and max fixation duration
 
-unique(dta_gp_all_fix_sacc$screencontent)
+unique(dta_gp_all_fix_sacc_stim$screencontent_no_na)
 
-# dta_gp_all_fix_sacc_stim<- dta_gp_all_fix_sacc%>%
-#   subset(screencontent == "stimuli")%>%
-#   select(-screencontent, -screencontent_no)
-
-
+unique(dta_gp_all_fix_sacc_stim$screencontent_no)
 
 # are they looking at the image
 # stim_aoi_vs_non_stim
-# measure of eccentricity - define the centre of the screen
-# entropy
-
-
-range(dta_gp_all_fix_sacc$mean_x)
 
 # Screen dimensions
 screen_width <- 1920
@@ -1376,6 +1442,9 @@ aoi_x_min <- (screen_width - image_width) / 2
 aoi_x_max <- aoi_x_min + image_width
 aoi_y_min <- (screen_height - image_height) / 2
 aoi_y_max <- aoi_y_min + image_height
+
+
+
 
 
 ggplot()+
@@ -1394,118 +1463,214 @@ ggplot()+
 
 ```
   
-  
+  aoi stim not stim
   
 ```{r}
 
-dta_gp_all_fix_sacc<- dta_gp_all_fix_sacc%>%
+dta_gp_all_fix_sacc
+dta_gp_all_fix_sacc <- dta_gp_all_fix_sacc %>%
+  group_by(participant, text)%>%
   # image 1024, 768
   # screen 1080, 1920
   # aoi stim vs non stim
   mutate(aoi_stim_nonstim = ifelse(mean_x >= aoi_x_min & mean_x <= aoi_x_max &
-                                   
                                      mean_y >= aoi_y_min & mean_y <= aoi_y_max,
-                                   "stim_aoi", "nonstim_aoi"))
+                                   "stim_aoi", "nonstim_aoi"),
+         aoi_quadrant = case_when(
+           mean_x >= aoi_x_min & mean_x <= (aoi_x_min + (aoi_x_max - aoi_x_min) / 2) &
+           mean_y >= aoi_y_min & mean_y <= (aoi_y_min + (aoi_y_max - aoi_y_min) / 2) ~ "1",
+           
+           mean_x > (aoi_x_min + (aoi_x_max - aoi_x_min) / 2) & mean_x <= aoi_x_max &
+           mean_y >= aoi_y_min & mean_y <= (aoi_y_min + (aoi_y_max - aoi_y_min) / 2) ~ "2",
+           
+           mean_x >= aoi_x_min & mean_x <= (aoi_x_min + (aoi_x_max - aoi_x_min) / 2) &
+           mean_y > (aoi_y_min + (aoi_y_max - aoi_y_min) / 2) & mean_y <= aoi_y_max ~ "3",
+           
+           mean_x > (aoi_x_min + (aoi_x_max - aoi_x_min) / 2) & mean_x <= aoi_x_max &
+           mean_y > (aoi_y_min + (aoi_y_max - aoi_y_min) / 2) & mean_y <= aoi_y_max ~ "4",
+           
+           TRUE ~ "nonstim_aoi" # In case the point doesn't fall into any of the quadrants
+         ))%>%
+  ungroup()
 
 
-
-# eccentricity within image and whole screencontent_no_na
-
-
-
-# Calculate the Euclidean distance from the centre for each gaze point
-
-dta_gp_all_fix_sacc
-
-dta_gp_all_fix_sacc<- dta_gp_all_fix_sacc %>%
-  mutate(dist_from_cntr_whole_screen = sqrt((mean_x - (screen_width/2))^2 + (mean_y - (screen_height/2))^2))%>%
-  group_by(participant,text, aoi_stim_nonstim)%>%
+dta_gp_all_fix_sacc_stim%>%
+  ggplot(aes(mean_x, mean_y, color = aoi_quadrant))+
+  geom_point()+
+  # geom_path()+
+  facet_grid(~aoi_stim_nonstim)+
+  geom_vline( xintercept = 0)+
+  geom_vline( xintercept = 1920)+
+  geom_hline( yintercept = 0)+
+  geom_hline( yintercept = 1080)+
   
-  mutate(dist_from_cntr_stim = 
-                                 sqrt((mean_x - (screen_width / 2))^2 + (mean_y - (screen_height / 2))^2))
+    geom_vline( xintercept = 448, colour = "red")+
+  geom_vline( xintercept = 1472, colour = "red")+
 
-
-
-
+    geom_hline( yintercept = 156, colour = "red")+
+  geom_hline( yintercept = 924, colour = "red")+
+  scale_y_reverse()+
+  scale_color_brewer(palette = "Dark2")
 ```
 
-- measures of duration (averages)
-- aoi towards vs away of the image
-- entropy - normalised by complexity of the image
-
-- eccentricity asa further measure to aoi (to tell us whether they are looking towards the image or not) - looking towards the center of mass or not
 
 Entropy
-
-
-
 
 entropy of gaze
 - stationary
 - transition entropy
-- 
 
 
 ```{r}
-
 library(entropy)
 # install.packages("GrpString")
 library(GrpString)
 
 # option 1 - grid option - devide image into a grid
-# option 2 - kmean cluster
+# option 2 - kmean cluster - try this later
 
-unique(dta_gp_all_fix_sacc)
+  # compute entropy
+  # shanon entropy
 
 
-dta_gp_all_fix_sacc
+# Define the number of possible states
+num_states <- 5
+all_states <- as.character(1:num_states)
+max_entropy <- log2(num_states)
 
-dta_gp_all_fix_sacc
-dta_gp_all_fix_sacc%>%
-  group_by(participant, text,stim_iaps)%>%
-  # summarise_if(is.numeric, mean, na.rm = T)%>%
-  subset(screencontent = "stimuli")%>%
-  ggplot(aes(mean_x, mean_y))+
-  geom_point()+
-  geom_vline(xintercept = 960)+
-  geom_hline(yintercept = 540)+
-   geom_vline(xintercept = 448)+
-   geom_vline(xintercept = 1472)+
-  geom_hline(yintercept = 156)+
-    geom_hline(yintercept = 924)
-  
+unique(dta_gp_all_fix_sacc$aoi_quadrant)
 
-  
+
+dta_gp_all_fix_sacc$aoi_quadrant<- if_else(dta_gp_all_fix_sacc$aoi_quadrant == "nonstim_aoi", "5", dta_gp_all_fix_sacc$aoi_quadrant )
+
+
+
+
+
+dta_gp_all_fix_sacc %>%
+  group_by(participant, text) %>%
+  mutate(
+    # Calculate the frequency of each state in aoi_quadrant and add missing states with zero count
+    aoi_quadrant_table = list(table(factor(aoi_quadrant, levels = all_states))),
+    stat_entropy = entropy::entropy(as.numeric(unlist(aoi_quadrant_table)), unit = "log2") / max_entropy,
     
-    geom_vline( xintercept = 448, colour = "red")+
-  geom_vline( xintercept = 1472, colour = "red")+
+    # Calculate transition entropy for cluster_label ensuring all states are considered
+    trans_entropy = GrpString::TransEntro(as.character(factor(aoi_quadrant, levels = all_states))),
+    trans_entropy_perclust = GrpString::TransEntropy(as.character(factor(aoi_quadrant, levels = all_states)))
+  ) %>%
+  ungroup()
 
-    geom_hline( yintercept = 156, colour = "red")+
-  geom_hline( yintercept = 924, colour = "red")
 
+
+
+
+
+
+
+library(dplyr)
+library(GrpString)
+library(entropy)
+
+# Define the number of possible states
+num_states <- 5
+all_states <- as.character(1:num_states)
+max_entropy <- log2(num_states)
+
+# Adjust the `aoi_quadrant` column
+dta_gp_all_fix_sacc$aoi_quadrant <- if_else(dta_gp_all_fix_sacc$aoi_quadrant == "nonstim_aoi", "5", dta_gp_all_fix_sacc$aoi_quadrant)
+
+# Calculate entropy and transition entropy
+dta_gp_all_fix_sacc <- dta_gp_all_fix_sacc %>%
+  group_by(participant, text) %>%
+  mutate(
+    # Calculate the frequency of each state in aoi_quadrant and add missing states with zero count
+    aoi_quadrant_table = list(table(factor(aoi_quadrant, levels = all_states))),
+    stat_entropy = entropy::entropy(as.numeric(unlist(aoi_quadrant_table)), unit = "log2") / max_entropy,
+    
+    # Calculate transition entropy for aoi_quadrant ensuring all states are considered
+    trans_entropy = if (length(unique(aoi_quadrant)) > 1) {
+      GrpString::TransEntro(as.character(factor(aoi_quadrant, levels = all_states)))
+    } else {
+      NA_real_
+    },
+    
+    trans_entropy_perclust = if (length(unique(aoi_quadrant)) > 1) {
+      GrpString::TransEntropy(as.character(factor(aoi_quadrant, levels = all_states)))
+    } else {
+      NA_real_
+    }
+  ) %>%
+  ungroup()
+
+# Check results
+head(dta_gp_all_fix_sacc)
+
+
+
+
+library(dplyr)
+library(GrpString)
+library(entropy)
+
+# Define the number of possible states
+num_states <- 5
+all_states <- as.character(1:num_states)
+max_entropy <- log2(num_states)
+
+# Adjust the `aoi_quadrant` column
+dta_gp_all_fix_sacc$aoi_quadrant <- if_else(dta_gp_all_fix_sacc$aoi_quadrant == "nonstim_aoi", "5", dta_gp_all_fix_sacc$aoi_quadrant)
+
+# Calculate entropy and transition entropy
+dta_gp_all_fix_sacc <- dta_gp_all_fix_sacc %>%
+  group_by(participant, text) %>%
+  mutate(
+    # Calculate the frequency of each state in aoi_quadrant and add missing states with zero count
+    aoi_quadrant_table = list(table(factor(aoi_quadrant, levels = all_states))),
+    stat_entropy = entropy::entropy(as.numeric(unlist(aoi_quadrant_table)), unit = "log2") / max_entropy,
+    
+    # Ensure self-transitions are considered by checking the unique states length
+    trans_entropy = GrpString::TransEntro(as.character(factor(aoi_quadrant, levels = all_states))),
+    trans_entropy_perclust = GrpString::TransEntropy(as.character(factor(aoi_quadrant, levels = all_states)))
+  ) %>%
+  ungroup()
+
+# Check results
+head(dta_gp_all_fix_sacc)
 
 
 
 ```
-  
-  
-  
-  mutate(kmeans())
-  
-  
-  
-  
-  
-  # compute entropy
-  # shanon entropy
-  mutate(entropy_clust = entropy::entropy(table(cluster_label)),
-         trans_entropy = GrpString::TransEntro(cluster_label),
-         trans_entropy_perclust = GrpString::TransEntropy(cluster_label),
-         )%>%
-  group_by(filename, cluster_across)%>%
 
 
 ```{r}
+# num_states<- 3
+# all_states<- as.character(1:3)
+
+test1_2<- c(1,2,1,1,1,2)
+table(factor(test1_2))
+table(factor(test1_2, levels = all_states))
+
+tmp_test_table<- list(table(factor(test1_2, levels = all_states)))
+entropy::entropy(as.numeric(unlist(tmp_test_table)), unit = "log2")
+    
+table(test1_2)
+
+
+table(test1_4)
+test1_4<- c(1,2,3,1,2,3)
+
+entropy::entropy(test1_2)
+
+entropy::entropy(test1_4)
+# 1.735126
+?entropy::entropy
+?GrpString::TransEntro
+
+GrpString::TransEntro(test1_2)
+GrpString::TransEntro(test1_4)
+
+
+```
 dta_gp_all_fix_sacc$participant
 
 dta_gp_all_fix_sacc$ssid <- substr(dta_gp_all_fix_sacc$participant,4,6)
@@ -1998,5 +2163,31 @@ dta_140%>%
   geom_line()+
   geom_line(aes(y=right_gaze_y_cor_pix))
 plot(ppt140, trial_index = 6)
+
+```
+
+
+
+
+
+
+
+# eccentricity within image and whole screencontent_no_na
+
+
+
+# Calculate the Euclidean distance from the centre for each gaze point
+
+dta_gp_all_fix_sacc
+
+dta_gp_all_fix_sacc<- dta_gp_all_fix_sacc %>%
+  mutate(dist_from_cntr_whole_screen = sqrt((mean_x - (screen_width/2))^2 + (mean_y - (screen_height/2))^2))%>%
+  group_by(participant,text, aoi_stim_nonstim)%>%
+  
+  mutate(dist_from_cntr_stim = 
+                                 sqrt((mean_x - (screen_width / 2))^2 + (mean_y - (screen_height / 2))^2))
+
+
+
 
 ```
