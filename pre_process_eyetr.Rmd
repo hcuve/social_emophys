@@ -401,7 +401,7 @@ unique(dta_eytr$text)
 
 
 #####################################################################################
-# gp preprocessing funtion, checks for losses, averages gaze, pupil and pixelate
+# gp preprocessing function, checks for losses, averages gaze, pupil and pixelate
 #####################################################################################
 
 ```{r, gppreprocessing}
@@ -1171,6 +1171,7 @@ for (participant_id in names(tmp_stim_by_pp)) {
                            x2 = 18, y2 = 20,
                            d1 = 23, d2 = 23,
                            trial = 28, # Ensure this is a character or factor
+                           # settings for pixels
                            height_px = 1080, height_mm = 295,
                            width_px = 1920, width_mm = 525,
                            extra_var = c("text", "trial_no", "trial_no_gpid_stim", "stimnopath_no_na", "participant"),
@@ -1305,15 +1306,15 @@ plot.gazepath(gazepath_results_fix$`249`, trial_index = 63)
 
 
 
-load gazepath data
+load parsed gazepath data
 
 
 ```{r}
 
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/Gazepath results/GPRESULTS")
 
-gazepath_results_stim <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/GPRESULTS/gazepath_results.rds")
-gp_summary_results_stim <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/for_fix_sac/GPRESULTS/gp_summary_results.rds")
+gazepath_results_stim <- readRDS("gazepath_results.rds")
+gp_summary_results_stim <- readRDS("gp_summary_results.rds")
 
 gazepath_results_fix <- readRDS("gazepath_results_fix.rds")
 gp_summary_results_fix <- readRDS("gp_summary_results_fix.rds")
@@ -1321,7 +1322,7 @@ gp_summary_results_fix <- readRDS("gp_summary_results_fix.rds")
 gazepath_results_rest <- readRDS("gazepath_results_rest.rds")
 gp_summary_results_rest <-readRDS("gp_summary_results_rest.rds")
 
-tmp_rest_by_pp <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/Gazepath results/GPRESULTS/tmp_rest_by_pp.rds")
+# tmp_rest_by_pp <- readRDS("tmp_rest_by_pp.rds")
 
 ```
 
@@ -1331,9 +1332,6 @@ summary contains fixation and saccades
 # Bristol data
 setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/Gazepath results")
 
-# dta_gp_all_fix_sacc <- rbindlist(sapply(tmp_filelist[c(1,3,5)], fread, simplify = FALSE),
-#                 use.names = TRUE, idcol = "filename2")%>%
-#   janitor::clean_names()
 
 gp_summary_results_stim
 gp_summary_results_fix
@@ -1384,8 +1382,8 @@ combine all data into one file
 ```{r}
 dta_gp_all_fix_sacc <- rbind(gp_summary_results_rest, gp_summary_results_fix, gp_summary_results_stim)
 
-
-# recreate the screen content
+unique(dta_gp_all_fix_sacc$text)
+# recreate the screen content column
 dta_gp_all_fix_sacc<- dta_gp_all_fix_sacc%>%
   mutate(
     screencontent_no_na = case_when(
@@ -1418,16 +1416,6 @@ dta_gp_all_fix_sacc
 create aoi - stim vs not stim
 
 ```{r}
-dta_gp_all_fix_sacc_stim<- dta_gp_all_fix_sacc%>%
-  subset(screencontent_no == 3)
-# compute means and max fixation duration
-
-unique(dta_gp_all_fix_sacc_stim$screencontent_no_na)
-
-unique(dta_gp_all_fix_sacc_stim$screencontent_no)
-
-# are they looking at the image
-# stim_aoi_vs_non_stim
 
 # Screen dimensions
 screen_width <- 1920
@@ -1468,6 +1456,7 @@ ggplot()+
 ```{r}
 
 dta_gp_all_fix_sacc
+# not we are doing this in the whole dataset bit this is actially more meaningful for stimuli screen
 dta_gp_all_fix_sacc <- dta_gp_all_fix_sacc %>%
   group_by(participant, text)%>%
   # image 1024, 768
@@ -1494,11 +1483,11 @@ dta_gp_all_fix_sacc <- dta_gp_all_fix_sacc %>%
   ungroup()
 
 
-dta_gp_all_fix_sacc_stim%>%
+dta_gp_all_fix_sacc%>%
   ggplot(aes(mean_x, mean_y, color = aoi_quadrant))+
-  geom_point()+
+  geom_point(size = .001, alpha = .1)+
   # geom_path()+
-  facet_grid(~aoi_stim_nonstim)+
+  facet_grid(screencontent_no_na~aoi_stim_nonstim)+
   geom_vline( xintercept = 0)+
   geom_vline( xintercept = 1920)+
   geom_hline( yintercept = 0)+
@@ -1526,116 +1515,151 @@ library(entropy)
 # install.packages("GrpString")
 library(GrpString)
 
-# option 1 - grid option - devide image into a grid
+# option 1 - grid option - devide image into a grid -lets use this based on aoi
 # option 2 - kmean cluster - try this later
 
-  # compute entropy
-  # shanon entropy
 
 
-# Define the number of possible states
-num_states <- 5
-all_states <- as.character(1:num_states)
-max_entropy <- log2(num_states)
-
-unique(dta_gp_all_fix_sacc$aoi_quadrant)
-
-
-dta_gp_all_fix_sacc$aoi_quadrant<- if_else(dta_gp_all_fix_sacc$aoi_quadrant == "nonstim_aoi", "5", dta_gp_all_fix_sacc$aoi_quadrant )
-
-
-
-
-
-dta_gp_all_fix_sacc %>%
-  group_by(participant, text) %>%
-  mutate(
-    # Calculate the frequency of each state in aoi_quadrant and add missing states with zero count
-    aoi_quadrant_table = list(table(factor(aoi_quadrant, levels = all_states))),
-    stat_entropy = entropy::entropy(as.numeric(unlist(aoi_quadrant_table)), unit = "log2") / max_entropy,
-    
-    # Calculate transition entropy for cluster_label ensuring all states are considered
-    trans_entropy = GrpString::TransEntro(as.character(factor(aoi_quadrant, levels = all_states))),
-    trans_entropy_perclust = GrpString::TransEntropy(as.character(factor(aoi_quadrant, levels = all_states)))
-  ) %>%
-  ungroup()
-
-
-
-
-
-
-
-
-library(dplyr)
-library(GrpString)
-library(entropy)
+# note for entropy computations we technically only care about fixations 
 
 # Define the number of possible states
 num_states <- 5
 all_states <- as.character(1:num_states)
 max_entropy <- log2(num_states)
+num_unique_states <- length(all_states)
+
+
+max_transition_entropy <- log2(num_unique_states)
 
 # Adjust the `aoi_quadrant` column
 dta_gp_all_fix_sacc$aoi_quadrant <- if_else(dta_gp_all_fix_sacc$aoi_quadrant == "nonstim_aoi", "5", dta_gp_all_fix_sacc$aoi_quadrant)
 
-# Calculate entropy and transition entropy
-dta_gp_all_fix_sacc <- dta_gp_all_fix_sacc %>%
-  group_by(participant, text) %>%
-  mutate(
-    # Calculate the frequency of each state in aoi_quadrant and add missing states with zero count
-    aoi_quadrant_table = list(table(factor(aoi_quadrant, levels = all_states))),
-    stat_entropy = entropy::entropy(as.numeric(unlist(aoi_quadrant_table)), unit = "log2") / max_entropy,
-    
-    # Calculate transition entropy for aoi_quadrant ensuring all states are considered
-    trans_entropy = if (length(unique(aoi_quadrant)) > 1) {
-      GrpString::TransEntro(as.character(factor(aoi_quadrant, levels = all_states)))
-    } else {
-      NA_real_
-    },
-    
-    trans_entropy_perclust = if (length(unique(aoi_quadrant)) > 1) {
-      GrpString::TransEntropy(as.character(factor(aoi_quadrant, levels = all_states)))
-    } else {
-      NA_real_
-    }
-  ) %>%
-  ungroup()
-
-# Check results
-head(dta_gp_all_fix_sacc)
-
-
-
-
-library(dplyr)
-library(GrpString)
-library(entropy)
-
-# Define the number of possible states
-num_states <- 5
-all_states <- as.character(1:num_states)
-max_entropy <- log2(num_states)
-
-# Adjust the `aoi_quadrant` column
-dta_gp_all_fix_sacc$aoi_quadrant <- if_else(dta_gp_all_fix_sacc$aoi_quadrant == "nonstim_aoi", "5", dta_gp_all_fix_sacc$aoi_quadrant)
+unique(dta_gp_all_fix_sacc$aoi_quadrant )
 
 # Calculate entropy and transition entropy
-dta_gp_all_fix_sacc <- dta_gp_all_fix_sacc %>%
-  group_by(participant, text) %>%
-  mutate(
-    # Calculate the frequency of each state in aoi_quadrant and add missing states with zero count
-    aoi_quadrant_table = list(table(factor(aoi_quadrant, levels = all_states))),
-    stat_entropy = entropy::entropy(as.numeric(unlist(aoi_quadrant_table)), unit = "log2") / max_entropy,
-    
-    # Ensure self-transitions are considered by checking the unique states length
-    trans_entropy = GrpString::TransEntro(as.character(factor(aoi_quadrant, levels = all_states))),
-    trans_entropy_perclust = GrpString::TransEntropy(as.character(factor(aoi_quadrant, levels = all_states)))
-  ) %>%
-  ungroup()
+# Now, let's calculate the entropies correctly
 
-# Check results
-head(dta_gp_all_fix_sacc)
+dta_gp_all_fix_only<- dta_gp_all_fix_sacc%>%
+  subset(value == "f")
+
+
+
+
+
+# Function to convert sequences to a single string - this is the format needed by GRPSTring
+# e.g. # simple strings
+# stra.vec <- c("ABCDdefABCDa", "def123DC", "A", "123aABCD", "ACD13", "AC1ABC", "3123fe")
+# TransEntro(stra.vec)
+fn_sequence_to_string <- function(sequence) {
+  paste(sequence, collapse = "")
+}
+
+# Updated summarise step with sequence conversion
+dta_gp_all_fix_only_entropy <- dta_gp_all_fix_only %>%
+  group_by(participant, text) %>%
+  # just double check that the rows are ordered correctly within participant x trial combinations so that the sequence is actually true to the data
+  arrange(start)%>%
+  summarise(
+    aoi_quadrant_sequence = list(as.character(aoi_quadrant)),
+    aoi_quadrant_table = list(table(factor(aoi_quadrant, levels = all_states))),
+    stat_entropy = entropy::entropy(as.numeric(unlist(aoi_quadrant_table)), unit = "log2"),
+    stat_entropy_maxnorm = stat_entropy / max_entropy,
+    trans_entropy = GrpString::TransEntro(fn_sequence_to_string(unlist(aoi_quadrant_sequence))),
+    # trans_entropy_maxnorm = trans_entropy / max_entropy,this is not quire working
+    .groups = "drop"
+  )
+
+
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData")
+# export to the fodler above
+saveRDS(dta_gp_all_fix_only_entropy, "dta_gp_all_fix_only_entropy.rds")
+
+range(dta_gp_all_fix_only_entropy$trans_entropy_maxnorm)
+
+# 0.000000 1.749695
+
+# Calculate the empirical maximum transition entropy
+max_empirical_transition_entropy <- max(dta_gp_all_fix_only_entropy$trans_entropy)
+
+# Normalize transition entropy by empirical maximum
+dta_gp_all_fix_only_entropy <- dta_gp_all_fix_only_entropy %>%
+  mutate(trans_entropy_maxnorm = trans_entropy / max_empirical_transition_entropy)
+
+range(dta_gp_all_fix_only_entropy$trans_entropy_maxnorm)
+
+# If you need to join these results back to the original data:
+
+colnames(dta_gp_all_fix_only_entropy)
+# merge back to the full dataset
+dta_gp_all_fix_only_w_entrp <- dta_gp_all_fix_only %>%
+  left_join(dta_gp_all_fix_only_entropy[,c(1,2,5:8)], by = c("participant", "text"))
+
+
+# do some quick checks
+# Check the results
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na, text)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(x = stat_entropy_maxnorm, colour = screencontent_no_na)) +
+  # geom_histogram(binwidth = 0.05, alpha = .2) +
+  geom_histogram(aes(y = ..density..),  # Overlay density on histogram
+                 binwidth = 0.05, alpha = 0.5, position = "identity") +
+ geom_density(alpha = 0.3) +
+  labs(title = "Distribution of Normalized Statistical Entropy",
+       x = "Normalized Statistical Entropy",
+       y = "Density") +
+  theme_minimal()
+
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na, text)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(x = trans_entropy_maxnorm, colour = screencontent_no_na)) +
+  # geom_histogram(binwidth = 0.05, alpha = .2) +
+  geom_histogram(aes(y = ..density..),  # Overlay density on histogram
+                 binwidth = 0.05, alpha = 0.5, position = "identity") +
+ geom_density(alpha = 0.3) +
+  labs(title = "Distribution of Normalized transition Entropy",
+       x = "Normalized transition Entropy",
+       y = "Density") +
+  theme_minimal()
+
+
+```
+
+# plot entropy by screen content
+
+```{r}
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(screencontent_no_na, stat_entropy_maxnorm))+#             colour = screencontent_no_na
+  geom_jitter(alpha = .1, width = .1, size = .01)+
+  stat_summary(geom = "pointrange")+
+  geom_line(aes(group = participant), size = .1)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(screencontent_no_na, trans_entropy_maxnorm))+#             colour = screencontent_no_na
+  geom_jitter(alpha = .1, width = .1, size = .01)+
+  stat_summary(geom = "pointrange")+
+  geom_line(aes(group = participant), size = .1)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
 
 
 
@@ -1643,56 +1667,166 @@ head(dta_gp_all_fix_sacc)
 
 
 ```{r}
-# num_states<- 3
-# all_states<- as.character(1:3)
-
-test1_2<- c(1,2,1,1,1,2)
-table(factor(test1_2))
-table(factor(test1_2, levels = all_states))
-
-tmp_test_table<- list(table(factor(test1_2, levels = all_states)))
-entropy::entropy(as.numeric(unlist(tmp_test_table)), unit = "log2")
-    
-table(test1_2)
-
-
-table(test1_4)
-test1_4<- c(1,2,3,1,2,3)
-
-entropy::entropy(test1_2)
-
-entropy::entropy(test1_4)
-# 1.735126
-?entropy::entropy
-?GrpString::TransEntro
-
-GrpString::TransEntro(test1_2)
-GrpString::TransEntro(test1_4)
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(screencontent_no_na, stat_entropy))+#             colour = screencontent_no_na
+  geom_jitter(alpha = .1, width = .1, size = .01)+
+  stat_summary(geom = "pointrange")+
+  geom_line(aes(group = participant), size = .1)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
 
 
-```
-dta_gp_all_fix_sacc$participant
-
-dta_gp_all_fix_sacc$ssid <- substr(dta_gp_all_fix_sacc$participant,4,6)
-
-dta_gp_all_fix_sacc_stim<- dta_gp_all_fix_sacc %>%
-  subset(screencontent== "stimuli")
-
-
-dta_gp_all_fix_sacc_stim$trial
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(screencontent_no_na, trans_entropy))+#             colour = screencontent_no_na
+  geom_jitter(alpha = .1, width = .1, size = .01)+
+  stat_summary(geom = "pointrange")+
+  geom_line(aes(group = participant), size = .1)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
 
 
 
 ```
 
-dta_gp_all_fix_sacc%>%
-      subset(ssid== 140 & stim_iaps== "6300.jpg" & screencontent == "stimuli")%>%
-   ggplot(aes(start, mean_y))+
-  geom_line(aes(y = mean_x))+
-  geom_line()
+# plot correlations with entropy
 
-dta_4gazepath$stimnopath
- 
+```{r}
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na,text)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(stat_entropy, trans_entropy))+#             colour = screencontent_no_na
+  geom_point(size = .1)+
+  geom_smooth(aes(group = participant), size = .1, se = F, method = 'lm')+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")+
+  facet_grid(~screencontent_no_na)
+
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na,text)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(stat_entropy, duration))+#             colour = screencontent_no_na
+  geom_point(size = .1)+
+  geom_smooth(aes(group = participant), size = .1, se = F, method = 'lm')+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")+
+  facet_grid(~screencontent_no_na)
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na,text)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(trans_entropy, duration))+#             colour = screencontent_no_na
+  geom_point(size = .1)+
+  geom_smooth(aes(group = participant), size = .1, se = F, method = 'lm')+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")+
+  facet_grid(~screencontent_no_na)
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na,text)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(trans_entropy, order))+#             colour = screencontent_no_na
+  geom_point(size = .1)+
+  geom_smooth(aes(group = participant), size = .1, se = F, method = 'lm')+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")+
+  facet_grid(~screencontent_no_na)
+
+View(dta_gp_all_fix_only_w_entrp)
+```
+
+
+
+
+debugging
+```{r eval=FALSE, include=FALSE}
+
+library(dplyr)
+library(entropy)
+library(GrpString)
+
+# Define all possible states and max entropy for normalization
+all_states <- c("1", "2", "3", "4", "5")
+max_entropy <- log2(length(all_states))
+
+# Function to convert sequences to a single string
+sequence_to_string <- function(sequence) {
+  paste(sequence, collapse = "")
+}
+
+# Updated summarise step with sequence conversion
+dta_gp_all_fix_only_entropy <- dta_gp_all_fix_only %>%
+  group_by(participant, text) %>%
+  summarise(
+    aoi_quadrant_sequence = list(as.character(aoi_quadrant)),
+    aoi_quadrant_table = list(table(factor(aoi_quadrant, levels = all_states))),
+    stat_entropy = entropy::entropy(as.numeric(unlist(aoi_quadrant_table)), unit = "log2"),
+    stat_entropy_maxnorm = stat_entropy / max_entropy,
+    trans_entropy = GrpString::TransEntro(sequence_to_string(unlist(aoi_quadrant_sequence))),
+    trans_entropy_maxnorm = trans_entropy / max_entropy,
+    .groups = "drop"
+  )
+
+# Check transition entropy for specific sequences
+
+dta_gp_all_fix_only%>%
+  subset(participant == unique(dta_gp_all_fix_only$participant)[1] & 
+           text ==unique(dta_gp_all_fix_only$text)[2])
+sequence_1 <- sequence_to_string(unlist(dta_gp_all_fix_only %>%
+                                          filter(participant == unique(dta_gp_all_fix_only$participant)[1], 
+                                                 text == unique(dta_gp_all_fix_only$text)[1]) %>%
+                                          pull(aoi_quadrant)))
+
+sequence_2 <- sequence_to_string(unlist(dta_gp_all_fix_only %>%
+                                          filter(participant == unique(dta_gp_all_fix_only$participant)[1], 
+                                                 text == unique(dta_gp_all_fix_only$text)[2]) %>%
+                                          pull(aoi_quadrant)))
+
+sequence_3 <- sequence_to_string(unlist(dta_gp_all_fix_only %>%
+                                          filter(participant == unique(dta_gp_all_fix_only$participant)[1], 
+                                                 text == unique(dta_gp_all_fix_only$text)[3]) %>%
+                                          pull(aoi_quadrant)))
+
+sequence_1
+sequence_2
+sequence_3
+
+# Calculate and print transition entropy for specific sequences
+transition_entropy_1 <- GrpString::TransEntro(sequence_1)
+cat("Transition Entropy for sequence 1: ", transition_entropy_1, "\n")
+
+transition_entropy_2 <- GrpString::TransEntro(sequence_2)
+cat("Transition Entropy for sequence 2: ", transition_entropy_2, "\n")
+
+transition_entropy_1 <- GrpString::TransEntro(sequence_1)
+cat("Transition Entropy for sequence 1: ", transition_entropy_1, "\n")
+
+transition_entropy_3 <- GrpString::TransEntro(sequence_3)
+cat("Transition Entropy for sequence 2: ", transition_entropy_3, "\n")
+
+
+
+```
+
 
 
 to do
@@ -1723,7 +1857,7 @@ https://rdrr.io/rforge/CulturalAnalytics/man/imageEntropy.html
 
 ```
 
-
+normalise entropy by complexity of the image
 
  
 ```{r}
