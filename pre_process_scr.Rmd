@@ -5,8 +5,6 @@ date: "2024-03-07"
 output: html_document
 ---
 
-
-
 # Overview 
 Starts with a clean environment
 In this file I aim to process all the gsr data, such that 
@@ -402,7 +400,12 @@ file_df$file_size <- file_info_keep$file_size
 rm(participant_id)
 
 file_df
+
+unique(file_df$participant_id)
+
+file_df
 ```
+
 
 
 ```{r}
@@ -423,8 +426,16 @@ setDT(dta_psypy1)
 
 # reads from
 dir_gsr<- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR"
-# exports to 
+
+
+f# exports to 
 dir_gsr_w_triggers<- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers"
+
+
+
+unique(file_df$participant_id)
+# participant_id =140
+# 140 is not exporting properly below because all their values aare consatnt in uni columns
 
 for (participant_id in unique(file_df$participant_id)) {
   # Find all files for this participant
@@ -560,12 +571,9 @@ if (unique_triggers != 66 || nrow(unique_trigger_gt_zero) > 0) {
   message("Completed processing for Participant ID: ", participant_id)
 }
 }
+# this results in 97 files rather than 98
 
-combined_data
 
-colnames(combined_data)
-
-combined_data$gsr_pulse_event_marker_cal_no_units
 ```
 Participant ID: 208 - didnt complete the task - remebver to exclude them
 Warning: Data integrity checks failed for Participant ID: 208 
@@ -613,6 +621,25 @@ write to ledalab
 for ledalab, we'll just write time stamp (original and re zeroed, skin conductance data) and triggers, anyt medatdasta wil be matched later - based on trigger (consider writing an aggregate matching file from trigger to psypy?)
 
 this one below export the fulls dataset, but its best to export rest and trials separatelly
+
+140 has an issue
+# List all CSV files in the directory
+gsr_wtrigg_files <- list.files(dir_gsr_w_triggers, 
+                                pattern = "\\.csv$", full.names = TRUE)
+
+gsr_wtrigg_files
+
+
+test_a<- unique(substr(list.files(dir_gsr_w_triggers, 
+                                pattern = "\\.csv$", full.names = F),1,3))
+
+test_b<- unique(file_df$participant_id)
+
+
+intersect(test_a, test_b)
+setdiff(test_a, test_b)
+
+setdiff(test_b,test_a)
 ```{r eval=FALSE, include=FALSE}
 
 library(dplyr)
@@ -626,10 +653,6 @@ setwd(dir_gsr_w_triggers)
 dir_4leda <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers/forledalab/"
 
 
-# List all CSV files in the directory
-gsr_wtrigg_files <- list.files(dir_gsr_w_triggers, 
-                                pattern = "\\.csv$", full.names = TRUE)
-
 
 
 # Set the input and output directories
@@ -637,6 +660,7 @@ gsr_wtrigg_files <- list.files(dir_gsr_w_triggers,
 # output dir dir_4leda
 
 # Function to process each file
+
 fn_process_gsr_wtrigg_files <- function(file_path) {
   # Read the CSV file
   data <- read.csv(file_path) %>%
@@ -674,10 +698,8 @@ export trials and rest period separatelly
 dir_4leda <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers/forledalab/"
 
 
-# List all CSV files in the directory
-gsr_wtrigg_files <- list.files(dir_gsr_w_triggers, 
-                                pattern = "\\.csv$", full.names = TRUE)
 
+setwd(dir_gsr_w_triggers)
 
 fn_process_rest_vs_pratc_trials <- function(file_path) {
   # Read the CSV file and select relevant columns
@@ -707,7 +729,7 @@ fn_process_rest_vs_pratc_trials <- function(file_path) {
 
     # Construct output file name for data before trigger == 2
     file_name_no_ext <- tools::file_path_sans_ext(basename(file_path))
-    output_file_name_before_trigger_2 <- paste0(output_directory, "/", file_name_no_ext, "_rest_ledaform.txt")
+    output_file_name_before_trigger_2 <- paste0(dir_4leda, "/", file_name_no_ext, "_rest_ledaform.txt")
 
     # Write to file
     write.table(data_before_trigger_2, output_file_name_before_trigger_2, sep = "\t", row.names = FALSE, col.names = FALSE)
@@ -721,7 +743,7 @@ fn_process_rest_vs_pratc_trials <- function(file_path) {
       rezero_time()
 
     # Construct output file name for data after trigger == 1
-    output_file_name_after_trigger_1 <- paste0(output_directory, "/", file_name_no_ext, "_pract_nd_trials_ledaform.txt")
+    output_file_name_after_trigger_1 <- paste0(dir_4leda, "/", file_name_no_ext, "_pract_nd_trials_ledaform.txt")
 
     # Write to file
     write.table(data_after_trigger_1, output_file_name_after_trigger_1, sep = "\t", row.names = FALSE, col.names = FALSE)
