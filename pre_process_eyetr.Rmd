@@ -8,7 +8,8 @@ output: html_document
 
 
 # Overview 
-In this file I aim to process all the gaze data, essentially read, clean and combines multiple files with gaze data and their metadata
+In this file I aim to process all the gaze data, essentially read, clean and combines multiple files with gaze data and their metadata, then compute and aggregate gaze metrics (parsing fixation and saccades, calculating entropy and AOI summaries, pupil, etc).
+see ouput names in the end of the code
 
 # Conventions
 For data: dta_
@@ -21,11 +22,6 @@ Lookup and referecne tables: lkp_
 Results and Analysis: rlt_
 Consistency and accuracy checks: chk_
 
-4. Check gaze data
-
-
-
-Set-up: where I load libraries and create objects for later use (such as color schemes etc).
 
 
 version of R
@@ -33,6 +29,12 @@ version of R
 R version 4.4.0 (2024-04-24) -- "Puppy Cup"
 Copyright (C) 2024 The R Foundation for Statistical Computing
 Platform: x86_64-apple-darwin20
+
+
+4. Check gaze data
+
+Set-up: where I load libraries and create objects for later use (such as color schemes etc).
+
 
 ```{r setup, include=FALSE}
 # store date
@@ -1536,6 +1538,13 @@ dta_gp_all_fix_sacc$aoi_quadrant <- if_else(dta_gp_all_fix_sacc$aoi_quadrant == 
 
 unique(dta_gp_all_fix_sacc$aoi_quadrant )
 
+
+
+dta_gp_all_fix_sacc$stimnopath_no_na<- if_else(dta_gp_all_fix_sacc$screencontent_no == 2,
+                                               dta_gp_all_fix_sacc$
+                                               
+                                               )
+
 # Calculate entropy and transition entropy
 # Now, let's calculate the entropies correctly
 
@@ -1755,7 +1764,60 @@ View(dta_gp_all_fix_only_w_entrp)
 ```
 
 
+the plots above show what we would expect entropy is higher in stim lower in fixations and rest period
 
+
+now checkl based on paaths
+
+```{r}
+??rank
+rank(dta_gp_all_fix_only_w_entrp$trans_entropy)
+dta_gp_all_fix_only_w_entrp$entrp_rnk<- rank(dta_gp_all_fix_only_w_entrp$trans_entropy)
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  subset(screencontent_no == 3 & participant == "140")%>%
+  group_by(participant,trial_no,stimnopath_no_na)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(as.numeric(trial_no), trans_entropy_maxnorm))+#             colour = screencontent_no_na
+  # geom_point(size = .1)+
+  # geom_text(aes(label = stimnopath_no_na))+
+ stat_summary(geom = "pointrange")+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  subset(screencontent_no == 3 & participant == "140")%>%
+  group_by(participant,trial_no,stimnopath_no_na)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  subset(trial_no == 61)%>%
+  
+  ggplot(aes(mean_x, mean_y))+#             colour = screencontent_no_na
+  geom_point(size = .1)+
+  geom_path()+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")+
+  ggtitle("high entropy")
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  subset(screencontent_no == 3 & participant == "140")%>%
+  group_by(participant,trial_no,stimnopath_no_na)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  subset(trial_no == 19)%>%
+  
+  ggplot(aes(mean_x, mean_y))+#             colour = screencontent_no_na
+  geom_point(size = .1)+
+  geom_path()+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")+
+    ggtitle("low entropy")
+
+
+```
 
 debugging
 ```{r eval=FALSE, include=FALSE}
@@ -1847,26 +1909,261 @@ we'll use centre of mass to compute a proxy of image eccentricity (centroid of e
 # 
 
   
-https://rdrr.io/rforge/CulturalAnalytics/man/imageEntropy.html
 
-```{r}
-
-
-# https://uk.mathworks.com/help/images/ref/entropy.html
-# Entropy is defined as -sum(p.*log2(p)), where p contains the normalized histogram counts returned from imhist.
-
-```
 
 normalise entropy by complexity of the image
 
  
 ```{r}
 
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/ImageJ/Image statistics")
 
-dta_gp_all_fix_sacc_stim_agg<- dta_gp_all_fix_sacc_stim %>%
-  group_by(participant,ssid, text, trial, stim_iaps) %>%
+range(dta_gp_all_fix_only_w_entrp$trans_entropy)
+# [1] 0.000000 4.062667
+
+mean(dta_gp_all_fix_only_w_entrp$trans_entropy)
+
+range(dta_img_entropy$img_entropy)
+
+
+mean(dta_img_entropy$img_entropy)
+
+# 0.8128991 3.7552906
+
+
+dta_img_entropy
+
+
+# Calculate the maximum possible entropy for an 8-bit image
+max_entropy_img <- log2(256)  # which is 8
+
+# Normalise the image entropy by the maximum possible entropy
+dta_img_entropy <- dta_img_entropy %>%
+  mutate(img_entropy_norm = img_entropy / max_entropy_img)
+
+dta_img_entropy%>%
+  ggplot(aes(img_entropy_norm))+
+           geom_histogram(alpha = .5)
+
+dta_img_entropy%>%
+  ggplot(aes(img_entropy))+
+           geom_histogram(alpha = .5)
+
+
+```
+
+# Arrange and display the result
+
+
+```{r}
+# dta_img_entropy <- dta_img_entropy %>%
+#   arrange(normalised_img_entropy)
+
+dta_gp_all_fix_only_w_entrp<-  dta_gp_all_fix_only_w_entrp%>%
+ left_join(dta_img_entropy)%>%
+  subset(stimnopath_no_na!= "fixcross.jpg")
+
+dta_gp_all_fix_only_w_entrp$img_entropy<- if_else(dta_gp_all_fix_only_w_entrp$screencontent_no!=3,
+                                             dta_img_entropy$img_entropy[dta_img_entropy$stimnopath_no_na == "fixcross.jpg"],
+                                             dta_gp_all_fix_only_w_entrp$img_entropy
+                                                  )
+
+dta_gp_all_fix_only_w_entrp$img_entropy_norm<- if_else(dta_gp_all_fix_only_w_entrp$screencontent_no!=3,
+                                             dta_img_entropy$img_entropy_norm[dta_img_entropy$stimnopath_no_na == "fixcross.jpg"],
+                                             dta_gp_all_fix_only_w_entrp$img_entropy_norm
+                                                  )
+
+
+
+# normalising the gaze entropy by image entropy
+dta_gp_all_fix_only_w_entrp$trans_entropy_maxnorm_by_img
+dta_gp_all_fix_only_w_entrp<- dta_gp_all_fix_only_w_entrp%>%
+  mutate(stat_entropy_norm_by_img = stat_entropy/img_entropy,
+         trans_entropy_norm_by_img = trans_entropy/img_entropy)%>%
+  mutate(stat_entropy_maxnorm_norm_by_img = stat_entropy_maxnorm/img_entropy_norm,
+         trans_entropy_maxnorm_norm_by_img = trans_entropy_maxnorm/img_entropy_norm)
+
+         
+# do quick checks
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
   
+  ggplot(aes(screencontent_no_na, stat_entropy_maxnorm))+#             colour = screencontent_no_na
+  geom_jitter(alpha = .1, width = .1, size = .01)+
+  stat_summary(geom = "pointrange")+
+  geom_line(aes(group = participant), size = .1)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
 
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(screencontent_no_na, trans_entropy_maxnorm))+#             colour = screencontent_no_na
+  geom_jitter(alpha = .1, width = .1, size = .01)+
+  stat_summary(geom = "pointrange")+
+  geom_line(aes(group = participant), size = .1)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+# normalised by image
+# stat_entropy_norm_by_img
+# stat_entropy_maxnorm_norm_by_img
+# dta_gp_all_fix_only_w_entrp<- dta_gp_all_fix_only_w_entrp%>%
+#   mutate(stat_entropy_norm_by_img = stat_entropy/img_entropy,
+#          trans_entropy_norm_by_img = trans_entropy/img_entropy)%>%
+#   mutate(stat_entropy_maxnorm_norm_by_img = stat_entropy_maxnorm/img_entropy_norm,
+#          trans_entropy_maxnorm_by_img = trans_entropy_maxnorm/img_entropy_norm)
+
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  
+  ggplot(aes(screencontent_no_na, stat_entropy_maxnorm_norm_by_img))+#             colour = screencontent_no_na
+  geom_jitter(alpha = .1, width = .1, size = .01)+
+  stat_summary(geom = "pointrange")+
+  geom_line(aes(group = participant), size = .1)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+```
+
+
+
+
+```{r}
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na, text,)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  subset(screencontent_no == 3)%>%
+  
+  ggplot(aes(stat_entropy_norm_by_img, stat_entropy_maxnorm_norm_by_img))+
+  geom_point()+
+  geom_smooth(aes(group = participant), method = 'lm',se = F)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na,)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  subset(screencontent_no == 3)%>%
+  
+  ggplot(aes(stat_entropy_maxnorm, stat_entropy_maxnorm_norm_by_img))+
+  geom_point()+
+  geom_smooth(aes(group = participant), method = 'lm',se = F)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na,)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  subset(screencontent_no == 3)%>%
+  
+  ggplot(aes(stat_entropy, stat_entropy_norm_by_img))+
+  geom_point()+
+  geom_smooth(aes(group = participant), method = 'lm',se = F)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na,)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  subset(screencontent_no == 3)%>%
+  
+  ggplot(aes(trans_entropy_maxnorm, trans_entropy_maxnorm_norm_by_img))+
+  geom_point()+
+  geom_smooth(aes(group = participant), method = 'lm',se = F)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+
+
+dta_gp_all_fix_only_w_entrp%>%
+  as.tibble()%>%
+  group_by(participant, screencontent_no_na,)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  subset(screencontent_no == 3)%>%
+  
+  ggplot(aes(trans_entropy, trans_entropy_norm_by_img))+
+  geom_point()+
+  geom_smooth(aes(group = participant), method = 'lm',se = F)+
+  theme_minimal()+
+    scale_color_brewer(palette = "Dark2")
+
+
+saveRDS(dta_gp_all_fix_only_w_entrp, "dta_gp_all_fix_only_w_entrp.rds")
+
+```
+
+
+
+
+```{r}
+colnames(dta_gp_all_fix_only_w_entrp)
+dta_gp_all_fix_only_w_entrp_agg<- dta_gp_all_fix_only_w_entrp%>%
+  group_by(participant, text)%>%
+  summarise_at(c("stat_entropy", "stat_entropy_maxnorm",
+                          "trans_entropy", "trans_entropy_maxnorm",
+                          "img_entropy", "img_entropy_norm",
+                          "stat_entropy_norm_by_img", "trans_entropy_norm_by_img",
+                          "stat_entropy_maxnorm_norm_by_img", 
+                          "trans_entropy_maxnorm_by_img", 
+                          "trans_entropy_maxnorm_norm_by_img"), mean,na.rm = T)
+  
+  
+unique(dta_gp_all_fix_only_w_entrp_agg$text)
+   # summarise(across(contains("entropy"), mean, na.rm = TRUE))
+
+dta_gp_all_fix_only_w_entrp_agg
+
+
+saveRDS(dta_gp_all_fix_sacc,"dta_gp_all_fix_sacc.rds")
+
+dta_gp_all_fix_sacc$track
+
+# merge entropy data back to fixation and saccade data
+dta_gp_all_fix_sacc<- left_join(dta_gp_all_fix_sacc,
+          dta_gp_all_fix_only_w_entrp_agg)
+
+# compute metrics for fixation data
+colnames(dta_gp_all_fix_sacc)
+range(dta_gp_all_fix_sacc$trial)
+range(as.numeric(dta_gp_all_fix_sacc$trial_no))
+
+dta_gp_all_fix_sacc$trial[dta_gp_all_fix_sacc$trial_no == 0]
+dta_gp_all_fix_sacc$trial_no #use this because trial uses 1 for rest and whatever is the first stimuli
+
+# dta_gp_all_fix_sacc$tria
+
+
+colnames(dta_gp_all_fix_sacc)
+
+dta_gp_all_fix_sacc_agg <- dta_gp_all_fix_sacc %>%
+  group_by(participant, text, trial_no, stimnopath_no_na, screencontent_no, screencontent_no_na,aoi_stim_nonstim) %>%
+  
 
   summarise(
     mean_dwell_dur = mean(duration, na.rm = TRUE),
@@ -1879,122 +2176,200 @@ dta_gp_all_fix_sacc_stim_agg<- dta_gp_all_fix_sacc_stim %>%
     mean_po_gsd = mean(po_gsd_sac_amp[value == "f"], na.rm = TRUE),
     mean_sac_amp = mean(po_gsd_sac_amp[value == "s"], na.rm = TRUE),
     count_fix = sum(value == "f"),
-    count_sacc = sum(value == "s")
-    # .groups = "drop" # This explicitly drops the grouping instead of keeping it
-  )%>%
-
-  # Optionally, ungroup if you want to remove the grouping structure
+    count_sacc = sum(value == "s"),
+    
+    mean_stat_entropy = mean(stat_entropy, na.rm = TRUE),
+    mean_stat_entropy_maxnorm = mean(stat_entropy_maxnorm, na.rm = TRUE),
+    mean_trans_entropy = mean(trans_entropy, na.rm = TRUE),
+    mean_trans_entropy_maxnorm = mean(trans_entropy_maxnorm, na.rm = TRUE),
+    mean_img_entropy = mean(img_entropy, na.rm = TRUE),
+    mean_img_entropy_norm = mean(img_entropy_norm, na.rm = TRUE),
+    mean_stat_entropy_norm_by_img = mean(stat_entropy_norm_by_img, na.rm = TRUE),
+    mean_trans_entropy_norm_by_img = mean(trans_entropy_norm_by_img, na.rm = TRUE),
+    mean_stat_entropy_maxnorm_norm_by_img = mean(stat_entropy_maxnorm_norm_by_img, na.rm = TRUE),
+    mean_trans_entropy_maxnorm_by_img = mean(trans_entropy_maxnorm_by_img, na.rm = TRUE),
+    mean_trans_entropy_maxnorm_norm_by_img = mean(trans_entropy_maxnorm_norm_by_img, na.rm = TRUE)
+  ) %>%
   ungroup()
+    
+    # this is very slow
+    # across(c("stat_entropy", "stat_entropy_maxnorm",
+    #          "trans_entropy", "trans_entropy_maxnorm",
+    #          "img_entropy", "img_entropy_norm",
+    #          "stat_entropy_norm_by_img", "trans_entropy_norm_by_img",
+    #          "stat_entropy_maxnorm_norm_by_img", 
+    #          "trans_entropy_maxnorm_by_img", 
+    #          "trans_entropy_maxnorm_norm_by_img"), mean, na.rm = TRUE))%>%
+    
+    # .groups = "drop" # This explicitly drops the grouping instead of keeping it
+
+
+  # Optionally, ungroup if you want to remove the grouping structur
+
+
+
+
+
+# Convert the data to data.table for efficiency
+library(data.table)
+
+
+
+dta_gp_all_fix_sacc_agg_dt <- setDT(dta_gp_all_fix_sacc_agg)
+
+library(reshape2)
+# Pivot wider using dcast for the selected columns
+colnames(dta_gp_all_fix_sacc_agg_dt)
+
+# dcasting to wide first so that it has a value for both aoi stim and non stim for evry one and trial, so we can gather it back
+
+head(dta_gp_all_fix_sacc_agg_dt)
+
+
+dta_gp_all_fix_sacc_agg_wide<-
+
+  dta_gp_all_fix_sacc_agg_dt%>%
+  data.table::dcast(...~ aoi_stim_nonstim,
+                  value.var = 
+                    c("mean_dwell_dur", "mean_fix_dur", "mean_sac_dur", "sum_dwell_dur", "sum_fix_dur", 
+                                "sum_sac_dur", "mean_rms", "mean_po_gsd", "mean_sac_amp", "count_fix", "count_sacc") ,mean)%>%
+  group_by(participant,text,trial_no, stimnopath_no_na, screencontent_no, screencontent_no_na)%>%
+  summarise_if(is.numeric,mean, na.rm = T)%>%
+  arrange(participant, trial_no, screencontent_no)
+
+
+dta_gp_all_fix_sacc_agg_wide
+
+colnames(dta_gp_all_fix_sacc_agg_wide)
+# step 1 gather all column with aoi in the names
+# new column that says aoi anme, aoi value
+# create a nre colun that doesn have aoi in the same
+# dcast again
+
+
+dta_gp_all_fix_sacc_agg_wide
+
+colnames(dta_gp_all_fix_sacc_agg_wide)
+dta_gp_all_fix_sacc_agg_wide$aoi_name2
+
+dta_gp_all_fix_sacc_agg_wide$aoi_value
+
+colnames(dta_gp_all_fix_sacc_agg_wide)
+
+dta_gp_all_fix_sacc_agg_aoi_extend<- dta_gp_all_fix_sacc_agg_wide%>%
+  gather(aoi_name, aoi_value,-c(1:17))%>%
+  mutate(aoi_name2 = str_remove(str_replace(aoi_name, ".*(_nonstim_aoi|_stim_aoi)", "\\1"), "_"))%>%
+  # mutate(aoi_name2 = str_r(aoi_name, "_nonstim_aoi|_stim_aoi"))%>%
+  mutate(et_measure = str_remove(aoi_name, "_nonstim_aoi|_stim_aoi"))%>%
+  
+  select(-aoi_name)%>%
+  data.table::dcast(...~ et_measure,
+                  value.var = 
+                    c("aoi_value") ,mean)%>%
+  arrange(participant, trial_no, screencontent_no)
+  
+
+colnames(dta_gp_all_fix_sacc_agg_aoi_extend)
+
+
+
+dta_gp_all_fix_sacc_agg_aoi_extend%>%
+  ggplot(aes(aoi_name2, sum_fix_dur))+
+  geom_point()+
+  facet_grid(~screencontent_no_na)
+
+colnames(dta_gp_all_fix_sacc_agg_aoi_extend)
+
 ```
-
-
-```{r}
-dta_gp_all_fix_sacc_stim_agg%>%
-      # subset(ssid!= 140)%>%
-  group_by(participant,ssid)%>%
-
-  summarise_if(is.numeric, max, na.rm = T)%>%
-  ggplot(aes( sum_dwell_dur,participant))+
-  # geom_point()+
-  geom_text(aes(label = ssid))
-
-
-
-```
-
-```{r}
-dta_gp_all_fix_sacc_stim_agg%>%
-      subset(ssid== 140)%>%
-  group_by(participant,stim_iaps)%>%
-
-  summarise_if(is.numeric, max, na.rm = T)%>%
-  ggplot(aes( sum_dwell_dur,stim_iaps))+
-  # geom_point()+
-  geom_text(aes(label = stim_iaps))
-
-
-```
-
-
-dta_gp_all_fix_sacc_stim_agg<- dta_gp_all_fix_sacc_stim_agg%>%
-      subset(ssid== 140)
 
 
   
 
-# add trackloss
+# add trackloss back
+
+```{r}
 
 colnames(dta_4gazepath)
 dta_4gazepath$split_column
 dta_4gazepath$screencontent_no_na
 
 dta_4gazepath$stimnopath
+
 trackloss<- dta_4gazepath%>%
   select(participant, screencontent_no_na,text, gaze_valid_prop)%>%
-  subset(screencontent_no_na == "stimuli")%>%
+  # subset(screencontent_no_na == "stimuli")%>%
   select(-screencontent_no_na)%>%
   group_by(participant, text) %>%
   summarise_at(c("gaze_valid_prop"), mean, na.rm = T)%>%
   mutate(gaze_valid_prop_ppt = mean(gaze_valid_prop, na.rm = T))
 
 
-dta_gp_all_fix_sacc_stim_agg<- left_join(dta_gp_all_fix_sacc_stim_agg, 
+dta_gp_all_fix_sacc_agg_aoi_extend<- left_join(dta_gp_all_fix_sacc_agg_aoi_extend, 
                                                  trackloss, by = c("participant", "text"))
+
+
+colnames(dta_gp_all_fix_sacc_agg_aoi_extend)
+dta_gp_all_fix_sacc_agg_aoi_extend
+
+
+# rember to add zeros to NANs before proper analysis
+# count_fix
+# count_sacc
+# mean_dwell_dur
+# mean_fix_dur
+# mean_sac_dur
+# sum_dwell_dur
+# sum_fix_dur
+# sum_sac_dur
+
+dta_gp_all_fix_sacc_agg_aoi_extend
+
+dta_gp_all_fix_sacc_agg_aoi_extend_nonas<- dta_gp_all_fix_sacc_agg_aoi_extend%>%
+  mutate(across(c(
+    mean_dwell_dur,
+    mean_fix_dur,
+    # mean_sac_dur,
+    sum_dwell_dur,
+    sum_fix_dur,
+    # sum_sac_dur,
+    count_fix,
+    count_sacc
+  ), ~ replace_na(., 0)))
+
+
 ```
 
 
-to merge
+
+Final results
+these are the files that we may need to merge with other behavioural and physio data
 
 ```{r}
+dta_gp_all_fix_sacc_agg_aoi_extend
+dta_gp_all_fix_sacc_agg_aoi_extend_nonas
 
-dta_gp_all_fix_sacc_stim_agg
+# we are storing the files here
+# consider naming them more explcitelly to contain tyhe name of the study
+# e.g. dta_gaze_socemo.rds
+# e.g. dta_gaze_env_socemo.rds
+# dta_all_env_socemo.RData
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData")
+
+
+# this will contain trial and participant processed gaze data (fixation, saccades, aoi, entropy)
+saveRDS(dta_gp_all_fix_sacc_agg_aoi_extend_nonas, "dta_gaze_processed.rds")
+
+# this is the snaptshop of rdata that contains all intermediate steps for gaze processing
+base::save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/dta_gaze_env.RData")
+
+# this will contain the bif R data that we hope we can merge with all the datasets
+
+base::save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_preprocess_all.RData")
 
 ```
 
 
 
-
-
-# debugging
-(automated description of the problem based on context I provided)
-
-Summary of the Problem:
-You are experiencing inconsistencies when processing eye-tracking data using the gazepath method. Specifically, certain trials appear to be "flipped" or mismatched when processed together, but not when processed separately. The main issues are:
-
-Data Flipping:
-
-When trials 6300.jpg and 111.jpg are processed together, their visualizations match each other’s raw data, indicating a possible mix-up.
-When these trials are processed separately, the visualizations match their respective raw data correctly.
-Consistency Across Runs:
-
-When running the same trials multiple times in a row, you need to ensure the patterns remain consistent.
-Similarly, when running combined trials multiple times, the results should be consistent.
-Order Sensitivity:
-
-Changing the order of the trials might affect the results, indicating a possible issue with how trials are indexed or handled during processing.
-Participant Specificity:
-
-Check if the problem is specific to certain participants or if it occurs across different participants.
-Problematic vs. Good Trials:
-
-Determine if the issue only occurs with problematic trials (6300.jpg and 111.jpg) or if it also affects good trials (112.jpg).
-Goals for Debugging:
-Replicate Patterns Separately:
-
-Verify if processing each trial separately produces correct and consistent results.
-Check Repeatability:
-
-Run the same trial multiple times to ensure the results are consistent each time.
-Combine and Re-run Trials:
-
-Combine multiple trials for a participant and run the processing multiple times to check for consistency.
-Re-arrange and Test Order:
-
-Change the order of trials and run the processing multiple times to see if the order affects the results.
-Cross-Participant Testing:
-
-Test the same problematic trials with data from different participants to see if the issue persists.
-By following these steps, you can identify whether the issue lies in the trial handling, data indexing, or some other part of the processing pipeline. This will help you pinpoint the cause of the data flipping and ensure reliable and consistent processing of your eye-tracking data.
 ```{r}
 tmp_140<- dta_4gazepath%>%
   subset(ssid == 140)
@@ -2116,212 +2491,5 @@ dta_4gazepath%>%
 ```
 
 
-
-dta_4gazepath%>%
-  subset(ssid == 142)%>%
-  arrange(time)%>%
-  subset(screencontent == "stimuli")%>%
-  ggplot(aes(timerezero,gaze_x_cor_pix))+
-  geom_point()+
-  facet_grid(~screencontent)
-
-
-
-
-
-# debug
-unique(dta_4gazepath$stimnopath)
-
-dta_4gazepath%>%
-      subset(ssid== 140 & stimnopath == "6300.jpg" & screencontent == "stimuli")%>%
-   ggplot(aes(timerezero, gaze_y_cor_pix))+
-  geom_line(aes(y = gaze_x_cor_pix))+
-  geom_line()
-
-
-dta_4gazepath$text
-
-
-dta_4gazepath%>%
-      subset(ssid== 140 & stimnopath == "2457.jpg" & screencontent == "stimuli")%>%
-   ggplot(aes(timerezero, gaze_y_cor_pix))+
-  geom_line(aes(y = gaze_x_cor_pix))+
-  geom_line()
-  
-  
-```
-
-tmp<- dta_4gazepath%>%
-      subset(ssid== 141 & stimnopath == "2457.jpg" & screencontent == "stimuli")
-
-tmp1<- dta_4gazepath%>%
-      subset(ssid== 140 & stimnopath == "111.jpg" & screencontent == "stimuli")
-
-
-tmp1<- dta_4gazepath%>%
-      subset(ssid== 141 & stimnopath == "111.jpg" & screencontent == "stimuli")
-
-tmp
-tmp1
-
-```{r}
-
-colnames(dta1)
-tmp_140 <- gazepath(dta1, x1 = 17, y1 = 19, x2 = 18, y2 = 20, d1 = 23, d2 = 23, trial = 5,
-height_px = 1080, height_mm = 295,
-width_px = 1920, width_mm = 525, extra_var = c("text","participant","stimnopath_no_na"),
-method = 'gazepath', samplerate = 150)
-install.packages("tidyverse")
-library(tidyverse)
-ppt140%>%
-  subset(stimnopath_no_na == "111.jpg")%>%
-  ggplot(aes(timerezero,right_gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y=right_gaze_y_cor_pix))
-
-
-
-```
-
-
-
-
-```{r}
-
-unique(dta_4gazepath$text)
-
-
-
-dta_4gazepath_stim<- subs
-
-# Function to extract the last part after an underscore
-get_last_part <- function(x) {
-  parts <- strsplit(x, "_")[[1]]
-  return(tail(parts, n=1))
-}
-
-
-# Print the result
-print(result)
-
-unique(dta_4gazepath$text)[2]
-
-dta_4gazepath$trial_no<- stringr::str_match(dta_4gazepath$text, '(.*)_(.*)')[, -1][,2]
-unique(dta_4gazepath$trial_no)[2]
-
-dta_4gazepath$trial_no<- if_else(dta_4gazepath$trial_no == "cross",0, as.numeric(dta_4gazepath$trial_no))
-
-
-unique(dta_4gazepath$trial_no)
-unique(dta_4gazepath$pratice_vs_trial)
-
-dta_4gazepath$trial_no<- if_else(dta_4gazepath$pratice_vs_trial == "Pratice", 
-                                         dta_4gazepath$trial_no+1,dta_4gazepath$trial_no)
-                                 
-                                 
-dta_4gazepath$trial_no<- if_else(dta_4gazepath$pratice_vs_trial == "Trial",
-                                  dta_4gazepath$trial_no+5,    dta_4gazepath$trial_no)
-
-
-unique(dta_4gazepath$trial_no)
-table(is.na(dta_4gazepath$trial_no))
-
-tmp<- dta_4gazepath%>%subset(pratice_vs_trial == "rest")
-
-unique(tmp$trial_no)
-
-unique(dta_4gazepath$pratice_vs_trial)
-
-# Pratice
-tmp<- dta_4gazepath%>%subset(pratice_vs_trial == "Pratice")
-
-unique(tmp$trial_no)
-
-
-tmp<- dta_4gazepath%>%subset(pratice_vs_trial == "Trial")
-
-unique(tmp$trial_no)
-
-
-dta_4gazepath$trial_no_gpid_stim<- paste0(dta_4gazepath$trial_no, paste0("_"),
-                                          dta_4gazepath$stimnopath_no_na)
-
-
-dta_4gazepath$trial_no<- as.factor(as.numeric(dta_4gazepath$trial_no))
-
-dta_4gazepath
-
-
-
-
-```
-
-
-
-
-
-
-```{r}
-dta_4gazepath_stim
-dta_4gazepath_stim
-
-dta_140<- dta_4gazepath_stim%>%
-  subset(ssid == 141)
-
-
-# dta_140$trial_no_id_plus5trial<- as.factor(dta_140$trial_no_id_plus5trial)
-
-colnames(dta_140)
-
-dta_140$trial_no<- as.factor(dta_140$trial_no)
-
-dta_140$trial_no<- as.numeric(dta_140$trial_no)
-
-ppt140 <- gazepath(dta_4gazepath_stim, x1 = 17, y1 = 19, x2 = 18, y2 = 20,
-                   d1 = 23, d2 = 23,
-                   trial = 28, #it needs to be character or factor
-height_px = 1080, height_mm = 295,
-width_px = 1920, width_mm = 525, 
-# extra_var = c("text","participant", "trial_no_gpid_stim","trial_no"),
-method = 'gazepath', 
-samplerate = 150)
-```
-```{r}
-ppt140_parsed<- summary(ppt140)
-ppt140_parsed%>%
-  subset(ppt140_parsed$trial_no_id_plus5trial_stim == "5_111.jpg")
-as.factor(dta_140$trial_no_id_plus5trial)
-dta_140%>%
-  subset(stimnopath_no_na == "111.jpg")%>%
-  ggplot(aes(timerezero,right_gaze_x_cor_pix))+
-  geom_line()+
-  geom_line(aes(y=right_gaze_y_cor_pix))
-plot(ppt140, trial_index = 6)
-
-```
-
-
-
-
-
-
-
-# eccentricity within image and whole screencontent_no_na
-
-
-
-# Calculate the Euclidean distance from the centre for each gaze point
-
-dta_gp_all_fix_sacc
-
-dta_gp_all_fix_sacc<- dta_gp_all_fix_sacc %>%
-  mutate(dist_from_cntr_whole_screen = sqrt((mean_x - (screen_width/2))^2 + (mean_y - (screen_height/2))^2))%>%
-  group_by(participant,text, aoi_stim_nonstim)%>%
-  
-  mutate(dist_from_cntr_stim = 
-                                 sqrt((mean_x - (screen_width / 2))^2 + (mean_y - (screen_height / 2))^2))
-
-
-
-
-```
+ 
+ 

@@ -1,0 +1,141 @@
+---
+title: "Untitled"
+author: "Helio"
+date: "2024-07-08"
+output: html_document
+---
+
+
+
+
+```{r}
+
+# install.packages("imager")
+# install.packages("ggplot2")
+# install.packages("dplyr")
+
+library(imager)
+
+
+input_dir <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/ImageJ/Screenshots"
+
+output_dir <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Eyetracking/preprocessed/ImageJ/Output"
+
+```
+
+
+
+```{r}
+# Define input and output directories
+# input_dir <- "path/to/your/images"
+# output_dir <- "path/to/save/histograms"
+
+# Create a list of image files in the input directory
+image_files <- list.files(input_dir, pattern = "\\.(jpg|png|tif)$", full.names = TRUE)
+
+length(image_files)
+
+# Function to process each image and save histogram as CSV
+process_image <- function(image_path, output_dir) {
+  # Load image
+  img <- load.image(image_path)
+  
+  # Convert to grayscale if necessary
+  if (dim(img)[4] == 3) {
+    img <- grayscale(img)
+  }
+  
+  # Get pixel values
+  pixel_values <- as.vector(img)
+  
+  # Create a histogram with 256 bins
+  hist_data <- hist(pixel_values, breaks = seq(0, 1, length.out = 257), plot = FALSE)
+  
+  # Create a data frame for the histogram counts with bins from 1 to 256
+  hist_df <- data.frame(Bin = 1:256, Count = hist_data$counts)
+  
+  # Extract the file name without extension
+  file_name <- tools::file_path_sans_ext(basename(image_path))
+  
+  # Add a column for the image file name
+  hist_df$Image <- file_name
+  
+  # Create output file path
+  output_file <- file.path(output_dir, paste0(file_name, "-histogram.csv"))
+  
+  # Save histogram data as CSV
+  write.csv(hist_df, output_file, row.names = FALSE)
+  
+  # Optional: Print progress
+  cat("Processed and saved histogram for:", image_path, "\n")
+  
+  # Return the histogram dataframe
+  return(hist_df)
+}
+
+# List to store individual dataframes
+histogram_list <- list()
+
+# Process each image file and store the results in the list
+for (image_file in image_files) {
+  hist_df <- process_image(image_file, output_dir)
+  histogram_list[[length(histogram_list) + 1]] <- hist_df
+}
+
+# Combine all dataframes into one
+all_histograms_df <- do.call(rbind, histogram_list)
+
+# Print message
+cat("Batch processing complete. Combined dataframe created.\n")
+
+# Display the combined dataframe
+print(all_histograms_df)
+
+all_histograms_df<- all_histograms_df%>%
+  janitor::clean_names()
+
+str_remove(all_histograms_df$image, "screen_")
+
+all_histograms_df$stimnopath_no_na<- paste0(str_remove(all_histograms_df$image, "screen_"),
+                                            ".jpg")
+
+
+all_histograms_df$image<- NULL
+
+```
+
+compute image entropy
+
+https://rdrr.io/rforge/CulturalAnalytics/man/imageEntropy.html
+
+```{r}
+# install.packages("CulturalAnalytics")
+
+# https://uk.mathworks.com/help/images/ref/entropy.html
+# Entropy is defined as -sum(p.*log2(p)), where p contains the normalized histogram counts returned from imhist.
+
+
+
+# Function to calculate entropy
+fn_img_entropy <- function(hist_df) {
+  p <- hist_df$count / sum(hist_df$count)  # Normalise the histogram counts
+  entropy <- -sum(p * log2(p + 1e-12))  # Calculate entropy
+  return(entropy)
+}
+
+# Calculate entropy for each image
+dta_img_entropy<- all_histograms_df %>%
+  group_by(stimnopath_no_na) %>%
+  summarise(img_entropy = fn_img_entropy(cur_data()))
+   # arrange(img_entropy)
+
+# Merge entropy values with the original dataframe
+final_df <- left_join(all_histograms_df, entropy_values, by = "stimnopath_no_na")
+
+# Display the final dataframe with entropy values
+print(final_df)
+  
+
+
+
+```
