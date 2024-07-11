@@ -1,0 +1,437 @@
+---
+title: "pre_process_scr_debug"
+author: "Helio"
+date: "2024-07-11"
+output: html_document
+---
+
+
+debugging
+Understanding Data Inconsistencies and Solutions
+1. Inconsistent Session Data Between SD and PC:
+- session 1 in pc = sesiion 1 sd = 
+SD are put into one sessi
+
+Issue: We've observed instances where data from the same time period are categorized under different sessions on SD and PC. 
+Implication: It complicates data analysis, as the same physical events may be represented in separate session files, causing confusion and inaccuracies in interpreting participant behavior and responses.
+
+2. Duplicate Participant IDs Across Different Individuals:
+
+Issue: There are cases where files from different individuals have been assigned the same participant ID, 
+
+3. Varied File Sizes and Incomplete Sessions:
+
+Issue: Some files are significantly smaller than others, raising questions about their content and whether all sessions, including those where no actual data was recorded, have been retained.
+Implication: Retaining sessions with no valuable data can clutter the dataset, making analysis more challenging and potentially skewing results.
+Solution: Review the files to identify and exclude sessions with no meaningful data. This step will streamline the dataset, focusing analysis on relevant and substantive data points.
+4. Data Processing Strategy for Tomorrow:
+
+Immediate Task: Focus solely on Heart Rate (HR) data to compute mean values. This simplifies the immediate analysis scope, allowing for a focused approach to understanding the dataset's fundamental aspects.
+Next Steps: Once HR data analysis is complete, the next phase will involve processing facial data, expanding the analysis scope to incorporate additional data dimensions.
+
+5. Proposed Logic for Data Selection:
+its imporatnt to addres the previous points and additionally below
+
+- If both PC and SD data are available: We will choose the file with the larger size, as it is likely to contain the most complete dataset. if that indeed the valid data you stored
+- If only PC data is available: We will use the PC file.
+- If only SD data is available: We will use the SD file.
+
+
+Ultimately, after5 each session we need to organize our data into folders containing usable, final files for each person for each signal type (e.g., all GSR data in a GSR folder). This organization will facilitate our analysis, ensuring we work with the most complete and accurate data possible.
+
+when I am analyzing, I need to just have the files i need to load, and not having to sort out the logic of which file to use
+
+
+
+
+Botwe to self
+to detect these issues use
+- Data Summarization: We will calculate the total size of the data for each participant to help identify any substantial discrepancies that may indicate missing or incomplete data.
+check number of events in each file (should be 65 or 66)
+- focus on j=redoing the gsr and use hrt fro this data fro the students
+
+2. Export/create triggers from behavioral data (merge physio with psychopy)
+
+COMBINE TRIGGERS WITH PHYSIO
+
+we need top rerun 118 and 110 due to overlapping names
+222 and 223
+
+
+
+
+
+
+dta_leda_era_110$trigger<- as.numeric(dta_leda_era_110$event_nid)
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lead(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(pre_post_stim, cda_amp_sum_z))+
+  stat_summary(geom = "pointrange")
+
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lead(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(cda_amp_sum_z, cda_amp_sum_z_post))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)
+
+
+dta_leda_era_110%>%
+  mutate(pre_post_stim = if_else(dta_leda_era_110$trigger<100, "stim",
+                                 if_else(dta_leda_era_110$trigger>100 & dta_leda_era_110$trigger< 900, 
+                                         "post", "pre")
+                                 ))%>%
+  mutate(cda_amp_sum_z = scale(cda_amp_sum))%>%
+   mutate(cda_amp_sum_z_post = lag(cda_amp_sum_z))%>%
+  subset(pre_post_stim = "stim")%>%
+ ggplot(aes(cda_amp_sum_z, cda_amp_sum_z_post))+
+  geom_point()+
+  geom_smooth(method = 'lm', se = F)
+
+```
+
+```{r}
+
+dta_leda_era_110$trigger
+table(dta_leda_era_110$trigger)
+
+
+dt_result4$trigger
+
+dta_leda_era_110_v1<- left_join(dta_leda_era_110,dt_result4)
+
+
+
+
+```
+
+Pulse rate
+
+```{r}
+colnames(tmp_gsr)
+
+
+
+
+library(readr)
+
+tmp_gsr <- read_csv("225_allsessions_dta_gsr_pulse_trig.csv")
+table(tmp_gsr$gsr_pulse_ppg_ibi_cal_ms == -1)
+unique(tmp_gsr$trial_no_all)
+
+test<- tmp_gsr%>%
+  subset(gsr_pulse_ppg_ibi_cal_ms!=-1)
+
+unique(test$stim_iaps)
+
+tmp_gsr%>%
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,
+             gsr_pulse_pp_gto_hr_cal_bpm))+
+  geom_line()
+
+
+tmp_gsr%>%
+  subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,
+             gsr_pulse_ppg_ibi_cal_ms))+
+  geom_line()
+
+
+colnames(tmp_gsr)
+tmp_gsr%>%
+  # subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,
+             gsr_pulse_ppg_a13_cal_m_v))+
+  geom_line()
+  xlim(0,10000)
+  
+  
+  
+  tmp_gsr%>%
+  subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+    subset(gsr_pulse_ppg_ibi_cal_ms>400)%>%
+    mutate(ibi_lead = lead(gsr_pulse_ppg_ibi_cal_ms))%>%
+  ggplot(aes(gsr_pulse_ppg_ibi_cal_ms,
+             ibi_lead))+
+  geom_point()
+  
+  
+  # ibi normal range
+  # 600 and 900 milliseconds
+    tmp_gsr%>%
+  subset(gsr_pulse_ppg_ibi_cal_ms!= -1)%>%
+      
+    mutate(ibi_lead = lead(gsr_pulse_ppg_ibi_cal_ms))%>%
+  ggplot(aes(gsr_pulse_timerezero_sync_unix_cal_ms,gsr_pulse_ppg_ibi_cal_ms))+
+  geom_point(size = .1)+
+      geom_line(size = .1)+
+      xlim(1500000, 2000000)
+    
+   
+    
+```
+
+HR
+```{r}
+# Define the maximum number of consecutive NAs to interpolate
+max_consecutive_nas <- 3
+
+# Function to limit interpolation to a maximum number of consecutive NAs
+# Function to perform cubic spline interpolation with a maximum limit on consecutive NAs
+interpolate_limited_na <- function(x, max_consec_na) {
+  # Use na.locf to fill in leading and trailing NAs for spline interpolation
+  x_filled <- na.locf(x, fromLast = TRUE)
+  x_filled <- na.locf(x_filled)
+  # Apply cubic spline interpolation
+  x_spline <- na.spline(x_filled)
+  # Replace the values that were originally NAs and exceed consecutive NA limit
+  na_runs <- rle(is.na(x))
+  too_long <- which(na_runs$lengths > max_consec_na & na_runs$values)
+  for (i in too_long) {
+    start_index <- sum(na_runs$lengths[1:(i-1)]) + 1
+    end_index <- sum(na_runs$lengths[1:i])
+    x_spline[start_index:end_index] <- x[start_index:end_index]
+  }
+  return(x_spline)
+}
+
+
+interpolate_limited_na <- function(x, max_consec_na) {
+  # Fill in leading and trailing NAs for spline interpolation
+  x_filled <- na.locf(x, fromLast = TRUE)
+  x_filled <- na.locf(x_filled)
+  
+  # Apply cubic spline interpolation
+  x_spline <- na.spline(x_filled)
+  
+  # Limit interpolated values to not exceed the original data bounds
+  x_min <- min(x, na.rm = TRUE)
+  x_max <- max(x, na.rm = TRUE)
+  x_spline <- pmin(pmax(x_spline, x_min), x_max)
+  
+  # Replace the values that were originally NAs and exceed consecutive NA limit
+  na_runs <- rle(is.na(x))
+  too_long <- which(na_runs$lengths > max_consec_na & na_runs$values)
+  for (i in too_long) {
+    start_index <- sum(na_runs$lengths[1:(i-1)]) + 1
+    end_index <- sum(na_runs$lengths[1:i])
+    x_spline[start_index:end_index] <- NA  # Replace with NA to indicate too long NA sequence
+  }
+  
+  return(x_spline)
+}
+
+
+
+
+interpolate_limited_na <- function(x, max_gap) {
+  na_runs <- rle(is.na(x))
+  too_long <- which(na_runs$lengths > max_gap & na_runs$values)
+  for (i in too_long) {
+    indices <- sum(na_runs$lengths[1:(i-1)]) + (1:na_runs$lengths[i])
+    x[indices] <- NA  # Reset these values to NA
+  }
+  return(na.approx(x, na.rm = FALSE))
+}
+
+# Function to identify artifacts based on the first and fourth quartiles of the absolute differences
+ibi_artifacts_quartiles <- function(ibi_values) {
+  ibi_diff <- abs(c(NA, diff(ibi_values))) # Calculate absolute differences, NA for the first undefined difference
+  q1 <- quantile(ibi_diff, 0.30, na.rm = TRUE) # First quartile
+  q3 <- quantile(ibi_diff, 0.70, na.rm = TRUE) # Fourth quartile
+  # Identify indices where the difference is outside the quartiles
+  artifact_indices <- which(ibi_diff < q1 | ibi_diff > q3)
+  ibi_values[artifact_indices] <- NA
+  return(ibi_values)
+}
+
+# IBI
+
+
+
+# Define the directory where your tmp_gsr files are stored
+file_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/"
+
+# List all CSV files in the directory
+files <- list.files(file_directory, pattern = "\\.csv$", full.names = TRUE)
+
+
+# Process and write each file
+lapply(files, function(file_path) {
+  # Load the file
+  tmp_pulse <- read_csv(file_path)%>%
+    
+    # tmp_pulse<- tmp_pulse%>%
+    select(filename, participant, trigger, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_ppg_ibi_cal_ms)
+  
+  # Apply your data manipulation pipeline
+  processed_data <- tmp_pulse %>%
+    
+    # isolate and clean IBI
+    filter(gsr_pulse_ppg_ibi_cal_ms != -1) %>%
+    mutate(gsr_pulse_ppg_ibi_cal_ms_cleaned = ibi_artifacts_quartiles(gsr_pulse_ppg_ibi_cal_ms)) %>%
+    mutate(gsr_pulse_ppg_ibi_cal_ms_interpolated = interpolate_limited_na(gsr_pulse_ppg_ibi_cal_ms_cleaned, max_consecutive_nas)) %>%
+    
+    # keep just  data window trial windows
+    filter(!is.na(trial_no_all)) %>%
+    group_by(trial_no_all) %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+    mutate(time_end = if_else(!duplicated(trial_no_all), gsr_pulse_timestamp_sync_unix_cal_ms + 7000, NA_real_)) %>%
+    mutate(time_end = if_else(trial_no_all == 1 & !duplicated(trial_no_all), gsr_pulse_timestamp_sync_unix_cal_ms + 120000, time_end)) %>%
+    fill(time_end, .direction = "down") %>%
+    filter(gsr_pulse_timestamp_sync_unix_cal_ms <= time_end) %>%
+    
+    ungroup() %>%
+    # select variables to keep
+    select(filename, participant, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_ppg_ibi_cal_ms, gsr_pulse_ppg_ibi_cal_ms_cleaned, gsr_pulse_ppg_ibi_cal_ms_interpolated) %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+    group_by(trial_no_all) %>%
+    mutate(pulse_ibi_percent_valid = mean(!is.na(gsr_pulse_ppg_ibi_cal_ms_interpolated)) * 100) %>%
+    ungroup()
+
+  # Construct the output file path
+  output_file_path <- gsub("path/to/your/files", "path/to/your/output/directory", file_path)
+  ppt_1<- unique(processed_data$participant)
+  # Write the processed data to a new CSV file
+  write_csv(processed_data, paste0(ppt_1, "_pulse_ibi.csv"))
+})
+
+
+
+# Define the directory where your tmp_gsr files are stored
+file_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/pulse"
+
+
+# Assuming 'files' is a vector of file paths you want to read and process
+files <- list.files(path = file_directory, pattern = "\\.csv$", full.names = TRUE)
+
+# Function to read and process each file
+fn_read_agg_ibi <-   function(file_path) {
+  # Read the file
+  data <- read_csv(file_path)
+  
+  # Assuming all columns except for 'trial_no_all' are numeric and you want to average them
+  # Adjust this selection as necessary
+  data<- data %>%
+    group_by(filename, participant, trial_no_all, social_nonsocial, stim_iaps) %>%
+    mutate(pulse_ibi_percent_valid = mean(!is.na(gsr_pulse_ppg_ibi_cal_ms_cleaned)) * 100) %>%
+    summarise_if(is.numeric, mean, na.rm = TRUE)
+}
+
+# Apply the function to each file and bind the results into a single dataframe
+dta_pulse_ibi <- bind_rows(lapply(files, fn_read_agg_ibi))
+# Process all files and combine the results
+
+table(dta_pulse_ibi$participant)
+```
+
+
+
+
+# heart rate
+colnames(tmp_gsr)
+```{r}
+
+# Decide on max consecutive NAs to fill
+max_consec_nas_to_fill_hr <- 128
+
+# Function to limit filling to gaps of a certain size
+limited_fill_hr <- function(x, max_gap) {
+  na_runs <- rle(is.na(x))
+  too_long <- which(na_runs$lengths > max_gap & na_runs$values)
+  for (i in too_long) {
+    indices <- sum(na_runs$lengths[1:(i-1)]) + (1:na_runs$lengths[i])
+    x[indices] <- NA  # Reset these values to NA
+  }
+  return(na.approx(x, na.rm = FALSE))
+}
+
+range(tmp_gsr)
+
+tmp_gsr %>%
+  # subset(gsr_pulse_ppg_ibi_cal_ms!=-1)%>%
+  mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(gsr_pulse_pp_gto_hr_cal_bpm > 35 &
+                                                    gsr_pulse_pp_gto_hr_cal_bpm < 200, 
+                                                  gsr_pulse_pp_gto_hr_cal_bpm, NA))%>%
+  mutate(hr_zscore = scale(gsr_pulse_pp_gto_hr_cal_bpm_na))%>%
+  
+mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(abs(hr_zscore)<3,gsr_pulse_pp_gto_hr_cal_bpm_na, NA))%>%
+mutate(gsr_pulse_pp_gto_hr_cal_bpm_interp = limited_fill_hr(gsr_pulse_pp_gto_hr_cal_bpm_na, 128))%>%
+
+
+# Process and write each file
+library(readr)
+library(dplyr)
+library(zoo) # for na.approx
+
+# Assuming 'files' is a list of file paths
+files <- list.files(path = "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/", pattern = ".*\\.csv$", full.names = TRUE)
+
+files
+
+fn_read_agg_pulse <- function(file_path) {
+  # Load the file
+  tmp_pulse_rate <- read_csv(file_path) %>%
+    select(filename, participant, trigger, start_true, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_pp_gto_hr_cal_bpm)
+  
+  # Apply your data manipulation pipeline
+  processed_data <- tmp_pulse_rate %>%
+    mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(gsr_pulse_pp_gto_hr_cal_bpm > 35 & gsr_pulse_pp_gto_hr_cal_bpm < 200, gsr_pulse_pp_gto_hr_cal_bpm, NA)) %>%
+    mutate(hr_zscore = scale(gsr_pulse_pp_gto_hr_cal_bpm_na, center = TRUE, scale = TRUE)) %>%
+    mutate(gsr_pulse_pp_gto_hr_cal_bpm_na = if_else(abs(hr_zscore) < 3, gsr_pulse_pp_gto_hr_cal_bpm_na, NA)) %>%
+    mutate(gsr_pulse_pp_gto_hr_cal_bpm_interp = limited_fill_hr(gsr_pulse_pp_gto_hr_cal_bpm_na, max_consec_nas_to_fill_hr)) %>%
+    filter(!is.na(trial_no_all)) %>%
+    group_by(trial_no_all) %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+    # Ensure start_true is a logical column indicating the start of a trial
+    mutate(time_end = if_else(start_true, gsr_pulse_timestamp_sync_unix_cal_ms + 7000, NA_real_)) %>%
+    mutate(time_end = if_else(trial_no_all == 1 & start_true, gsr_pulse_timestamp_sync_unix_cal_ms + 120000, time_end)) %>%
+    fill(time_end, .direction = "down") %>%
+    filter(gsr_pulse_timestamp_sync_unix_cal_ms <= time_end) %>%
+    ungroup() %>%
+    select(filename, participant, gsr_pulse_timestamp_sync_unix_cal_ms, social_nonsocial, stim_iaps, trial_no_all, gsr_pulse_pp_gto_hr_cal_bpm, gsr_pulse_pp_gto_hr_cal_bpm_na, gsr_pulse_pp_gto_hr_cal_bpm_interp) %>%
+    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
+    group_by(trial_no_all) %>%
+    mutate(pulse_rate_percent_valid = mean(!is.na(gsr_pulse_pp_gto_hr_cal_bpm_interp)) * 100) %>%
+    ungroup() %>%
+    group_by(filename, participant, trial_no_all, social_nonsocial, stim_iaps) %>%
+    summarise_if(is.numeric, mean, na.rm = TRUE)
+
+  return(processed_data)
+}
+
+# Read, process, and aggregate data for each file
+dta_pulse_rate <- bind_rows(lapply(files, fn_read_agg_pulse))
+
+
+# Apply the function to each file and bind the results into a single dataframe
+
+
+
+# Define the directory where your tmp_gsr files are stored
+file_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/"
+
+
+#
+
+# Apply the function to each file and bind the results into a single dataframe
+# dta_pulse_ibi <- bind_rows(lapply(files, fn_read_agg_ibi))
+# Process all files and combine the results
+
+table(dta_pulse_rate$participant)
+
+
+```

@@ -29,15 +29,13 @@ library(data.table)
 library(janitor)
 library(purrr)
 
-# Define paths
-data_path <- "./Data backup/DataChecks/R code and data/feb 6"
-ctrl_data_path <- file.path(data_path, "ctrl")
-
-
 ```
+
+
 
 ```{r}
 setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/behavioural")
+
 # Load behavioural data
 
 
@@ -45,17 +43,18 @@ setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research
 
 tmp_files <- list.files(pattern = ".csv")
 
+# 99 vs 98
+# exclude 208
+
 
 # Load and combine all CSV files
 
-
-# Load and preprocess data
-
-dta_psypy
-tmp_files<- unique(dta_psypy$filename)
+# tmp_files<- unique(dta_psypy$filename)
 
 
 # Modify the sapply call to include a function that ensures 'unixtime.Start' is always treated as 'double'
+dta_psypy$filename
+
 dta_psypy <- rbindlist(sapply(tmp_files, function(file) {
   dt <- fread(file, colClasses = list(double = "unixtime.Start")) # Ensure unixtime.Start is read as double
   return(dt)
@@ -68,20 +67,47 @@ dta_psypy <- rbindlist(sapply(tmp_files, function(file) {
   select(-matches("this_trial_n|this_index")) %>%
   select(-matches("v1"), -matches("v2"))
   # filter(!is.na(unixtime_start))
+length(unique(dta_psypy$participant))
 
-unique(dta_psypy$obs_slider_response)
 
-dta_psypy<-dta_psypy%>%
+# fix the issues with participant
+
+dta_psypy<- dta_psypy%>%
+  subset(!is.na(participant))
+
+dta_psypy$participant<- substr(dta_psypy$filename, 1,3)
+
+unique(dta_psypy$participant)
+
+table(dta_psypy$participant)
+
+colnames(dta_psypy)
+
+tmp_test<- dta_psypy%>%subset(participant == 101)
+
+```
+
+
+
+```{r}
+
+dta_psypy <- dta_psypy%>%
   group_by(filename)%>%
   fill(obs_slider_response, .direction = "downup")%>%
    group_by(filename)%>%
-  fill(belief_slider_response, .direction = "up")
+  fill(belief_slider_response, .direction = "downup")
 
-dta_psypy$belief_slider_response
-unique(dta_psypy$filename)
+unique(dta_psypy$belief_slider_response)
+# oiyur event times
+dta_psypy$unixtime_start #start
+dta_psypy$unixtime_end #of rest
 
-table(dta_psypy$belief_slider_response)
 
+```
+
+
+
+```{r}
 dta_psypy_obs_bel<- dta_psypy%>%
   mutate(participant = substr(filename,1,3))%>%
   select(participant, obs_slider_response, belief_slider_response)%>%
@@ -89,23 +115,26 @@ dta_psypy_obs_bel<- dta_psypy%>%
  summarise_at(c("obs_slider_response","belief_slider_response"), mean, na.rm = T)
 
 
-
-```
-  mutate(belief_slider_response = mean(obs_slider_response,  na.rm = T),
-         belief_slider_response = mean(belief_slider_response,  na.rm  = T),
-         )
-unique(dta_psypy$obs_slider_response)
-
-unique(dta_psypy$belief_slider_response)
-# now selct the columsn that we need
 colnames(dta_psypy)
 
 
+tmp_test<- dta_psypy%>%
+  subset(!is.na(unixtime_start_2))
 
-    # any_of(
-range(dta_psypy$unixtime_start)
-dta_psypy
 
+tmp_test<- dta_psypy%>%
+  subset(!is.na(unixtime_end_2))
+
+
+unique(dta_psypy$unixtime_start)
+unique(dta_psypy$unixtime_end)
+
+unique(dta_psypy$unixtime_start_2)
+unique(dta_psypy$unixtime_end_2)
+```
+
+
+```{r}
 dta_psypy1<- dta_psypy%>%
   select(c(
       "filename", "participant", "session", "date", "exp_name",
@@ -151,10 +180,17 @@ dta_psypy1<- dta_psypy1%>%
 
 
 
-dta_psypy1$participant<- sub("_.*", "", dta_psypy1$filename)
+
+
+
+dta_psypy1<- dta_psypy1%>%
+  subset(condition!= "")
+
+
 
 table(dta_psypy1$participant)
 # 65
+# tmp_test<- dta_psypy1%>%subset(dta_psypy1$participant == 110)
 
 
 # avoid gaps
@@ -175,6 +211,7 @@ table(is.na(dta_psypy1$stim_iaps))
 ########################################
 # here let's make sure the trial start at 1 and not zero, because we will need 0 as trigger for trial off in ledalab
 #######################################
+
 dta_psypy1$trial_no_all<- if_else(dta_psypy1$condition == "rest_started", 1,
                                       if_else(dta_psypy1$condition == "Example Stimuli",
                                               dta_psypy1$trial_order+2,
@@ -185,49 +222,76 @@ unique(dta_psypy1$trial_no_all)
 
 
 
-# Split the data frame by the specified column and then iterate over the list to write each
-
 
 ```
 
+
+# Split the data frame by the specified column and then iterate over the list to write each
 
 
 ```{r}
 # fix unix start and end fir rest period
 # <115 and < 211
+options(scipen = 999)
 range(dta_psypy1$unixtime_start)
+# 1706527409 1718377980800
+# 1706527409 1718377980800
+
 
 # 170652740900
 
-# tmp_test<- dta_psypy1%>%
-#   subset(unixtime_start< 170652740900)
+# 170652740900
 
-unique(tmp_test$participant)
-unique(tmp_test$condition)
-range(dta_psypy1$unixtime_start)
+test<- dta_psypy1%>%
+   subset(unixtime_start< 170652740900)
+
+unique(test$participant)
+  
 
 # dta_psypy1$unixtime_start*1000
-# run pnly once
+# run only once
 # dta_gsr$gsr_pulse_timestamp_sync_unix_cal_ms
 # 
-# dta_psypy1$unixtime_start<- if_else(dta_psypy1$unixtime_start< 170652740900,
-#                                            round(dta_psypy1$unixtime_start*1000),
-#                                            dta_psypy1$unixtime_start)
+
+# update the start only for # <115 and < 211
+# for end update for all
+
+dta_psypy1$unixtime_start<- if_else(dta_psypy1$unixtime_start< 170652740900,
+                                           round(dta_psypy1$unixtime_start*1000),
+                                           dta_psypy1$unixtime_start)
+
 
 range(dta_psypy1$unixtime_start)
-dta_psypy1$unixtime_end
-
+# 1706527409400 1718377980800
+# 
+# 
+# 
+# # test<- dta_psypy1$unixtime_start%>%
+# #   subset(!is.na(unixtime_start2))
+# # 
+# range(dta_psypy1$unixtime_end)
+# # dta_psypy1$unixtime_end
+# # 
 # tmp_test<- dta_psypy1%>%
-#   subset(unixtime_end< 170652753000)
+#   subset(unixtime_end< 17065274090)
+# unique(tmp_test$participant)
 
-# dta_psypy1$unixtime_end<- if_else(dta_psypy1$unixtime_end< 170652753000,
-#                                            round(dta_psypy1$unixtime_end*1000),
-#                                            dta_psypy1$unixtime_end)
+tmp_test%>%
+  ggplot(aes(unixtime_start))+
+  geom_histogram()
 
 
+# 170652740900
 range(dta_psypy1$unixtime_end)
-unique(tmp_test$participant)
-unique(tmp_test$condition)
+# update just the end for rthe rets period
+dta_psypy1$unixtime_end<- if_else(dta_psypy1$unixtime_end< 170652740900,
+                                           round(dta_psypy1$unixtime_end*1000),
+                                           dta_psypy1$unixtime_end)
+# 1718377987279
+# 1706527529678 < 1718377987279
+range(dta_psypy1$unixtime_end)
+# 1706527529678 
+# 1718377987279
 
 
 ```
@@ -238,6 +302,8 @@ unique(tmp_test$condition)
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/behavioural/preprocessed")
 
 # Create a unique identifier for each combination of ssid and screencontent
+table(dta_psypy1$participant)
+
 dta_psypy1 <- dta_psypy1 %>%
   mutate(split_column = participant)
 
@@ -248,6 +314,14 @@ tmp_split_df <- split(dta_psypy1, dta_psypy1$split_column)
 walk(names(tmp_split_df), function(tmp_splitcol) {
   write_csv(tmp_split_df[[tmp_splitcol]], paste0('dta_psypy_', tmp_splitcol, ".csv"))
 })
+
+
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/behavioural/preprocessed")
+
+saveRDS(dta_psypy1, "dta_psypy1.rds")
+
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/behavioural/preprocessed/dta_psypy_env.RData")
 
 
 ```

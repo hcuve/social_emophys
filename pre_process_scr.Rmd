@@ -16,7 +16,8 @@ In this file I aim to process all the gsr data, such that
 4. summarise and add meta-data
 
 questions what is all calibrated folder - just one file
-<!-- what5s the diferencve with the individual folders -->
+<!-- what5s the diferencee with the individual folders -->
+
 
 
 
@@ -40,6 +41,7 @@ ctrl_data_path <- file.path(data_path, "ctrl")
 
 
 load files 
+
 ```{r}
 # Custom function to read a file and adjust its column names
 fn_read_and_adjust <- function(file_path) {
@@ -63,12 +65,23 @@ fn_read_and_adjust <- function(file_path) {
 ```
 
 recursive folder search
+- check the list for all gsr files (calibrated) for sad and PC anmd count them
+
+
+???? not sure we need this section
+
 ```{r eval=FALSE, include=FALSE}
-base_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio"
+# base_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio"
+
+base_directory<- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys"
 
 # Ensure this directory exists and R can access it. If there are access issues, consider absolute paths or check permissions.
+
 # List immediate subdirectories first (non-recursive)
 subdirs <- list.dirs(path = base_directory, recursive = FALSE, full.names = TRUE)
+
+subdirs
+
 
 
 # Initialize an empty vector to store the paths of all desired CSV files
@@ -114,187 +127,99 @@ GSR data should be sampled at 128 hz
 # 6000 ms = 128*6 = 768
 ```{r}
 
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR")
-# List of .csv files, fromm pc and sd
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR")
+
+
+ # List of .csv files, fromm pc and sd
 
 tmp_files_pc <- list.files(pattern = "GSR.*PC\\.csv$", 
                            recursive = FALSE, full.names = TRUE)
 unique(tmp_files_pc)
-tmp_files_sd <- list.files(pattern = "GSR.*SD\\.csv$", recursive = FALSE, full.names = TRUE)
 
+tmp_files_sd <- list.files(pattern = "GSR.*SD\\.csv$", 
+                           recursive = FALSE, 
+                           full.names = TRUE)
+
+unique(tmp_files_pc)
+unique(tmp_files_sd)
+
+
+```
 tmp_files_pc
 tmp_files_sd
 
 
 # Extract identifiers and capture the session
-
+```{r}
 # Regular expression to capture the pattern before "_" and after "./"
+ # "./101_Session1_GSRPulse_Calibrated_PC.csv"
 pattern <- "\\./([0-9]+)_.*"
 
+
+
 # Extract the pattern
-identifiers_tmp_files_pc <- sub("^\\./(.+)_GSR.*$", "\\1", tmp_files_pc)
-identifiers_tmp_files_sd <- sub("^\\./(.+)_GSR.*$", "\\1", tmp_files_sd)
+# note sessions will likely differ between pc and SD (PC might more have more sessions fore the same data contained in one session of SD)
+# SD might also contain data that doesn exist in PC (e.g. was deleted for not containing relevant exp info)
+# focus identifiers on participants
+
+
+identifiers_tmp_files_pc <- str_extract(tmp_files_pc, "\\d+")
+
+
+length(unique(identifiers_tmp_files_pc)) 
+# 208 dropped out
+unique(identifiers_tmp_files_pc)
+unique(identifiers_tmp_files_pc)
+length(unique(identifiers_tmp_files_pc)) == 98 #TRUE
+
+identifiers_tmp_files_sd <- str_extract(tmp_files_sd, "\\d+")
+  # below stores sessions
+
+length(unique(identifiers_tmp_files_sd)) == 95 #TRUE
+
+# we should have 98-3 because the first 3 didn have sd data
+identifiers_tmp_files_pc_sess <- sub("^\\./(.+)_GSR.*$", "\\1", tmp_files_pc)
+identifiers_tmp_files_sd_sess <- sub("^\\./(.+)_GSR.*$", "\\1", tmp_files_sd)
 
 # Compare and find common identifiers
+# this telle us who ahs both pc and sd
 common_identifiers <- intersect(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
+# should be 95
 
-# Display the common identifiers
-common_identifiers
+length(common_identifiers) == 95 #TRUE
+
+#
+
+```
 
 # Identifiers unique to PC files
 # rm(unique_identifiers_PC, unique_identifiers_SD)
+
+```{r}
 unique_identifiers_pc <- setdiff(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
+# "101" "102" "103" this is because we didn record SD
 unique_identifiers_pc
-#  [1] "101_Session1" "102_Session1" "103_Session3" "104_Session2" "106_Session2" "106_Session3" "107_Session2" "112_Session2" "118_Session2"
-# [10] "119_Session3" "120_Session2" "120_Session3" "124_Session2" "126_Session2" "127_Session2" "127_Session3" "128_Session2" "131_Session2"
-# [19] "135_Session2" "135_Session3" "201_Session3" "202_Session2" "210_Session2" "214_Session3" "214_Session4" "215_Session2" "217_Session2"
-# [28] "220_Session2" "221_Session2" "223_Session4" "224_Session2" "227_Session2" "228_Session2" "228_Session4" "230_Session3" "232_Session2"
-# [37] "233_Session5"
-# Identifiers unique to SD files
+
 unique_identifiers_sd <- setdiff(identifiers_tmp_files_sd, identifiers_tmp_files_pc)
 unique_identifiers_sd
 
 
-# now if just take the sid, how many people dow e have
-
-identifiers_tmp_files_pc
-
-# length(unique(gsub("_.*", "", identifiers_tmp_files_pc))) #69
-# length(unique(gsub("_.*", "", identifiers_tmp_files_sd))) #66
-
-tmp1<- unique(gsub("_.*", "", unique_identifiers_pc))
-tmp2<-unique(gsub("_.*", "", unique_identifiers_sd))
-tmp3<-unique(gsub("_.*", "", common_identifiers))
-
-combined_vector <- c(tmp1, tmp2,tmp3) #this shoiuld be 70 but its  45, why
-length(unique(combined_vector)) #70
-# 36+34
-# expecting 70 files
-# Verify against your expectation
-
-# now we want to create a list that contains tmp_files_pc plus the tmp_unique_identifiers_sd
-
-# Assuming tmp_unique_identifiers_sd contains unique identifiers like c("101", "102", "106")
-# Create a regular expression pattern that matches any of these identifiers
-pattern_unique_sd <- paste(unique_identifiers_SD, collapse = "|")
-
-# Use grep to select files from tmp_files_sd that match the unique identifiers
-tmp_selected_files_sd <- tmp_files_sd[grep(pattern_unique_sd, tmp_files_sd)]
-
-# Display the selected files
-tmp_selected_files_sd
-
-# Combine selected_files_sd with tmp_files_pc
-tmp_combined_list <- c(tmp_files,tmp_selected_files_sd)
-
-# Display the combined vector
-
-tmp_combined_list
-# remember to update 000_Session1_ECG_Calibrated_PC to 2176?
-
-# so we are picking up all files
- grep("223", tmp_combined_list, value=TRUE)
- grep("223", tmp_files_sd, value=TRUE)
-
-```
-
-1. Prioritize Based on Total Data Volume
-If both sources are present for a participant: Compare the total sizes. The source with a larger total size could be considered as having more complete data across sessions, thus, might be preferable.
-
-
-If only one source is present for a participant: Use the available source, as it's the only option for that participant.
-2. Implement Decision Logic
-Based on the above interpretation, you can implement logic to automatically decide which source to prioritize for further analysis or processing. Here’s a sample approach:
-
-a. Prefer the Source with More Complete Data Across Sessions
-For participants with both PC and SD files, if the total size of SD files significantly exceeds that of PC files, this suggests that SD recordings might be more complete on average. This could be a basis to prefer SD over PC when both are available, especially if your analysis benefits from more comprehensive datasets.
-
-b. Fallback to Available Data When Only One Source Exists
-For participants with data only from one source, the decision is straightforward as you'll use what's available.
-
-3. Code Example
-
-the code below does not combine sessions PC or SD within a particiopant
-
-```{r}
-# Assuming tmp_files_pc and tmp_files_sd have already been defined and include full paths
-
-# Combine the lists of files
-length(tmp_files_pc)+length(tmp_files_sd) #161
-all_files <- c(tmp_files_pc, tmp_files_sd)
-
-# Extract information: identifier and source (PC/SD)
-# Create a data frame to hold file information
-file_info <- data.frame(
-  file_path = all_files,
-  file_size = file.info(all_files)$size,
-  identifier = sub("^(.*)_GSR.*\\.csv$", "\\1", basename(all_files)),
-  source = ifelse(grepl("PC\\.csv$", all_files), "PC", "SD")
-)
-# For each identifier, determine which file to keep
-chosen_files <- lapply(unique(file_info$identifier), function(id) {
-  subset_files <- subset(file_info, identifier == id)
-  
-  if (nrow(subset_files) == 1) {
-    return(subset_files$file_path)
-  } else {
-    # Choose the file with the larger size
-    return(subset_files$file_path[which.max(subset_files$file_size)])
-  }
-})
-
-file_info$file_path
-
-file_info$session =  sub(".*_(Session\\d+).*", "\\1", file_info$file_path)
-file_info$participant = sub("./(.+?)_.*", "\\1", file_info$file_path)
-
-
-total_size_per_participant_source<- file_info%>%
-  group_by(participant, source)%>%
-  summarise_at(c("file_size"), sum, na.rm = T)
-
-
-# Pivot the data to have PC and SD sizes side by side for each participant
-library(reshape2)
-
-pivot_total_size <- dcast(total_size_per_participant_source, participant ~ source, value.var="file_size", fill=0)
-
-# Determine the preferred source for each participant
-pivot_total_size$preferred_source <- ifelse(pivot_total_size$SD > pivot_total_size$PC, "SD", "PC")
-
-# Adjust preferred_source for participants with data only from one source
-pivot_total_size$preferred_source <- ifelse(pivot_total_size$PC == 0 & pivot_total_size$SD > 0, "SD", pivot_total_size$preferred_source)
-pivot_total_size$preferred_source <- ifelse(pivot_total_size$SD == 0 & pivot_total_size$PC > 0, "PC", pivot_total_size$preferred_source)
-
-# Optional: For a strict comparison, in case both sizes are equal (unlikely but possible), decide based on a predefined preference
-# This line is optional and can be adjusted based on your specific needs or omitted if not needed
-
-pivot_total_size$preferred_source <- ifelse(pivot_total_size$PC == pivot_total_size$SD, "SD", pivot_total_size$preferred_source)
-
-table(pivot_total_size$preferred_source)
-# now load the files based on this preference
-
-
-# Assuming pivot_total_size and file_info are already defined as shown in your code
-
-# Merge the preference back to the original file_info dataframe to know which files to keep
-file_info <- merge(file_info, pivot_total_size[, c("participant", "preferred_source")], by="participant")
-
-# Filter out files based on the preferred source
-final_files_to_load <- file_info[file_info$source == file_info$preferred_source,]
-
+rm(tmp1, tmp2, tmp3)
 
 
 ```
 
-are there cases where we need to combine SD and PC?
-load gsr data
+
+check if we have SD for all 104 - 150
+all 200s
+
+if that's the case then just use PC for 101-103 and SDs for all the rest = done, go for this
 
 
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated")
+
 ###################################################
 # Handling file imports from PC and SD sources:
-# - This process primarily relies on PC files, but switches to SD files in the absence of a corresponding PC file.
+# - This process primarily relies on SD files, but switches to PC files in the absence of a corresponding SD file.
 # - A notable discrepancy has been observed in the export formats: PC exports contain "sync" within the timestamps, unlike SD exports. This difference may affect how filenames are generated and could imply variations in how data synchronization is handled or represented between the two sources.
 # - It is essential to consider this variation during data processing to ensure consistent naming conventions and to investigate the synchronization status of SD data.
 # - The custom function is applied to each file to adjust for these discrepancies, and the results are subsequently combined.
@@ -321,15 +246,6 @@ tmp_files
 # 6. This approach ensures proper data type handling by skipping header rows during the full data read.
 
 
-# Function to read a dataset and adjust column names based on the first two rows
-# Overview:
-# 1. Reads the first two rows of the file to use as basis for creating unique column names.
-# 2. Combines these two rows to form a single set of column names for the dataset.
-# 3. Reads the entire dataset, skipping the first two rows which were used for column names.
-# 4. Assigns the combined column names to the dataset.
-# 5. Adds a column indicating the filename from which the data was read.
-# 6. This approach ensures proper data type handling by skipping header rows during the full data read.
-
 fn_read_and_adjust <- function(file_path) {
   # Read the first two rows for column names adjustment
   header_info <- fread(file_path, nrows = 2, header = FALSE)
@@ -352,8 +268,67 @@ note this below is not quite for ledalab  -see ahead
 the sessio below depends on dta from psychopy?
 
 ```{r}
+
+
+# Combine the lists of files
+
+
+all_files <- c(tmp_files_pc, tmp_files_sd)
+
+all_files
+
+
+# Extract information: identifier and source (PC/SD)
+# Create a data frame to hold file information
+file_info <- data.frame(
+  file_path = all_files,
+  file_size = file.info(all_files)$size,
+  identifier_ssid = str_extract(all_files, "\\d+"),
+    # sub("^(.*)_GSR.*\\.csv$", "\\1", basename(all_files)),
+  
+  identifier_wsess = sub("^(.*)_GSR.*\\.csv$", "\\1", basename(all_files)),
+  
+  source = ifelse(grepl("PC\\.csv$", all_files), "PC", "SD")
+)
+file_info
+
+
+file_info$keep_drop<- if_else(as.numeric(file_info$identifier_ssid) <104 & 
+                              file_info$source == "PC", "keep",
+                         if_else(file_info$source == "SD" & as.numeric(file_info$identifier_ssid) >103, "keep",
+                                 "drop"))
+
+table(file_info$keep_drop)
+
+file_info_keep<- file_info%>%
+  subset(keep_drop == "keep")
+
+length(unique(file_info_keep$identifier_ssid)) # should be 98
+
+length(unique(file_info_keep$identifier_wsess)) 
+
+length(unique(file_info_keep$identifier_wsess)) 
+
+unique(file_info_keep$identifier_wsess)
+
+options(scipen = 999)
+file_info_keep%>%
+  group_by(identifier_ssid)%>%
+  summarise_at(c("file_size"), sum)%>%
+  arrange(file_size)
+  ggplot(aes(file_size))+
+  geom_histogram()
+  
+  file_info_keep
+```
+
+
+file_info_keep
+
 # Predefined column names
 final_files_to_load
+
+
 colnames(dta_gsr[,2:12])
 gsr_column_names <- colnames(dta_gsr[,2:12])
 gsr_column_names
@@ -369,8 +344,34 @@ gsr_column_names
 # [10] "gsr_pulse_temperature_bmp280_cal_degrees_celsius"
 # [11] "gsr_pulse_event_marker_cal_no_units"
 
+# Predefined column names
+```{r}
+gsr_column_names <- c(
+  "gsr_pulse_timestamp_sync_unix_cal_ms",
+  "gsr_pulse_battery_cal_m_v",
+  "gsr_pulse_gsr_range_cal_no_units",
+  "gsr_pulse_gsr_skin_conductance_cal_u_s",
+  "gsr_pulse_gsr_skin_resistance_cal_k_ohms",
+  "gsr_pulse_ppg_a13_cal_m_v",
+  "gsr_pulse_ppg_ibi_cal_ms",
+  "gsr_pulse_pp_gto_hr_cal_bpm",
+  "gsr_pulse_pressure_bmp280_cal_k_pa",
+  "gsr_pulse_temperature_bmp280_cal_degrees_celsius",
+  "gsr_pulse_event_marker_cal_no_units"
+)
+
+# Print the vector
+print(gsr_column_names)
+
+
+```
+
+
+
 
 # Helper function to extract participant ID and session from filename
+
+```{r}
 extract_info <- function(filename) {
   parts <- str_match(filename, ".*/(\\d+)_Session(\\d+)_GSRPulse_.*\\.csv$")
   return(list(participant_id = parts[, 2], session = parts[, 3]))
@@ -378,24 +379,52 @@ extract_info <- function(filename) {
 
 # Create a dataframe to map participant IDs and sessions to file paths
 # flatten(final_files_to_load$file_path)
-file_info_2 <- sapply(final_files_to_load$file_path, 
+file_info_2 <- sapply(file_info_keep$file_path, 
                     function(x) extract_info(x), 
                     simplify = FALSE)
+file_info_2
 
+
+# creates a dataframe
 file_df <- do.call(rbind, 
                    lapply(file_info_2, function(x) data.frame(participant_id = 
                                                               x$participant_id, 
                                                             session = x$session, stringsAsFactors = FALSE)))
 
 
-file_df$filepath <- final_files_to_load$file_path
-file_df$file_size <- final_files_to_load$file_size
+file_df$filepath <- file_info_keep$file_path
+file_df$file_size <- file_info_keep$file_size
 # Process a list of file paths, adjust their column names, and combine into a single data.table
 # Clean column names using `janitor::clean_names` for consistency
 # Assuming tmp_files is a list of file paths
 # file_df$participant_id = file_df$participant_id 
 # participant_id = 136
 rm(participant_id)
+
+file_df
+```
+
+
+```{r}
+file_df$participant_id
+file_df$session
+
+
+dta_psypy1 <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/behavioural/preprocessed/dta_psypy1.rds")
+
+
+
+
+colnames(dta_psypy1)
+# if you don run this te subsetting breaks
+dta_psypy1$orig_unixtime_start_psypy<- dta_psypy1$unixtime_start
+setDT(dta_psypy1)
+
+
+# reads from
+dir_gsr<- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR"
+# exports to 
+dir_gsr_w_triggers<- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers"
 
 for (participant_id in unique(file_df$participant_id)) {
   # Find all files for this participant
@@ -408,8 +437,11 @@ for (participant_id in unique(file_df$participant_id)) {
     
     message("\nProcessing Participant ID: ", participant_id)
     # Load and process each file
-    filepath <- participant_files$filepath[i]
+    filename <- participant_files$filepath[i]
     session <- participant_files$session[i]
+    
+     # Construct the full file path
+    filepath <- file.path(dir_gsr, filename)
 
     # Read the CSV file, skip the first 3 rows
     tmp_gsr <- fread(filepath, skip = 3, header = FALSE)
@@ -443,7 +475,11 @@ setnames(tmp_gsr, old = names(tmp_gsr), new = gsr_column_names)
     tmp_gsr[, orig_timestamp_gsr_pulse := gsr_pulse_timestamp_sync_unix_cal_ms]
     
     # Merge timestamps and other operations from dta_psypy1
-    tmp_psypy <- dta_psypy1[participant == participant_id, .(participant, social_nonsocial, stim_iaps, trial_no_all, unixtime_start, orig_unixtime_start_psypy)]
+
+    tmp_psypy <- dta_psypy1[participant == participant_id, 
+                            .(participant, social_nonsocial, stim_iaps, trial_no_all, unixtime_start, orig_unixtime_start_psypy)]
+    
+    # Error: object 'participant' not found - this means you forgot to run  dta_psypy1, also checl for missing columns
     
     tmp_psypy[, next_unixtime_start := shift(unixtime_start, type = "lead", fill = Inf)]
     tmp_psypy[, unixtime_end := next_unixtime_start - 1]
@@ -512,64 +548,41 @@ if (unique_triggers != 66 || nrow(unique_trigger_gt_zero) > 0) {
   message(warning_message)
 } else {
   # If all checks pass, proceed with writing the file
-  fwrite(as.data.table(combined_data), paste0(participant_id, "_allsessions", "_dta_gsr_pulse_trig.csv"), row.names = FALSE)
+  
+  # dir_gsr_w_triggers
+  # fwrite(as.data.table(combined_data), paste0(participant_id, "_allsessions", "_dta_gsr_pulse_trig.csv"), row.names = FALSE)
+  
+  output_file <- file.path(dir_gsr_w_triggers, paste0(participant_id, "_allsessions", "_dta_gsr_pulse_trig.csv"))
+    fwrite(as.data.table(combined_data), output_file, row.names = FALSE)
+    
   
   # Print completion message for current participant
   message("Completed processing for Participant ID: ", participant_id)
 }
 }
 
+combined_data
 
+colnames(combined_data)
+
+combined_data$gsr_pulse_event_marker_cal_no_units
 ```
-Participant ID: 208
+Participant ID: 208 - didnt complete the task - remebver to exclude them
 Warning: Data integrity checks failed for Participant ID: 208 
 Expected 66 unique trigger values, but found 32
 
 
 
-
-```{r eval=FALSE, include=FALSE}
-
-# assuming 1.5 hours times 93 peoples recordings made at 128 hz, how many rows should we expect this data to have
-
-# Given values
-# hours_per_recording = 1.5
-# seconds_per_hour = 3600
-# sampling_rate_hz = 128
-# number_of_participants = 93
-# 
-# # Calculate total seconds per recording
-# seconds_per_recording = hours_per_recording * seconds_per_hour
-# 
-# # Calculate number of samples per recording
-# samples_per_recording = seconds_per_recording * sampling_rate_hz
-# 
-# # Calculate total number of rows for all recordings
-# total_rows = samples_per_recording * number_of_participants
-# total_rows
-# 
-# 64281600.0
-# less than expected
-# nrow(dta_gsr)/64281600.0
-
-
-# issue here, when using a different sensor, e.g. fd29 the columns are named ioncomnsistently 
-# e.g. v3_shimmer_fd29_gsr_range_cal" ratyher than v3_gsr_pulse_gsr_range_cal"  
-# so these either need to be renamed manually or programatically
-```
-combine with timestamps from psychopy
-
-
 Just some checks
 ```{r}
-tmp_gsr
+
 unique(tmp_gsr$trial_no_all)
 
-tmp_gsr<-  read_csv("136_allsessions_dta_gsr_pulse_trig.csv")
-View(X136_allsessions_dta_gsr_pulse_trig)
+# tmp_gsr<-  read_csv("136_allsessions_dta_gsr_pulse_trig.csv")
 
-# tmp_gsr
-tmp_gsr %>%
+colnames(combined_data)
+combined_data%>%
+  # subset(participant == 121)%>%
     arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
 
     # subset(trial_no_all>10 & trial_no_all<18)%>%
@@ -578,67 +591,7 @@ tmp_gsr %>%
                          y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
   geom_line() 
  
-names(X136_Session1_GSRPulse_Calibrated_PC)<- gsr_column_names
 
-names(X136_Session1_GSRPulse_Calibrated_SD)<- gsr_column_names
-
-tmp_gsr %>%
-    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
-
-    # subset(trial_no_all>10 & trial_no_all<18)%>%
-  # mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr_pulse)%>%
-  ggplot( aes(x = gsr_pulse_timestamp_sync_unix_cal_ms, 
-                         y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
-  geom_line() 
-
-
-X136_Session1_GSRPulse_Calibrated_PC %>%
-    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
-
-    # subset(trial_no_all>10 & trial_no_all<18)%>%
-  # mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr_pulse)%>%
-  ggplot( aes(x = gsr_pulse_timestamp_sync_unix_cal_ms, 
-                         y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
-  geom_line() 
-
-X136_Session1_GSRPulse_Calibrated_SD %>%
-    arrange(gsr_pulse_timestamp_sync_unix_cal_ms) %>%
-
-    # subset(trial_no_all>10 & trial_no_all<18)%>%
-  # mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_timestamp_gsr_pulse)%>%
-  ggplot( aes(x = gsr_pulse_timestamp_sync_unix_cal_ms, 
-                         y = gsr_pulse_gsr_skin_conductance_cal_u_s)) +
-  geom_line() 
- 
-  
-  
-  # tmp_merged%>%
-  #     # subset(trial_no_all>10 & trial_no_all<18)%>%
-  # mutate(timediff_phys_start_psypy = orig_unixtime_start_psypy-unixtime_start)%>%
-  # # group_by()
-  # # mutate(timenew = orig_timestamp_gsr[trigger!= 0])%>%
-  # ggplot(aes(orig_timestamp_gsr, gsr_pulse_gsr_skin_conductance_cal_u_s))+
-  # geom_line()
-
-
-tmp_gsr
-
-tmp_merged_test<- tmp_merged%>%
-  subset(!duplicated(trigger))
-
-
-tmp_merged_test$orig_timestamp_gsr[tmp_merged_test$trigger >0]-
-tmp_gsr$gsr_pulse_timestamp_sync_unix_cal_ms[tmp_gsr$trigger >0]
-
-# [1]  0.0046386719 -0.0004882812  0.0024414062  0.0036621094 -0.0029296875  0.0021972656  0.0019531250  0.0021972656 -0.0009765625
-# [10]  0.0043945312  0.0014648438 -0.0021972656  0.0000000000  0.0026855469  0.0000000000  0.0029296875  0.0004882812 -0.0034179688
-# [19]  0.0039062500  0.0004882812  0.0024414062 -0.0012207031 -0.0017089844 -0.0041503906 -0.0039062500  0.0036621094  0.0043945312
-# [28] -0.0043945312 -0.0046386719  0.0031738281 -0.0031738281 -0.0048828125 -0.0029296875 -0.0041503906  0.0009765625  0.0029296875
-# [37]  0.0048828125 -0.0051269531 -0.0043945312  0.0024414062 -0.0024414062 -0.0014648438 -0.0002441406 -0.0009765625 -0.0014648438
-# [46] -0.0019531250  0.0039062500 -0.0012207031 -0.0002441406 -0.0012207031 -0.0029296875 -0.0014648438  0.0014648438  0.0017089844
-# [55]  0.0021972656  0.0031738281  0.0007324219 -0.0007324219 -0.0036621094  0.0007324219 -0.0019531250  0.0017089844  0.0000000000
-# [64]  0.0041503906  0.0041503906
-# expected
 ```
 
 
@@ -653,76 +606,80 @@ write to ledalab
 # - It is crucial to meticulously prepare and clean the data to meet these specific requirements to avoid any operational disruptions in Ledalab.
 
 # Comparative Validation Note:
-# - A manual examination was conducted between a dataset processed mkanually (participant 110) and another processed through this automated script to gtenearte trigger. This was done to ensure that the start times, particularly for GSR (Galvanic Skin Response) data, accurately match when analyzed in Ledalab.
+# - A manual examination was conducted between a dataset processed manually (participant 110) and another processed through this automated script to gtenearte trigger. This was done to ensure that the start times, particularly for GSR (Galvanic Skin Response) data, accurately match when analyzed in Ledalab.
 # - This comparison confirmed that both the timing and the pattern of analysis remain consistent between manually processed and automated datasets. 
 
 
-for ledalab, we'll just write time stamp (original and re zeroed, skin conductance data) and triggers, anyt medatdasta wil be matched later - based on trigger (consider writing ann aggreate macthign file from trigger to psypy?)
+for ledalab, we'll just write time stamp (original and re zeroed, skin conductance data) and triggers, anyt medatdasta wil be matched later - based on trigger (consider writing an aggregate matching file from trigger to psypy?)
 
-this one below export the fulld ataset, but its best to export rest and trials separatelly
+this one below export the fulls dataset, but its best to export rest and trials separatelly
 ```{r eval=FALSE, include=FALSE}
 
-colnames(tmp_gsr)
-# Define the directory where participant CSV files are stored
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/")
+library(dplyr)
+library(tools)
 
-input_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/"
+# Define the directory where participant CSV files are stored
+setwd(dir_gsr_w_triggers)
+
 
 # Define the output directory for the formatted files
-output_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/format4leda/all unsplit/"
+dir_4leda <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers/forledalab/"
 
-library(dplyr)
 
 # List all CSV files in the directory
-participant_files <- list.files(input_directory, pattern = "\\.csv$", full.names = TRUE)
+gsr_wtrigg_files <- list.files(dir_gsr_w_triggers, 
+                                pattern = "\\.csv$", full.names = TRUE)
+
+
+
+# Set the input and output directories
+# input dire dir_gsr_w_triggers
+# output dir dir_4leda
 
 # Function to process each file
-process_participant_file <- function(file_path) {
+fn_process_gsr_wtrigg_files <- function(file_path) {
   # Read the CSV file
-  data <- read.csv(file_path)%>%
+  data <- read.csv(file_path) %>%
     select(gsr_pulse_timerezero_sync_unix_cal_ms,
            gsr_pulse_timestamp_sync_unix_cal_ms,
            gsr_pulse_gsr_skin_conductance_cal_u_s,
            trigger)
   
-  
-  # Arrange by unixtime_start if needed
+  # Arrange by gsr_pulse_timestamp_sync_unix_cal_ms
   selected_data <- data %>%
     arrange(gsr_pulse_timestamp_sync_unix_cal_ms)
   
   # Construct output file name based on input file name and output directory
- 
- # Remove the file extension and append "_ledaform.txt" to construct the output file name
   file_name_no_ext <- tools::file_path_sans_ext(basename(file_path))
-  output_file_name <- paste0(output_directory, "/", file_name_no_ext, "_ledaform.txt")
+  output_file_name <- file.path(dir_4leda, paste0(file_name_no_ext, "_ledaform.txt"))
   
-  
-  # Write the selected and potentially arranged data to a new file, format for Ledalab
+  # Write the selected and arranged data to a new file, formatted for Ledalab
   write.table(selected_data, 
               output_file_name, sep = "\t",
               row.names = FALSE, 
               col.names = FALSE)
+  
   # Print a message indicating progress
   cat("Processed and written:", output_file_name, "\n")
 }
 
+
 # Apply the function to each file
-lapply(participant_files, process_participant_file)
+lapply(gsr_wtrigg_files, fn_process_gsr_wtrigg_files)
 ```
 
 
 export trials and rest period separatelly
 ```{r}
-
-input_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/"
-
-# Define the output directory for the formatted files
-output_directory <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/Calibrated/GSR/gsr_wtriggers/format4leda/"
-# Assuming input_directory and output_directory are defined
-participant_files <- list.files(input_directory, pattern = "\\.csv$", full.names = TRUE)
+dir_4leda <- "~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers/forledalab/"
 
 
-process_participant_file <- function(file_path) {
+# List all CSV files in the directory
+gsr_wtrigg_files <- list.files(dir_gsr_w_triggers, 
+                                pattern = "\\.csv$", full.names = TRUE)
+
+
+fn_process_rest_vs_pratc_trials <- function(file_path) {
   # Read the CSV file and select relevant columns
   data <- read.csv(file_path) %>%
     select(gsr_pulse_timerezero_sync_unix_cal_ms,
@@ -774,11 +731,11 @@ process_participant_file <- function(file_path) {
 
 
 # Process each file
-lapply(participant_files, process_participant_file)
+lapply(gsr_wtrigg_files, fn_process_rest_vs_pratc_trials)
 
 ```
 
-
+LEDALAB
 # ==============================================================================
 # README: Preparation and Analysis of Ledalab Formatted Files
 # ==============================================================================
@@ -834,22 +791,18 @@ Code for automatic rest analysis
 Ledalab('D:\OneDrive - Nexus365\InteroStudy2020\analysis\DataAnalysisJanuary2020\DataAnalysisJan2020\GP_gsr_forLeda', 'open','text3','downsample', 15, 'smooth',{'adapt'}, 'analyze','CDA', 'optimize',3, 'export_era', [1 120 .01 2],  'overview',1)
 
 
-insppect some fo teh saved ouputs and plots and liusyt of problem files any files you can't run in batch mode run manualy
+inspect some fo the saved outputs and plots and list of problem files.
+for any files you can't run in batch mode run manualy
 
 
 combine the ledalab output with behavioural data and check if we have what we would expect
 
 3. Plot Physio data in R and Ledalab
 
-
-
-now load ledalab
+now load ledalab data
 
 
 ```{r}
-
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/leda")
-
 # Set the working directory to where your files are located
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/leda")
 
@@ -906,6 +859,17 @@ dta_leda_era1%>%
 
 
 dta_leda_era1
+```
+
+
+save outputs
+
+```{r}
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR")
+
+saveRDS(dta_leda_era, "dta_gsr_leda_era.rds")
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/dta_gsr_env.RData")
+
 ```
 
 
