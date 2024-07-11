@@ -8,6 +8,7 @@ output: html_document
 
 
 # Overview 
+Starts with a clean enciroment
 In this file I aim to process all the gaze data, essentially read, clean and combines multiple files with gaze data and their metadata, then compute and aggregate gaze metrics (parsing fixation and saccades, calculating entropy and AOI summaries, pupil, etc).
 see ouput names in the end of the code
 
@@ -1540,10 +1541,10 @@ unique(dta_gp_all_fix_sacc$aoi_quadrant )
 
 
 
-dta_gp_all_fix_sacc$stimnopath_no_na<- if_else(dta_gp_all_fix_sacc$screencontent_no == 2,
-                                               dta_gp_all_fix_sacc$
-                                               
-                                               )
+# dta_gp_all_fix_sacc$stimnopath_no_na<- if_else(dta_gp_all_fix_sacc$screencontent_no == 2,
+#                                                dta_gp_all_fix_sacc$
+#                                                
+#                                                )
 
 # Calculate entropy and transition entropy
 # Now, let's calculate the entropies correctly

@@ -129,6 +129,13 @@ dta_img_entropy<- all_histograms_df %>%
   summarise(img_entropy = fn_img_entropy(cur_data()))
    # arrange(img_entropy)
 
+dta_img_entropy%>%
+     arrange(img_entropy)
+
+# low wntropy 6300.jpg
+# highest entropy: 5665.jpg
+
+
 # Merge entropy values with the original dataframe
 final_df <- left_join(all_histograms_df, entropy_values, by = "stimnopath_no_na")
 
