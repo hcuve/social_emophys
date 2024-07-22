@@ -1,0 +1,836 @@
+---
+title: "pre_process_ecg"
+author: "Helio"
+date: "2024-03-09"
+output: html_document
+---
+
+
+
+
+ECG signals
+
+
+
+Set-up: where I load libraries and create objects for later use (such as color schemes etc).
+```{r setup, include=FALSE}
+# Load necessary libraries
+require(tidyverse)
+require(data.table)
+library(janitor)
+library(purrr)
+require(readr)
+
+
+```
+
+
+Initiate exploration of strategies to correct file naming inconsistencies due to RA errors. This commit focuses on developing a methodical approach to detect, report, and correct instances where participant identifiers have been reused or incorrectly labeled across our dataset. This is crucial for ensuring data integrity and reliability, especially for identifiers 118, 119, 222, and 223, which have been identified as problematic. The aim is to automate as much of this correction process as possible, reducing the need for manual intervention and decreasing the likelihood of similar issues arising in the future. Details on the proposed solutions and their implementation will be shared in subsequent updates.
+
+########################
+
+*MAKE SURE TO ADD 103 DATA FROM DATABASE (see bottom)*
+
+this is currently using a tab delimitted version of ppt103 (saved with Session2 in the name) because all the other files are tab delimiited. Comma delimmited file (saved with Session1 in the name) is in the 'Organised for R' folder to avoid confusion
+
+
+# Lists of files
+```{r}
+setwd("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG")
+
+# list of all csv files
+tmp_files <- list.files(pattern = "*csv", recursive = FALSE, full.names = TRUE)
+print(tmp_files) 
+
+#list of pc and sd files respectively
+tmp_files_pc <- list.files(pattern = "ECG.*PC\\.csv$", recursive = FALSE, full.names = TRUE)
+
+tmp_files_sd <- list.files(pattern = "ECG.*SD\\.csv$", recursive = FALSE, full.names = TRUE)
+
+unique(tmp_files_pc)
+unique(tmp_files_sd)
+
+
+# Extract identifiers
+
+# Regular expression to capture the pattern before "_" and after "./"
+pattern <- "\\./([0-9]+)_.*"
+
+# Extracts the ppt identifiers of pc and sd files respectively
+identifiers_tmp_files_pc <- str_extract(tmp_files_pc, "\\d+")
+length(unique(identifiers_tmp_files_pc)) # =81
+
+identifiers_tmp_files_sd <- str_extract(tmp_files_sd, "\\d+")
+length(unique(identifiers_tmp_files_sd)) # =95
+
+# Extracts the sessions of pc and sd files respectively
+identifiers_tmp_files_pc_sess <- sub("^\\./(.+)_ECG.*$", "\\1", tmp_files_pc)
+identifiers_tmp_files_sd_sess <- sub("^\\./(.+)_ECG.*$", "\\1", tmp_files_sd)
+
+# Compare and find common ppt identifiers across pc and sd files (to see who has both)
+common_identifiers <- intersect(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
+common_identifiers
+length(common_identifiers)
+
+# find ppt identifiers unique to PC files
+unique_identifiers_pc <- setdiff(identifiers_tmp_files_pc, identifiers_tmp_files_sd)
+unique_identifiers_pc
+length(unique_identifiers_pc)
+
+# find ppt identifiers unique to SD files
+unique_identifiers_sd <- setdiff(identifiers_tmp_files_sd, identifiers_tmp_files_pc)
+unique_identifiers_sd
+length(unique_identifiers_sd)
+
+# check that each ppt has at least one folder
+length(common_identifiers)+length(unique_identifiers_pc)+length(unique_identifiers_sd) ==98 #TRUE 
+```
+# Choosing which files to keep for processing
+```{r}
+file_info <- data.frame(
+  file_path = tmp_files,
+  file_size = file.info(tmp_files)$size,
+  identifier_ssid = str_extract(tmp_files, "\\d+"),
+    # sub("^(.*)_ECG.*\\.csv$", "\\1", basename(all_files)),
+  
+  identifier_wsess = sub("^(.*)_ECG.*\\.csv$", "\\1", basename(tmp_files)),
+  
+  source = ifelse(grepl("PC\\.csv$", tmp_files), "PC", "SD")
+)
+file_info
+
+file_info$keep_drop <- if_else(file_info$identifier_ssid %in% unique_identifiers_pc & file_info$source == "PC", "keep",
+                               if_else(file_info$identifier_ssid %in% unique_identifiers_sd & file_info$source == "SD", "keep",
+                                       if_else(file_info$identifier_ssid %in% common_identifiers & file_info$source == "SD", "keep", "drop")))
+
+
+table(file_info$keep_drop) # 84 drop, 102 keep
+
+file_info_keep<- file_info%>%
+  subset(keep_drop == "keep")
+
+length(unique(file_info_keep$identifier_ssid)) # should be 98
+
+length(unique(file_info_keep$identifier_wsess)) # is 102 because some ppts have more than 1 session
+
+unique(file_info_keep$identifier_wsess)
+
+options(scipen = 999)
+
+## Ruth - what is the point in this then??
+
+# file_info_keep%>%
+#   group_by(identifier_ssid)%>%
+#   summarise_at(c("file_size"), sum)%>%
+#   arrange(file_size)
+#   ggplot(aes(file_size))+
+#   geom_histogram()
+  
+file_info_keep
+  
+```
+
+
+# Predefined column names
+```{r}
+ecg_column_names <- c("ecg_timestamp_sync_unix_cal_ms", "ecg_battery_cal_m_v",
+                  "ecg_ecg_emg_status1_cal_no_units", "ecg_ecg_emg_status2_cal_no_units",
+                  "ecg_ecg_ibi_ll_ra_cal_ms", "ecg_ecg_ibi_vx_rl_cal_ms",
+                  "ecg_ecg_la_ra_24bit_cal_m_v", "ecg_ecg_ll_la_24bit_cal_m_v",
+                  "ecg_ecg_ll_ra_24bit_cal_m_v", "ecg_ecg_vx_rl_24bit_cal_m_v",
+                  "ecg_ec_gto_hr_ll_ra_cal_bpm", "ecg_ec_gto_hr_vx_rl_cal_bpm",
+                  "ecg_pressure_bmp280_cal_k_pa", "ecg_temperature_bmp280_cal_degrees_celsius")
+
+# Print the vector
+print(ecg_column_names)
+
+```
+
+# Helper function to extract participant ID and session from filename
+
+```{r}
+extract_info <- function(filename) {
+  parts <- str_match(filename, "\\./(\\d+)_Session(\\d+)_ECG_.*\\.csv$")
+  return(list(participant_id = parts[, 2], session = parts[, 3]))
+}
+
+# Create a dataframe to map participant IDs and sessions to file paths
+# flatten(final_files_to_load$file_path)
+file_info_2 <- sapply(file_info_keep$file_path, 
+                    function(x) extract_info(x), 
+                    simplify = FALSE)
+file_info_2
+
+
+# creates a dataframe
+file_df <- do.call(rbind, 
+                   lapply(file_info_2, function(x) data.frame(participant_id = 
+                                                              x$participant_id, 
+                                                            session = x$session, stringsAsFactors = FALSE)))
+
+
+file_df$filepath <- file_info_keep$file_path
+file_df$file_size <- file_info_keep$file_size
+# Process a list of file paths, adjust their column names, and combine into a single data.table
+# Clean column names using `janitor::clean_names` for consistency
+# Assuming tmp_files is a list of file paths
+# file_df$participant_id = file_df$participant_id 
+# participant_id = 136
+rm(participant_id)
+
+file_df
+
+unique(file_df$participant_id)
+
+file_df
+```
+
+
+# Batch processing the files to merge with psypy data
+## set up the environment etc
+
+```{r}
+dta_psypy1 <- readRDS("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/behavioural/preprocessed/dta_psypy1.rds")
+
+
+colnames(dta_psypy1)
+# if you don run this the subsetting breaks
+dta_psypy1$orig_unixtime_start_psypy<- dta_psypy1$unixtime_start
+setDT(dta_psypy1)
+
+
+# reads files from
+dir_ecg<- "C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG"
+
+
+# exports files to 
+dir_ecg_w_triggers<- "C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/ecg_w_triggers"
+
+dir_ecg_w_triggers_matlab <- "C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/ecg_w_triggers/forMatlab"
+
+
+unique(file_df$participant_id)
+```
+
+## run as a loop
+```{r}
+for (participant_id in unique(file_df$participant_id)) {
+  # Find all files for this participant
+  participant_files <- file_df[file_df$participant_id == participant_id, ]
+  
+  # Initialize an empty list to hold session data
+  all_sessions_data <- list()
+  
+  for (i in 1:nrow(participant_files)) {
+    
+    message("\nProcessing Participant ID: ", participant_id)
+    # Load and process each file
+    filename <- participant_files$filepath[i]
+    session <- participant_files$session[i]
+    
+     # Construct the full file path
+    filepath <- file.path(dir_ecg, filename)
+
+    # Read the CSV file, skip the first 3 rows
+    tmp_ecg <- fread(filepath, skip = 3, header = FALSE)
+    
+    # Check if the dataframe has 14 columns, and if so, add an empty 15th column
+if (ncol(tmp_ecg) == 14) {
+  # Add an 11th column filled with NA
+  tmp_ecg[, V15 := NA]
+}
+
+# Proceed with removing extra columns if necessary
+extra_cols <- ncol(tmp_ecg) - length(ecg_column_names)
+if (extra_cols > 0) {
+  tmp_ecg <- tmp_ecg[, -((ncol(tmp_ecg)-extra_cols+1):ncol(tmp_ecg)), with = FALSE]
+}
+
+# Now assign predefined column names, assuming 'ecg_column_names' is of length 15
+setnames(tmp_ecg, old = names(tmp_ecg), new = ecg_column_names)
+
+
+    # Assign predefined column names
+    setnames(tmp_ecg, old = names(tmp_ecg), new = ecg_column_names)
+    
+    # Add a new column with the filename
+    filename <- basename(filepath)
+    tmp_ecg[, filename := filename]
+    
+    tmp_ecg[, session := session]
+    
+    # Correct original timestamp column name to match ECG data
+    tmp_ecg[, orig_timestamp_ecg := ecg_timestamp_sync_unix_cal_ms]
+    
+    # Merge timestamps and other operations from dta_psypy1
+
+    tmp_psypy <- dta_psypy1[participant == participant_id, 
+                            .(participant, social_nonsocial, stim_iaps, trial_no_all, unixtime_start, orig_unixtime_start_psypy)]
+    
+    tmp_psypy[, next_unixtime_start := shift(unixtime_start, type = "lead", fill = Inf)]
+    tmp_psypy[, unixtime_end := next_unixtime_start - 1]
+    
+    # Initialize missing columns in tmp_ecg
+    tmp_ecg[, `:=` (social_nonsocial = as.character(NA), 
+                         stim_iaps = as.character(NA), 
+                         trial_no_all = as.integer(NA), 
+                         psypy_unixtime_start = as.numeric(NA),
+                         orig_unixtime_start_psypy = as.numeric(NA))]
+    
+    # make sure data is compatable for joining - pp103 won't work otherwise
+    tmp_ecg[, ecg_timestamp_sync_unix_cal_ms := as.double(ecg_timestamp_sync_unix_cal_ms)]
+    
+    # Perform the non-equi join and update
+    tmp_ecg[tmp_psypy, on = .(ecg_timestamp_sync_unix_cal_ms >= unixtime_start, 
+                                   ecg_timestamp_sync_unix_cal_ms <= unixtime_end), 
+                 `:=` (social_nonsocial = i.social_nonsocial, 
+                       stim_iaps = i.stim_iaps, 
+                       trial_no_all = i.trial_no_all, 
+                       psypy_unixtime_start = i.unixtime_start,
+                       orig_unixtime_start_psypy = i.orig_unixtime_start_psypy), 
+                 by = .EACHI]
+    
+    # Append the processed session data to the list
+    all_sessions_data[[length(all_sessions_data) + 1]] <- tmp_ecg
+  }
+  
+  # Combine data from all sessions
+  combined_data <- do.call(rbind, all_sessions_data)
+  
+  # Convert combined data to tibble for dplyr operations
+  combined_data <- as_tibble(combined_data)
+  
+  # Apply dplyr operations
+  combined_data <- combined_data %>%
+    arrange(ecg_timestamp_sync_unix_cal_ms) %>%
+    mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all),
+           trigger = case_when(
+             trial_no_all == 1 & start_true == TRUE ~ 1,
+             start_true == FALSE ~ 0,
+             TRUE ~ as.numeric(trial_no_all)),
+           ecg_timerezero_sync_unix_cal_ms = ecg_timestamp_sync_unix_cal_ms - first(ecg_timestamp_sync_unix_cal_ms))%>%
+    mutate(participant = participant_id)
+  
+# Just before writing out the combined_data
+unique_triggers <- length(unique(combined_data$trigger))
+unique_trigger_gt_zero <- combined_data %>% 
+  filter(trigger > 0) %>%
+  count(trigger) %>%
+  filter(n > 1)
+
+combined_data <- combined_data%>%
+  mutate(event_label = if_else(start_true == TRUE, paste0("trial_",trial_no_all, "_started"),NA))
+
+# Check for conditions
+if (unique_triggers != 66 || nrow(unique_trigger_gt_zero) > 0) {
+  warning_message <- paste("Warning: Data integrity checks failed for Participant ID:", participant_id)
+  
+  if (unique_triggers != 66) {
+    warning_message <- paste(warning_message, "\nExpected 66 unique trigger values, but found", unique_triggers)
+  }
+  
+  if (nrow(unique_trigger_gt_zero) > 0) {
+    warning_message <- paste(warning_message, "\nFound trigger values greater than 0 that are present more than once:")
+    for (i in 1:nrow(unique_trigger_gt_zero)) {
+      warning_message <- paste(warning_message, unique_trigger_gt_zero$trigger[i], "(", unique_trigger_gt_zero$n[i], "times);")
+    }
+  }
+  
+  # Print the warning message
+  message(warning_message)
+} else {
+  # If all checks pass, proceed with writing the file
+  
+  # dir_ecg_w_triggers
+  # fwrite(as.data.table(combined_data), paste0(participant_id, "_allsessions", "_dta_ecg_trig.csv"), row.names = FALSE)
+  
+  output_file <- file.path(dir_ecg_w_triggers, paste0(participant_id, "_allsessions", "_dta_ecg_trig.csv"))
+  fwrite(as.data.table(combined_data), output_file, row.names = FALSE)
+  
+  #write as text file for Matlab to use for PhysioData Toolbox
+  output_file_matlab <- file.path(dir_ecg_w_triggers_matlab, paste0(participant_id, "_allsessions", "_dta_ecg_trig_matlab.txt"))
+  fwrite(combined_data, file = output_file_matlab, sep="\t", row.names = FALSE)
+  
+  # Print completion message for current participant
+  message("Completed processing for Participant ID: ", participant_id)
+}
+}
+
+```
+ppt103 only works with the extra line of code to make sure the data is compatable for joining.
+
+
+###################################################
+
+
+# this checks that the timing is correct (i.e. that triggers are marked at the the start of the event (by comparign ecg time with psychopy times))
+
+```{r}
+colnames(tmp_ecg)
+
+unique(tmp_ecg$filename)
+ 
+# check that the triggers are correct
+
+tmp_ecg$orig_unixtime_start_psypy
+tmp_ecg %>%
+    arrange(ecg_timestamp_sync_unix_cal_ms) %>%
+  group_by(trial_no_all) %>%
+  mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all)) %>%
+  
+  mutate(time = ifelse(start_true, ecg_timestamp_sync_unix_cal_ms, NA)) %>%
+  # Use `fill` to propagate the first timestamp down the group
+  fill(time, .direction = "down")%>%
+  ungroup()%>%
+  arrange(ecg_timestamp_sync_unix_cal_ms)%>%
+  # subset(trial_no_all>15 & trial_no_all<20)%>%
+  mutate(time_diff_psypy_ecg = orig_unixtime_start_psypy-orig_timestamp_ecg)%>%
+  subset(trial_no_all>0 & trial_no_all < 5)%>%
+  ggplot( aes(x = ecg_timestamp_sync_unix_cal_ms, 
+                         y = ecg_ec_gto_hr_ll_ra_cal_bpm)) +
+  # geom_line() +
+  # Add red vertical lines at 'time' for the start of each trial
+  geom_vline(aes(xintercept = time), color = "red") +
+  
+  geom_point(aes(y = time_diff_psypy_ecg), size = .001)
+  
+
+
+
+
+ 
+```
+ 
+ 
+```{r}
+ # IBI
+ unique( tmp_ecg$ecg_ecg_ibi_ll_ra_cal_ms)
+ 
+ 
+ tmp_ecg %>%
+    arrange(ecg_timestamp_sync_unix_cal_ms) %>%
+  group_by(trial_no_all) %>%
+  mutate(start_true = !duplicated(trial_no_all) & !is.na(trial_no_all)) %>%
+
+
+  mutate(time = ifelse(start_true, ecg_timestamp_sync_unix_cal_ms, NA)) %>%
+
+  # Use `fill` to propagate the first timestamp down the group
+  fill(time, .direction = "down")%>%
+  ungroup()%>%
+  arrange(ecg_timestamp_sync_unix_cal_ms)%>%
+         subset(ecg_ecg_ibi_ll_ra_cal_ms> 0 )%>%
+  subset(trial_no_all>15 & trial_no_all<20)%>%
+  mutate(time_diff_psypy_gsr = orig_unixtime_start_psypy-orig_unixtime_start_psypy)%>%
+  ggplot( aes(x = ecg_timestamp_sync_unix_cal_ms, 
+                         y = ecg_ecg_ibi_ll_ra_cal_ms)) +
+  geom_point(size = .00001) +
+   geom_line(size = .1)+
+  # Add red vertical lines at 'time' for the start of each trial
+  geom_vline(aes(xintercept = time), color = "red") 
+
+ 
+```
+
+[1] -1.38330078  1.89526367 -4.51904297 -2.84741211  2.70336914  3.34204102 -3.37255859
+ [8] -0.88989258 -2.88159180  0.59008789 -0.29345703  0.04248047 -2.20581055 -5.65771484
+[15] -1.18432617 -4.25805664  0.17578125 -4.96362305 -0.14355469 -6.34448242  1.48095703
+[22] -4.22753906 -1.11303711 -4.90869141 -4.12866211 -0.66748047 -4.19775391  0.46020508
+[29] -5.09057617 -3.11108398  0.88183594 -1.17407227 -3.05859375 -5.82446289 -0.14453125
+[36] -6.11572266 -4.53393555  0.69726562  1.80908203  0.38989258 -0.66479492 -0.09057617
+[43] -4.64746094  0.43823242 -6.83593750 -1.65405273 -3.28808594  0.71997070 -0.89892578
+[50] -1.68627930 -1.86425781 -4.26074219 -0.76806641  0.58715820  1.12573242 -4.09643555
+[57] -1.47729492  3.52734375  2.04956055 -5.97534180  2.72998047  0.77148438  1.63110352
+[64] -0.84375000 -1.84399414
+
+
+
+
+to do in ECG
+smooth check artifacts and interpolate
+to do later
+- compare peak detection 
+
+```{r}
+
+
+
+# Step 1: Read the first two rows to get column names and units
+
+
+# read_delim("110_Session1_GSRPulse_Calibrated_PC.csv", 
+#     delim = "\t", escape_double = FALSE, 
+
+
+dta_ecg_header_info <-  read_delim("116_Session1_ECG_Calibrated_PC.csv", 
+                                    # nrows = 2, 
+                                    skip = 1,
+                                    escape_double = FALSE, 
+                                    delim = "\t")
+
+dta_ecg <-  read_delim("116_Session1_ECG_Calibrated_PC.csv", 
+                                    # nrows = 2, 
+                                    skip = 2,
+                                    escape_double = FALSE, 
+                                    delim = "\t")
+
+colnames(dta_ecg)
+
+
+names(dta_ecg)<- paste0(colnames(dta_ecg_header_info),"_", paste0(dta_ecg_header_info[1,]))
+
+
+dta_ecg$...15_NA<-NULL
+
+
+# make clean names
+dta_ecg<- dta_ecg%>%
+  janitor::clean_names()
+
+
+colnames(dta_ecg)
+
+# ECG heart rate
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ec_gto_hr_ll_ra_cal_bpm))+
+  geom_line()
+  # geom_point()
+
+
+# just ECG
+dta_physio$gsr_pulse_timestamp_sync_unix_cal_ms-lag(dta_physio$gsr_pulse_timestamp_sync_unix_cal_ms)
+dta_ecg$ecg_timestamp_sync_unix_cal_ms-lag(dta_ecg$ecg_timestamp_sync_unix_cal_ms)
+
+
+# Calculate the sample rate given the sampling interval in seconds
+# sampling_interval_seconds = 0.003998047
+# sample_rate = 1 / sampling_interval_seconds
+# 
+# sample_rate
+
+dta_ecg$ecg_ecg_emg_status1_cal_no_units
+dta_ecg$ecg_ecg_emg_status2_cal_no_units
+
+# ecg_ecg_ll_ra_24bit_cal_m_v = ECG signa;
+# ecg_ec_gto_hr_ll_ra_cal_bpm = heart rate
+# ecg_ecg_ibi_ll_ra_cal_ms = IBI
+
+
+
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ecg_ll_ra_24bit_cal_m_v))+
+  geom_line()
+
+
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ecg_ll_ra_24bit_cal_m_v))+
+  geom_line()
+
+
+
+# IBI
+dta_ecg%>%
+  subset(ecg_ecg_ibi_ll_ra_cal_ms!=-1)%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ecg_ibi_ll_ra_cal_ms))+
+  geom_line()
+
+
+# expected cavare plot of R to R interval
+dta_ecg%>%
+  subset(ecg_ecg_ibi_ll_ra_cal_ms!=-1)%>%
+  mutate(ecg_ecg_ibi_ll_ra_cal_ms_lag = lag(ecg_ecg_ibi_ll_ra_cal_ms))%>%
+  ggplot(aes(ecg_ecg_ibi_ll_ra_cal_ms,
+             ecg_ecg_ibi_ll_ra_cal_ms_lag))+
+  geom_point()
+
+
+
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_temperature_bmp280_cal_degrees_celsius))+
+  geom_line()
+
+
+# EGG ecg_ecg_vx_rl_24bit_cal_m_v
+
+dta_ecg%>%
+  mutate(time_rezero = ecg_timestamp_sync_unix_cal_ms-ecg_timestamp_sync_unix_cal_ms[1])%>%
+  ggplot(aes(time_rezero,
+             ecg_ecg_vx_rl_24bit_cal_m_v))+
+  geom_line()
+
+
+```
+
+
+#######################
+
+
+# debugging pp103
+note 103 is mising ecg data but this is present in database so we need to load up manualy from sql
+quick checks
+
+##load manually from database
+```{r}
+# Load necessary libraries
+
+#install.packages("RSQLite")
+#install.packages("DBI")
+library(RSQLite)
+library(DBI)
+
+#setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/103/Raw data/1706540442")
+setwd("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Raw Data/103_1706540442")
+
+# Specify the path to your SQLite database file
+#db_path <- "~Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Consensys-physio/103/Raw data/1706540442/1706540442.db" # Replace with your actual file path
+db_path <- "C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Raw Data/103_1706540442/1706540442.db"
+
+
+# Establish a connection to the SQLite database
+conn <- dbConnect(RSQLite::SQLite(), dbname = db_path)
+
+# Specify the table you want to download
+table_name <- "Calibrated_BT_fc0fe7b56da3"
+
+# Read the table into a data frame
+data <- dbReadTable(conn, table_name)
+
+# Specify the path where you want to save the CSV file
+csv_path <- "C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/Calibrated_BT_fc0fe7b56da3.csv" # Replace with your actual save path
+
+# Write the data frame to a CSV file
+write.csv(data, csv_path, row.names = FALSE)
+
+# Close the connection
+dbDisconnect(conn)
+
+getwd()
+
+#open this new file to try and make it match the rest
+ppt103 <- read.csv("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/Calibrated_BT_fc0fe7b56da3.csv")
+colnames(ppt103)
+
+
+
+#attempt to open the others failed because accidentally exported .csv files but they are tab delimited not comma delimited
+```
+
+## a function to read the .csv files using sep = "\t"
+```{r}
+column_names <- c("ECG_TimestampSync_Unix_CAL", "ECG_Battery_CAL", "ECG_ECG_EMG_Status1_CAL", "ECG_ECG_EMG_Status2_CAL", "ECG_ECG_IBI_LL_RA_CAL",	"ECG_ECG_IBI_Vx_RL_CAL",	"ECG_ECG_LA-RA_24BIT_CAL", "ECG_ECG_LL-LA_24BIT_CAL",	"ECG_ECG_LL-RA_24BIT_CAL",	"ECG_ECG_Vx-RL_24BIT_CAL", "ECG_ECGtoHR_LL_RA_CAL",	"ECG_ECGtoHR_Vx_RL_CAL",	"ECG_Pressure_BMP280_CAL",	"ECG_Temperature_BMP280_CAL")
+
+ppt246 <- read.table("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/246_Session1_ECG_Calibrated_SD.csv", sep = "\t", header = TRUE, row.names = NULL, col.names = column_names)
+
+colnames(ppt246) <- column_names
+
+ppt246 <- ppt246[,-15]
+ppt246 <- ppt246[-1,]
+new_colnames <- paste0(colnames(ppt246), "_", ppt246[1,])
+colnames(ppt246) <- new_colnames
+ppt246 <- ppt246[-1,]
+row.names(ppt246) <- NULL
+
+
+#attempt to write a function
+process_csv_file <- function(tmp_files) {
+  data <- read.table(tmp_files, sep = "\t", header = TRUE, row.names = NULL, col.names = column_names)
+  
+  colnames(data) <- column_names
+  data <- data[-1,-15]
+  new_colnames <- paste0(colnames(data), "_", data[1,])
+  colnames(data) <- new_colnames
+  data <- data[-1,]
+  row.names(data) <- NULL
+  
+  #write.csv(data,)
+}
+
+ecg_cal <- "C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG"
+
+
+#lapply(tmp_files, process_csv_file)
+
+```
+
+## make ppt103 data match the rest
+```{r}
+colnames_246 <- colnames(ppt246)
+colnames_103 <- colnames(ppt103)
+
+colnames_103
+colnames_246
+
+ppt103_1 <- ppt103[,c(16,4:8,9:12,13,14,15,17)]
+
+colnames(ppt103_1) <- c("ECG_TimestampSync_Unix_CAL", "ECG_Battery_CAL", "ECG_ECG_EMG_Status1_CAL", "ECG_ECG_EMG_Status2_CAL", "ECG_ECG_IBI_LL_RA_CAL",	"ECG_ECG_IBI_Vx_RL_CAL",	"ECG_ECG_LA-RA_24BIT_CAL", "ECG_ECG_LL-LA_24BIT_CAL",	"ECG_ECG_LL-RA_24BIT_CAL",	"ECG_ECG_Vx-RL_24BIT_CAL", "ECG_ECGtoHR_LL_RA_CAL",	"ECG_ECGtoHR_Vx_RL_CAL",	"ECG_Pressure_BMP280_CAL",	"ECG_Temperature_BMP280_CAL")
+
+write.csv(ppt103_1, "C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/103_Session1_ECG_Calibrated_PC.csv", row.names = FALSE)
+
+```
+
+###################################
+
+# debugging batch processing of ppts and psypy
+
+*batch processing of ppt 103 did not work*
+Processing Participant ID: 103
+Error: Incompatible join types: x.ecg_timestamp_sync_unix_cal_ms is type integer64 but i.unixtime_start is type double and contains fractions
+
+
+try writing their file as tab delimited - saving as Session2 becuase Session1 is the comma delimited one
+```{r}
+write.table(ppt103_1, "C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/103_Session2_ECG_Calibrated_PC.csv", sep = "\t", row.names = FALSE)
+```
+
+still did not work
+
+
+
+
+# Converting into .mat files for PhysioData Toolbox
+```{r}
+library(R.matlab)
+
+ppt145 <- read.csv("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/ecg_w_triggers/145_allsessions_dta_ecg_trig.csv")
+
+ppt145_mat <- read.table("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/ecg_w_triggers/forMatlab/145_allsessions_dta_ecg_trig_matlab.txt", sep = "\t")
+
+
+ppt145_mat <- data.matrix(ppt145_mat)
+ppt145
+
+writeMat("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/ECG/ecg_w_triggers/forMatlab/145_mat.mat", ppt145_mat = ppt145_mat)
+
+mat_column_names <- c("ecg_timestamp_sync_unix_cal_ms",
+                      "ecg_battery_cal_m_v",
+                      "ecg_status1_cal_no_units",
+                      "ecg_status2_cal_no_units",
+                      "ecg_ibi_ll_ra_cal_ms",
+                      "ecg_ibi_vx_rl_cal_ms",
+                      "ecg_la_ra_24bit_cal_m_v",
+                      "ecg_ll_la_24bit_cal_m_v",
+                      "ecg_ll_ra_24bit_cal_m_v",
+                      "ecg_vx_rl_24bit_cal_m_v",
+                      "ecg_ec_gto_hr_ll_ra_cal_bpm",
+                      "ecg_ec_gto_hr_vx_rl_cal_bpm",
+                      "ecg_pressure_bmp280_cal_k_pa", 
+                      "ecg_temp_bmp280_cal_deg_cel",
+                      "filename", 
+                      "session",
+                      "orig_timestamp_ecg", 
+                      "social_nonsocial", 
+                      "stim_iaps",
+                      "trial_no_all",
+                      "psypy_unixtime_start", 
+                      "orig_unixtime_start_psypy")
+
+tmp_ecg_mat <- tmp_ecg
+colnames(ppt145) <- mat_column_names
+
+```
+
+```{r}
+print(unique(combined_data$event_label))
+
+
+
+length(unique(combined_data$event_label))
+
+combined_data$trial_no_all
+combined_data$event_label <- if_else(combined_data$trigger != 0, combined_data$trigger,
+                                     
+                                     NA)
+
+# unique(combined_data$event_label)
+# table(combined_data$event_label)
+
+
+combined_data<-  combined_data%>%
+  group_by(trial_no_all)%>%
+    fill(event_label, 
+         .direction = "down")
+
+# table(combined_data$event_label)
+# unique(combined_data$event_label)
+
+combined_data$event_label<- if_else(is.na(combined_data$event_label) == TRUE, 0, combined_data$event_label)
+
+table(combined_data$event_label)
+unique(combined_data$event_label)
+
+
+write_csv(combined_data, "test249ecg.csv")
+
+fwrite(combined_data, file = "test249ecg.txt", sep="\t", row.names = FALSE)
+
+combined_data%>%
+  subset(!is.na(event_label))
+
+
+
+combined_data
+
+# decice the start and end
+# decide the labels
+
+
+combined_data
+
+
+# event lavle file
+
+combined_data%>%
+  subset(start_true == TRUE)
+
+
+colnames(combined_data)
+
+unique(combined_data$event_label)
+
+test<- combined_data%>%
+subset(trial_no_all>1)
+table(test$event_label == 0)
+table(is.na(test$event_label))
+
+
+test<- combined_data%>%
+subset(trial_no_all>=9 & trial_no_all<=11)
+
+table(test$event_label< 9)
+
+unique(test$event_label)
+
+
+test%>%
+  mutate(test_diff = event_label- lag(event_label))%>%
+  ggplot(aes(orig_timestamp_ecg, test_diff))+
+  geom_point()
+
+
+
+test%>%
+  mutate(test_diff = orig_timestamp_ecg- lag(orig_timestamp_ecg))%>%
+  ggplot(aes(orig_timestamp_ecg, test_diff))+
+  geom_point()
+
+```
+
+```{r}
+install.packages("seewave")
+
+
+
+
+```
+
+

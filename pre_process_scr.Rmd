@@ -896,4 +896,90 @@ save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Project
 
 
 
+Quick checks that the gsr data sent for students matches the gsr data that we re-ran
 
+```{r}
+# just one pp
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers/forledalab/Ledalab output")
+
+
+dta_gsr_leda_era_1 <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers/forledalab/Ledalab output/dta_gsr_leda_era_1.rds")
+
+
+dta_gsr_leda_era_1
+colnames(dta_gsr_leda_era)
+
+unique(dta_gsr_leda_era$filename)
+
+unique(dta_gsr_leda_era$trial_no_all)
+
+
+rm(dta_gsr)
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers/forledalab/Ledalab output/compare/New")
+
+file_list_new <- list.files(pattern = "\\.txt$")
+
+
+tmp_gsr_new<- do.call(rbind, lapply(file_list_new, function(file) {
+  data <- read.table(file, header = TRUE, sep = "\t")%>%
+       janitor::clean_names()
+  # Add a new column to store the filename
+  data$filename <- file
+  
+  return(data)
+}))
+
+
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/GSR/gsr_w_triggers/forledalab/Ledalab output/compare/old")
+
+file_list_old <- list.files(pattern = "\\.txt$")
+
+tmp_gsr_old<- do.call(rbind, lapply(file_list_old, function(file) {
+  data <- read.table(file, header = TRUE, sep = "\t")%>%
+       janitor::clean_names()
+  # Add a new column to store the filename
+  data$filename <- file
+  
+  return(data)
+}))
+
+unique(tmp_gsr_new$filename)
+
+unique(tmp_gsr_new$event_name)
+
+unique(tmp_gsr_old$event_name)
+
+colnames(tmp_gsr_new)
+left_join(tmp_gsr_new,
+          tmp_gsr_old, by = c("filename", "event_name"))%>%
+  ggplot(aes(cda_n_scr.x, cda_n_scr.y))+
+  geom_point()+
+  geom_smooth(aes(group = filename), method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~filename)
+
+
+
+left_join(tmp_gsr_new,
+          tmp_gsr_old, by = c("filename", "event_name"))%>%
+  ggplot(aes(global_mean.x, global_mean.y))+
+  geom_point()+
+  geom_smooth(aes(group = filename), method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~filename)
+
+
+colnames(tmp_gsr_new)
+left_join(tmp_gsr_new,
+          tmp_gsr_old, by = c("filename", "event_name"))%>%
+  ggplot(aes(ttp_amp_sum.x, ttp_amp_sum.y))+
+  geom_point()+
+  geom_smooth(aes(group = filename), method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~filename)
+
+# check confirms that the new processing didn't change the results
+```
