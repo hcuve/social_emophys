@@ -823,7 +823,75 @@ test%>%
   ggplot(aes(orig_timestamp_ecg, test_diff))+
   geom_point()
 
+
+colnames(combined_data)
+
+combined_data$ecg_timerezero_sync_unix_cal_ms
+
+combined_data$participant
+
+
+meta_data
+
+
+test_trigg_metadata <- combined_data%>%
+  subset(start_true == TRUE & )%>%
+  select(event_label, stim_iaps, ecg_timerezero_sync_unix_cal_ms)%>%
+  mutate(time_4pt_s = ecg_timerezero_sync_unix_cal_ms/1000)%>%
+  mutate(trig_event_label = paste0(event_label,"_", stim_iaps))%>%
+  select(time_4pt_s, trig_event_label,-trial_no_all)
+
+
+colnames(test_trigg_metadata)
+
+
+test249_w_metadata<- left_join(combined_data,test_trigg_metadata)
+
+test249new<- test249_w_metadata
+
+unique(test249new$trig_event_label)
+fwrite(test249new, file = "test249new.txt", sep="\t", row.names = FALSE)
+  
+
+
+test249new%>%
+  subset(start_true == TRUE)
+
+
+colnames(test249new)
+
+
+test249new$start_true
+
+unique(test249new$event_label)
+
+unique(test249new$trig_event_label)
+
+
+
+
+
+
+test249new$time_4pt_s[is.na(test249new$time_4pt_s)] <- 0
+
+test249new$trig_event_label[is.na(test249new$trig_event_label)] <- "noEvent"
+
+
+test249new$time_4pt_s
+unique(test249new$trig_event_label)
+
+fwrite(test249new, file = "test249new.txt", sep="\t", row.names = FALSE)
+
+
+test249new$ecg_ecg_ibi_ll_ra_cal_ms
+
+
+test249new$heart
+
 ```
+
+
+
 
 ```{r}
 install.packages("seewave")
