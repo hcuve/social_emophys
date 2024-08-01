@@ -1,0 +1,240 @@
+---
+title: "de-trend smooth resp"
+author: "Helio"
+date: "2024-08-01"
+output: html_document
+---
+
+```{r}
+
+setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers")
+
+# Load required libraries
+library(zoo)
+library(dplyr)
+library(purrr)
+
+# Define the directory containing CSV files
+input_directory <- "/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers"  # Replace with your directory path
+output_directory <- "/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers"  # Replace with your output directory path
+
+# Sampling rate in Hz (adjust as necessary for your data)
+fs <- 250
+
+
+
+
+# Define the function for preprocessing
+fn_smooth_detrend_resp <- function(signal, sampling_rate, window_size_ms = 25, baseline_window_sec = 60) {
+  # Calculate window sizes in samples
+  window_size <- round(window_size_ms / 1000 * sampling_rate)
+  baseline_window_size <- round(baseline_window_sec * sampling_rate)
+  
+  # Left-right padding: Add zeros on both sides
+  padded_signal <- c(rep(0, window_size), signal, rep(0, window_size))
+  
+  # Mean smoothing using a rolling window
+  smoothed_signal <- rollmean(padded_signal, window_size, fill = NA, align = "center")
+  
+  # Remove padding
+  smoothed_signal <- smoothed_signal[(window_size + 1):(length(smoothed_signal) - window_size)]
+  
+  # Linear drift removal
+  time <- 1:length(smoothed_signal)
+  linear_model <- lm(smoothed_signal ~ time)
+  linear_trend <- linear_model$coefficients[1] + linear_model$coefficients[2] * time
+  detrended_signal <- smoothed_signal - linear_trend
+  
+  # Local signal drift correction using sliding window
+  baseline <- rollmean(detrended_signal, baseline_window_size, fill = NA, align = "center")
+  corrected_signal <- detrended_signal - baseline
+  
+  # Final trimming to ensure the size matches the original signal
+  corrected_signal[is.na(corrected_signal)] <- 0
+  final_signal <- corrected_signal[1:length(signal)]
+  
+  # Return the processed signal
+  return(final_signal)
+}
+
+# Define the directory containing CSV files
+input_directory <- "/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers"  # Replace with your directory path
+output_directory <- "/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers"  # Replace with your output directory path
+
+# Sampling rate in Hz (adjust as necessary for your data)
+fs <- 250
+
+# List all CSV files in the input directory
+csv_files <- list.files(input_directory, pattern = "*.csv", full.names = TRUE)
+
+# Process each CSV file iteratively
+fn_process_files <- function(file) {
+  # Print progress information
+  message("Processing file: ", basename(file))
+  
+  # Read the CSV file
+  data <- read.csv(file)
+  
+  # Ensure 'resp_ecg_resp_24bit_cal_m_v' column exists
+  if (!"resp_ecg_resp_24bit_cal_m_v" %in% colnames(data)) {
+    stop(paste("File", file, "does not contain 'resp_ecg_resp_24bit_cal_m_v' column"))
+  }
+  
+  # Apply the preprocessing function
+  data <- data %>%
+    mutate(resp_detrend_smooth = fn_smooth_detrend_resp(resp_ecg_resp_24bit_cal_m_v, fs))
+  
+  # Create output file name
+  output_file <- file.path(output_directory, paste0(str_remove(basename(file), ".csv"), "_smooth_detrend.csv"))
+  
+  # Write the processed data to a new CSV file
+  write.csv(data, output_file, row.names = FALSE)
+  
+  # Return the output file path for confirmation
+  return(output_file)
+}
+
+# Apply the processing function to all files and save the outputs
+output_files <- map(csv_files, fn_process_files)
+
+# Output the result for confirmation
+message("Processing complete. Processed files:")
+print(output_files)
+
+
+
+library(readr)
+dta_117 <- read_csv("117_allsessions_dta_resp_trig_smooth_detrend.csv")
+
+
+dta_117%>%
+  ggplot(aes(resp_timerezero_sync_unix_cal_ms, resp_detrend_smooth))+
+  geom_line(colour = "green")+
+  # geom_line(aes(y = resp_ecg_resp_24bit_cal_m_v/1000), colour = "blue")+
+  
+  xlim(50000,100000*10)
+
+dta_117%>%
+  ggplot(aes(resp_timerezero_sync_unix_cal_ms, resp_ecg_resp_24bit_cal_m_v))+
+  geom_line()+
+    xlim(50000,100000*2)
+
+
+
+View(X117_allsessions_dta_resp_trig_smooth_detrend)
+```
+Dont run below
+to optmtise later for artifact rejectipon and reconstruction
+```{r}
+library(dplyr)
+library(purrr)
+library(zoo)
+library(stringr)
+
+# Define the function for preprocessing
+fn_smooth_detrend_resp <- function(signal, sampling_rate, window_size_ms = 25, baseline_window_sec = 60, threshold = 3) {
+  # Calculate window sizes in samples
+  window_size <- round(window_size_ms / 1000 * sampling_rate)
+  baseline_window_size <- round(baseline_window_sec * sampling_rate)
+  
+  # Left-right padding: Add zeros on both sides
+  padded_signal <- c(rep(0, window_size), signal, rep(0, window_size))
+  
+  # Median filtering to remove spikes
+  median_filtered_signal <- rollapply(padded_signal, window_size, median, fill = NA, align = "center")
+  
+  # Mean smoothing using a rolling window
+  smoothed_signal <- rollmean(median_filtered_signal, window_size, fill = NA, align = "center")
+  
+  # Remove padding
+  smoothed_signal <- smoothed_signal[(window_size + 1):(length(smoothed_signal) - window_size)]
+  
+  # Linear drift removal
+  time <- 1:length(smoothed_signal)
+  linear_model <- lm(smoothed_signal ~ time)
+  linear_trend <- linear_model$coefficients[1] + linear_model$coefficients[2] * time
+  detrended_signal <- smoothed_signal - linear_trend
+  
+  # Local signal drift correction using sliding window
+  baseline <- rollmean(detrended_signal, baseline_window_size, fill = NA, align = "center")
+  corrected_signal <- detrended_signal - baseline
+  
+  # Thresholding to remove sudden jumps
+  corrected_signal <- ifelse(abs(corrected_signal) > threshold * sd(corrected_signal, na.rm = TRUE), NA, corrected_signal)
+  corrected_signal <- na.locf(corrected_signal, na.rm = FALSE, fromLast = TRUE)
+  corrected_signal[is.na(corrected_signal)] <- 0
+  
+  # Final trimming to ensure the size matches the original signal
+  final_signal <- corrected_signal[1:length(signal)]
+  
+  # Return the processed signal
+  return(final_signal)
+}
+
+# Define the directory containing CSV files
+input_directory <- "/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers"  # Replace with your directory path
+output_directory <- "/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers"  # Replace with your output directory path
+
+# Sampling rate in Hz (adjust as necessary for your data)
+fs <- 250
+
+# List all CSV files in the input directory
+csv_files <- list.files(input_directory, pattern = "*.csv", full.names = TRUE)
+
+# Process each CSV file iteratively
+fn_process_files <- function(file) {
+  # Print progress information
+  message("Processing file: ", basename(file))
+  
+  # Read the CSV file
+  data <- read.csv(file)
+  
+  # Ensure 'resp_ecg_resp_24bit_cal_m_v' column exists
+  if (!"resp_ecg_resp_24bit_cal_m_v" %in% colnames(data)) {
+    stop(paste("File", file, "does not contain 'resp_ecg_resp_24bit_cal_m_v' column"))
+  }
+  
+  # Apply the preprocessing function
+  data <- data %>%
+    mutate(resp_detrend_smooth = fn_smooth_detrend_resp(resp_ecg_resp_24bit_cal_m_v, fs))
+  
+  # Create output file name
+  output_file <- file.path(output_directory, paste0(str_remove(basename(file), ".csv"), "_smooth_detrend.csv"))
+  
+  # Write the processed data to a new CSV file
+  write.csv(data, output_file, row.names = FALSE)
+  
+  # Return the output file path for confirmation
+  return(output_file)
+}
+
+# Apply the processing function to all files and save the outputs
+output_files <- map(csv_files[15:16], fn_process_files)
+
+# Output the result for confirmation
+message("Processing complete. Processed files:")
+print(output_files)
+
+
+
+
+library(readr)
+dta_117 <- read_csv("116_allsessions_dta_resp_trig_smooth_detrend.csv")
+
+
+dta_117%>%
+  ggplot(aes(resp_timerezero_sync_unix_cal_ms, resp_detrend_smooth))+
+  geom_line(colour = "green")+
+  # geom_line(aes(y = resp_ecg_resp_24bit_cal_m_v/1000), colour = "blue")+
+  
+  xlim(50000,100000*5)
+
+dta_117%>%
+  ggplot(aes(resp_timerezero_sync_unix_cal_ms, resp_ecg_resp_24bit_cal_m_v))+
+  geom_line()+
+    xlim(50000,100000*2)
+
+
+
+View(X117_allsessions_dta_resp_trig_smooth_detrend)
+```
