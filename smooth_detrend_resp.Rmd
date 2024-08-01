@@ -59,7 +59,7 @@ fn_smooth_detrend_resp <- function(signal, sampling_rate, window_size_ms = 25, b
 
 # Define the directory containing CSV files
 input_directory <- "/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers"  # Replace with your directory path
-output_directory <- "/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/Re-exported Consensys/organised for R/Calibrated/Resp/resp_w_triggers"  # Replace with your output directory path
+output_directory <- "REPLACEHERE"  # Replace with your output directory path
 
 # Sampling rate in Hz (adjust as necessary for your data)
 fs <- 250
