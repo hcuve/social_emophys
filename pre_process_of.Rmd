@@ -5,100 +5,136 @@ date: "2024-03-11"
 output: html_document
 ---
 
+to do
+1. read files
+2. do some processing (here)
+- potentially a basic smoothing to reduce jitter
+3. aggregate (mean per participant and stimuli)
 
+note also aggregate                 "confidence" ,   and  "success", sop we can know how well the stim did
 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(eval = FALSE, include = FALSE)
+
 
 # Set working directory to the folder containing subfolders with CSV files
 setwd("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/OpenFace Processed")
 # Get a list of all CSV files within subfolders using list.files() and recursive = TRUE
 # file_list <- list.files(pattern = "\\.csv$", recursive = FALSE)
 
-
-
-
 # get a list of all the CSV files in your folder and its subfolders
 file_list <- list.files(pattern = "\\.csv$", recursive = FALSE, full.names = TRUE)
 
-# read the CSV files into a list of data frames, and store the filename as a new column in each data frame
-library(dplyr)
-
-install.packages("pbapply")
-
-library(pbapply)
+# Load necessary libraries
 library(dplyr)
 library(janitor)
+library(zoo) # For rollmean
+library(stringr) # For str_remove
 
-# fix 103103
+# Sample rate and fixed window size
+fs <- 30 # Sample rate of face data in Hz
+window_size_ms <- 500 # Fixed window size in milliseconds for all files
+
+# Define smoothing function
+fn_smooth_of <- function(signal, sampling_rate, window_size_ms) {
+  # Calculate window size in samples
+  # Ensure window size is at least 3 samples and odd for symmetry
+  window_size <- max(3, round(window_size_ms / 1000 * sampling_rate))
+  if (window_size %% 2 == 0) window_size <- window_size + 1
+  
+  # Add zero padding on both sides to handle edge effects
+  padded_signal <- c(rep(0, window_size), signal, rep(0, window_size))
+  
+  # Apply mean smoothing using a rolling window
+  smoothed_signal <- rollmean(padded_signal, window_size, fill = NA, align = "center")
+  
+  # Remove padding to match original signal length
+  smoothed_signal <- smoothed_signal[(window_size + 1):(length(smoothed_signal) - window_size)]
+  
+  # Ensure the final signal matches the original signal length
+  final_signal <- smoothed_signal[1:length(signal)]
+  
+  return(final_signal)
+}
+
+# Define baseline correction function - might need to do soem checks
+fn_baseline_correction <- function(signal, baseline_samples = 20) {
+  # Calculate baseline as the mean of the first 'baseline_samples' samples
+  baseline <- mean(signal[1:baseline_samples], na.rm = TRUE)
+  
+  # Subtract baseline from each sample in the signal
+  corrected_signal <- signal - baseline
+  
+  return(corrected_signal)
+}
+
+# Process all files in the file list
 tmp_data_of_list <- lapply(file_list, function(file) {
-   print(paste("Processing file", file))
+  print(paste("Processing file", file))
+  
+  # Read CSV file and select relevant columns
   data <- read.csv(file) %>%
-    select(frame, timestamp, confidence, success, matches("_r")) %>%
+    select(frame, timestamp, confidence, success, matches("AU")) %>%
     janitor::clean_names()
   
-  # Modification here: Create a new data frame with the filename column
-  data <- mutate(data, filename = file)
+  # Add filename as a new column for identification
+  data <- mutate(data, filename = basename(file))
   
-  # Now group and summarize
-  data %>%
+  # Apply smoothing function to all columns containing "au" (Action Units)
+  # Use the fixed window_size_ms for all files
+  data <- data %>%
+    mutate(across(contains("au"), 
+                  .fns = list(smt = ~fn_smooth_of(., fs, window_size_ms)), 
+                  .names = "{.col}_smt"))
+
+  # Apply baseline correction to the smoothed columns
+  data <- data %>%
+    mutate(across(ends_with("_smt"), 
+                  .fns = list(bascor = ~fn_baseline_correction(.)), 
+                  .names = "{.col}_bascor"))
+  
+  # Generate output filename with "_smooth" suffix
+  output_file <- file.path(output_directory, paste0(str_remove(basename(file), ".csv"), "_smooth.csv"))
+  
+  # Save processed data to new CSV file
+  write.csv(data, output_file, row.names = FALSE)
+  
+  # Summarize numeric data, grouping by filename
+  # This summary will be used to combine results from all files
+  summary_data <- data %>%
     group_by(filename) %>%
-    summarise_if(is.numeric, mean, na.rm = TRUE)
-}) # You can customize the type of progress bar with the progress argument
+    summarise(across(where(is.numeric), mean, na.rm = TRUE))
+  
+  return(summary_data)
+})
+
+# Combine all summary data into one data frame
+dta_of_combined_summary <- bind_rows(tmp_data_of_list)
+
+# Optionally, save the combined summary to a CSV file
+summary_output_file <- file.path(output_directory, "combined_summary.csv")
+write.csv(dta_of_combined_summary, summary_output_file, row.names = FALSE)
+
+# Print or return combined_summary if needed
+print(dta_of_combined_summary)
 
 
-# Combine the data frames into a single data frame
-dta_of_agg <- bind_rows(tmp_data_of_list)
+```
 
-saveRDS(dta_of_agg, "dta_of_agg.rds")
+Save RDS and environment files (update accordingly)
+```{r}
+
+saveRDS(dta_of_combined_summary, "dta_of_agg.rds")
 dta_of_agg<- dta_of_agg%>%
   select(!matches(c("pose", "p_")))
 
-rm(all_sessions_data, tmp_split_df)
+dta_of_agg<- dta_of_combined_summary
 ```
-# explore this for readign specific co;lumsn from the getgo
-library(readr)
-library(dplyr)
 
-# Function to read CSV with specific and pattern-based columns
-read_csv_with_pattern <- function(file, static_cols, pattern) {
-  # Read the header to get column names
-  header <- read_csv(file, n_max = 0)
-  
-  # Identify columns that match the pattern
-  pattern_cols <- names(header)[grepl(pattern, names(header))]
-  
-  # Combine static columns and pattern-matched columns, remove duplicates
-  cols_to_read <- unique(c(static_cols, pattern_cols))
-  
-  # Read only the selected columns from the CSV
-  data <- read_csv(file, col_select = cols_to_read)
-  
-  # Optionally, perform further data processing here
-  data <- mutate(data, filename = file)
-  
-  return(data)
-}
+some checks
 
-# Example usage
-file_list <- c("path/to/your/file1.csv", "path/to/your/file2.csv")
-static_cols <- c("frame", "timestamp", "confidence", "success")
-pattern <- "_r"
-
-# Apply the function to each file in the list
-tmp_data_of_list <- lapply(file_list, function(file) {
-  read_csv_with_pattern(file, static_cols, pattern)
-})
-
-# Combine the data frames into a single data frame, if needed
-data_combined <- bind_rows(tmp_data_of_list)
-
-
-```{r}
-dta_of_agg
-
-```
+- load a few of the exported timersies procesed files and check how the correction differs between original; AU, smooth and baseliene corrected
 
 unique(dta_off_agg$filename)
 
@@ -162,31 +198,11 @@ dta_of_agg$au_average
 
 ```
 
-combine with psychpopy
-
-```{r}
-dta_gsr
-
-saveRDS(dta_gsr, "dta_gsr.rds")
-
-rm(dta_gsr, X126_dta_gsr_trig , X126_dta_gsr_trig_before_trigger_2, X126_dta_gsr_trig_filtered,
-   X136_Session1_GSRPulse_Calibrated_PC, X136_Session1_GSRPulse_Calibrated_SD)
-
-```
-
-
-dta_of_agg
 
 
 
 
-
-
-
-
-
-
-
+some checks
 ```{r eval=FALSE, include=FALSE}
 dta_OF_combined_tmp<- dta_OF_combined [,c(680:717, 719:721,1,3)]%>%
   # subset(condition == "IAPS")%>%
@@ -248,18 +264,12 @@ dta_OF_combined_tmp%>%
   # geom_point()+
   stat_summary(geom = "pointrange")+
   facet_grid(~emotioncategory)
-  lme
+
 
 ```
   
 
 
-dta_OF_combined_select_stimuli_agg<- dta_OF_combined_select_stimuli%>%
-  group_by(ssid, practice_stim,stimIAPS)%>%
-  summarise_if(is.numeric, mean, na.rm = T)
-
-colnames(as.data.frame(dta_OF_combined_select_stimuli_agg))
-length(colnames(dta_OF_combined_select_stimuli_agg))
 
 tmp_AUnames
 
@@ -307,19 +317,5 @@ tmp_AUnames<- c("ssid" ,
 "AU28_c_Lip_suck",    
 "AU45_c_Blink")
 tmp_AUnames
-
-dta_OF_combined_select_stimuli_agg<- dta_OF_combined_select_stimuli_agg2
-dta_OF_combined_select_stimuli_agg2<- dta_OF_combined_select_stimuli_agg
-colnames(dta_OF_combined_select_stimuli_agg)<- tmp_AUnames
-
-dta_OF_combined_select_stimuli_agg
-# AU names
-
-# merge with the rest of the data
-dta_bhv_quest1.1_with_fix_resp_arranged_scr_stim_gaze
-
-dta_OF_combined_select_stimuli_agg$stimIAPS<-as.character(dta_OF_combined_select_stimuli_agg$stimIAPS)
-dta_OF_combined_select_stimuli_agg$ssid<- as.double(dta_OF_combined_select_stimuli_agg$ssid)
-unique(dta_bhv_quest1.1_with_fix_resp_arranged_scr_stim_gaze$stimIAPS)
 
 
