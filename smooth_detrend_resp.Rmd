@@ -88,7 +88,7 @@ fn_process_files <- function(file) {
   output_file <- file.path(output_directory, paste0(str_remove(basename(file), ".csv"), "_smooth_detrend.csv"))
   
   # Write the processed data to a new CSV file
-  write.csv(data, output_file, row.names = FALSE)
+  # write.csv(data, output_file, row.names = FALSE)
   
   # Return the output file path for confirmation
   return(output_file)
@@ -106,22 +106,33 @@ print(output_files)
 library(readr)
 dta_117 <- read_csv("117_allsessions_dta_resp_trig_smooth_detrend.csv")
 
+icc(dta_117$resp_detrend_smooth)
 
-dta_117%>%
-  ggplot(aes(resp_timerezero_sync_unix_cal_ms, resp_detrend_smooth))+
-  geom_line(colour = "green")+
+test<-kmeans(dta_117$resp_detrend_smooth,3)
+# dtw::
+test$cluster
+dta_117 %>%
+  # mutate(resp_detrend_smooth_mad = mad(resp_detrend_smooth)) %>%
+  mutate(clust = factor(test$cluster)) %>%
+  ggplot(aes(resp_timerezero_sync_unix_cal_ms,resp_detrend_smooth,
+             colour  = clust))+
+  geom_point() +
+  # geom_line(aes(y = resp_detrend_smooth_mad), linetype = "dashed") +
+  # geom_line(aes(y = speed), colour = "red")+
   # geom_line(aes(y = resp_ecg_resp_24bit_cal_m_v/1000), colour = "blue")+
   
-  xlim(50000,100000*10)
+  xlim(100000*2,100000*5)+
+  scale_color_brewer(palette = "Dark2")
 
 dta_117%>%
   ggplot(aes(resp_timerezero_sync_unix_cal_ms, resp_ecg_resp_24bit_cal_m_v))+
   geom_line()+
-    xlim(50000,100000*2)
+    xlim(100000,100000*1.2)
 
 
+colnames(dta_117)
 
-View(X117_allsessions_dta_resp_trig_smooth_detrend)
+
 ```
 Dont run below
 to optmtise later for artifact rejectipon and reconstruction
@@ -216,25 +227,575 @@ message("Processing complete. Processed files:")
 print(output_files)
 
 
+```
 
 
-library(readr)
-dta_117 <- read_csv("116_allsessions_dta_resp_trig_smooth_detrend.csv")
 
+```{r}
 
-dta_117%>%
-  ggplot(aes(resp_timerezero_sync_unix_cal_ms, resp_detrend_smooth))+
-  geom_line(colour = "green")+
-  # geom_line(aes(y = resp_ecg_resp_24bit_cal_m_v/1000), colour = "blue")+
+# Load necessary libraries
+library(dplyr)
+library(zoo)
+library(signal)
+
+# Define the function for preprocessing
+fn_smooth_detrend_resp <- function(signal, sampling_rate, window_size_ms = 25, baseline_window_sec = 60, threshold = 3) {
+  # Calculate window sizes in samples
+  window_size <- round(window_size_ms / 1000 * sampling_rate)
+  if (window_size %% 2 == 0) window_size <- window_size + 1  # Ensure window size is odd
+
+  baseline_window_size <- round(baseline_window_sec * sampling_rate)
   
-  xlim(50000,100000*5)
+  # Left-right padding: Add zeros on both sides
+  padded_signal <- c(rep(0, window_size), signal, rep(0, window_size))
+  
+  # Median filtering to remove spikes
+  median_filtered_signal <- rollapply(padded_signal, window_size, median, fill = NA, align = "center")
+  
+  # Mean smoothing using a rolling window
+  smoothed_signal <- rollmean(median_filtered_signal, window_size, fill = NA, align = "center")
+  
+  # Apply Savitzky-Golay filter to further smooth the signal
+  sg_filtered_signal <- sgolayfilt(smoothed_signal, p = 3, n = window_size)  # p = polynomial order, n = window size
+  
+  # Remove padding
+  sg_filtered_signal <- sg_filtered_signal[(window_size + 1):(length(sg_filtered_signal) - window_size)]
+  
+  # Linear drift removal
+  time <- 1:length(sg_filtered_signal)
+  linear_model <- lm(sg_filtered_signal ~ time)
+  linear_trend <- linear_model$coefficients[1] + linear_model$coefficients[2] * time
+  detrended_signal <- sg_filtered_signal - linear_trend
+  
+  # Local signal drift correction using sliding window
+  baseline <- rollmean(detrended_signal, baseline_window_size, fill = NA, align = "center")
+  corrected_signal <- detrended_signal - baseline
+  
+  # Thresholding to remove sudden jumps
+  corrected_signal <- ifelse(abs(corrected_signal) > threshold * sd(corrected_signal, na.rm = TRUE), NA, corrected_signal)
+  corrected_signal <- na.locf(corrected_signal, na.rm = FALSE, fromLast = TRUE)
+  corrected_signal[is.na(corrected_signal)] <- 0
+  
+  # Final trimming to ensure the size matches the original signal
+  final_signal <- corrected_signal[1:length(signal)]
+  
+  # Return the processed signal
+  return(final_signal)
+}
+
+# Example usage (assuming dta_117 is your data frame with column resp_detrend_smooth)
+fs <- 250  # Example sampling rate in Hz
+
+# Apply the preprocessing function
+dta_117 <- dta_117 %>%
+  mutate(resp_detrend_smooth_processed = fn_smooth_detrend_resp(resp_ecg_resp_24bit_cal_m_v, fs))
+
+# Plot the original and processed signals
+library(ggplot2)
+
+range(dta_117 $resp_ecg_resp_24bit_cal_m_v)
+dta_117%>%
+  mutate(speed = abs((lead(resp_detrend_smooth) - resp_detrend_smooth)),
+         abs((lead(resp_timerezero_sync_unix_cal_ms) - resp_timerezero_sync_unix_cal_ms)))%>%
+ggplot(aes(x = resp_timerezero_sync_unix_cal_ms)) +
+  geom_line(aes(y = resp_detrend_smooth), colour = "green", alpha = 0.5) +
+    geom_line(aes(y = resp_detrend_smooth_processed), colour = "blue", alpha = 0.5) +
+  # geom_line(aes(y = resp_detrend_smooth_processed), colour = "blue") +
+  # labs(title = "Signal Smoothing and Detrending",
+  #      x = "Time (ms)",
+  #      y = "Amplitude",
+  #      caption = "Green: Original, Blue: Processed") +
+  theme_minimal()+
+  xlim(100000*5,100000*15)
+```
+
+
+this applies the spile filterign after detrending
+
+```{r}
+fn_smooth_detrend_resp <- function(signal, sampling_rate, window_size_ms = 25,
+                                   baseline_window_sec = 60, threshold = 3) {
+  # Calculate window sizes in samples
+  window_size <- round(window_size_ms / 1000 * sampling_rate)
+  if (window_size %% 2 == 0) window_size <- window_size + 1  # Ensure window size is odd for the Savitzky-Golay filter
+
+  baseline_window_size <- round(baseline_window_sec * sampling_rate)
+  
+  # Linear drift removal (without padding)
+  time <- 1:length(signal)
+  linear_model <- lm(signal ~ time)
+  linear_trend <- linear_model$fitted.values
+  detrended_signal <- signal - linear_trend
+  
+  # Local signal drift correction using sliding window
+  baseline <- rollmean(detrended_signal, baseline_window_size, fill = NA, align = "center")
+  corrected_signal <- detrended_signal - baseline
+  
+  # Apply median filtering to remove spikes
+  median_filtered_signal <- rollapply(corrected_signal, window_size, median, fill = NA, align = "center")
+  
+  # Mean smoothing using a rolling window
+  smoothed_signal <- rollmean(median_filtered_signal, window_size, fill = NA, align = "center")
+  
+  # Apply Savitzky-Golay filter to further smooth the signal
+  sg_filtered_signal <- sgolayfilt(smoothed_signal, p = 3, n = window_size)  # p = polynomial order, n = window size
+  
+  # Detect spikes and correct them
+  spike_indices <- which(abs(sg_filtered_signal) > threshold * sd(sg_filtered_signal, na.rm = TRUE))
+  
+  # Create a window to apply correction around detected spikes
+  correction_window <- round(sampling_rate * 0.5)  # Adjust the window size around spikes (e.g., 0.1 seconds)
+  
+  # Apply corrections around the spikes
+  for (i in spike_indices) {
+    start <- max(1, i - correction_window)
+    end <- min(length(sg_filtered_signal), i + correction_window)
+    sg_filtered_signal[start:end] <- NA
+  }
+  
+  # Handle NA values
+  # sg_filtered_signal <- na.locf(sg_filtered_signal, na.rm = FALSE, fromLast = TRUE)
+  # sg_filtered_signal[is.na(sg_filtered_signal)] <- 0
+  
+  # Ensure the final signal size matches the original signal size
+  final_signal <- sg_filtered_signal[1:length(signal)]
+  
+  # Return the processed signal
+  return(final_signal)
+}
+
+# Example usage
+fs <- 250  # Example sampling rate in Hz
+
+# Apply the preprocessing function
+dta_117 <- dta_117 %>%
+  mutate(resp_detrend_smooth_processed = fn_smooth_detrend_resp(resp_ecg_resp_24bit_cal_m_v, fs))
+
+
+
 
 dta_117%>%
-  ggplot(aes(resp_timerezero_sync_unix_cal_ms, resp_ecg_resp_24bit_cal_m_v))+
-  geom_line()+
-    xlim(50000,100000*2)
+ mutate(speed = lead(log1p(resp_detrend_smooth_processed+.1)) - 
+                        log1p(resp_detrend_smooth_processed+.1))%>%
+ggplot(aes(x = resp_timerezero_sync_unix_cal_ms)) +
+ 
+  # speed
+  # geom_point(aes(y = speed*100000), colour = "green", alpha = 0.8, size = .01) +
+  geom_point(aes(y = resp_detrend_smooth), colour = "green", alpha = 0.5, size = .01) +
+    geom_point(aes(y = resp_detrend_smooth_processed), colour = "blue", size = .01,
+               alpha = 0.2) +
+  # geom_line(aes(y = resp_detrend_smooth_processed), colour = "blue") +
+  labs(title = "Signal Smoothing and Detrending",
+       x = "Time (ms)",
+       y = "Amplitude",
+       caption = "Green: Original, Blue: Processed") +
+  theme_minimal()+
+    xlim(100000*12,100000*15)
 
 
 
-View(X117_allsessions_dta_resp_trig_smooth_detrend)
+
+
+
+```
+
+
+
+fixing the shift
+
+```{r}
+
+fn_smooth_detrend_resp <- function(signal, sampling_rate, window_size_ms = 25,
+                                   baseline_window_sec = 60, threshold = 3) {
+  # Calculate window sizes in samples
+  window_size <- round(window_size_ms / 1000 * sampling_rate)
+  if (window_size %% 2 == 0) window_size <- window_size + 1
+  baseline_window_size <- round(baseline_window_sec * sampling_rate)
+  
+  # Pad the signal
+  pad_size <- max(window_size, baseline_window_size)
+  padded_signal <- c(rep(signal[1], pad_size), signal, rep(signal[length(signal)], pad_size))
+  
+  # Linear drift removal
+  time <- 1:length(padded_signal)
+  linear_model <- lm(padded_signal ~ time)
+  linear_trend <- linear_model$fitted.values
+  detrended_signal <- padded_signal - linear_trend
+  
+  # Local signal drift correction using sliding window
+  baseline <- rollmean(detrended_signal, baseline_window_size, fill = "extend", align = "right")
+  corrected_signal <- detrended_signal - baseline
+  
+  # Apply median filtering to remove spikes
+  median_filtered_signal <- rollapply(corrected_signal, window_size, median, fill = "extend", align = "right")
+  
+  # Mean smoothing using a rolling window
+  smoothed_signal <- rollmean(median_filtered_signal, window_size, fill = "extend", align = "right")
+  
+  # Apply Savitzky-Golay filter
+  sg_filtered_signal <- sgolayfilt(smoothed_signal, p = 3, n = window_size)
+  
+  # Detect and correct spikes
+  spike_indices <- which(abs(sg_filtered_signal) > threshold * sd(sg_filtered_signal, na.rm = TRUE))
+  correction_window <- round(sampling_rate * 0.5)
+  
+  for (i in spike_indices) {
+    start <- max(1, i - correction_window)
+    end <- min(length(sg_filtered_signal), i + correction_window)
+    sg_filtered_signal[start:end] <- NA
+  }
+  
+  # Handle NA values
+  # sg_filtered_signal <- na.approx(sg_filtered_signal, na.rm = FALSE)
+  
+  # Remove padding and ensure the final signal size matches the original
+  final_signal <- sg_filtered_signal[(pad_size + 1):(pad_size + length(signal))]
+  
+  return(final_signal)
+}
+
+
+
+dta_117 <- dta_117 %>%
+  mutate(resp_detrend_smooth_processed = fn_smooth_detrend_resp(resp_ecg_resp_24bit_cal_m_v, fs))
+
+
+
+dta_117<- dta_117%>%
+  mutate(resp_detrend_smooth_processed_interp = zoo::na.approx(resp_detrend_smooth_processed))
+
+
+
+dta_117<- dta_117%>%
+  ungroup()%>%
+  mutate(disp = abs(lead(resp_detrend_smooth_processed_interp)-resp_detrend_smooth_processed_interp),
+         timediff = abs(lead(resp_timerezero_sync_unix_cal_ms)-resp_timerezero_sync_unix_cal_ms))%>%
+  mutate(speed = disp/timediff)
+
+colnames(dta_117)
+
+
+
+
+dta_117$disp<- if_else(is.na(dta_117$disp),0,dta_117$disp)
+
+range(dta_117$disp)
+test_km<- kmeans(dta_117[,c(31)],2)
+
+test_km$cluster
+
+dta_117$clust<- test_km$cluster
+
+# Function to perform max normalisation on a numeric vector
+max_normalise <- function(x) {
+  return(x / max(x, na.rm = TRUE))
+}
+
+dta_117%>%
+  ungroup()%>%
+  # group_by(clust)%>%
+  mutate(resp_pos = resp_detrend_smooth_processed_interp+3) %>%
+  
+  
+   # Add a group ID for sequences of 1 followed by 2
+  mutate(
+    group_id_clust = cumsum(lag(clust, default = 0) == 2 & clust == 1) + 1
+  )%>%
+  group_by(group_id_clust)%>%
+  mutate(resp_pos_norm = max_normalise(resp_pos))%>%
+  
+ggplot(aes(x = resp_timerezero_sync_unix_cal_ms, colour = clust)) +
+  geom_point(aes(y = resp_pos), alpha = 0.5, size = .01) +
+  geom_point(aes(y = resp_pos_norm), alpha = 0.5, size = .01) +
+  
+  
+  # geom_line(aes(y = disp*100), colour = "red", alpha = 0.5, size = .1) +
+
+    # geom_point(aes(y = resp_detrend_smooth_processed), colour = "blue", size = .01,
+               # alpha = 0.2) +
+  # geom_line(aes(y = resp_detrend_smooth_processed), colour = "blue") +
+  labs(title = "Signal Smoothing and Detrending",
+       x = "Time (ms)",
+       y = "Amplitude",
+       caption = "Green: Original, Blue: Processed") +
+  theme_minimal()+
+    xlim(100000*12,100000*12.2)
+
+
+
+
+
+
+
+```
+
+
+```{r}
+
+library(zoo)
+library(signal)
+
+fn_smooth_detrend_resp <- function(signal, sampling_rate, window_size_ms = 25, baseline_window_sec = 60, threshold = 3, extension_ms = 10) {
+  # Calculate window sizes in samples
+  window_size <- round(window_size_ms / 1000 * sampling_rate)
+  if (window_size %% 2 == 0) window_size <- window_size + 1  # Ensure window size is odd for the Savitzky-Golay filter
+
+  baseline_window_size <- round(baseline_window_sec * sampling_rate)
+  
+  # Calculate the number of samples to extend NA marking around spikes
+  extension_samples <- round(extension_ms / 1000 * sampling_rate)
+  
+  # Left-right padding: Add zeros on both sides
+  padded_signal <- c(rep(0, window_size), signal, rep(0, window_size))
+  
+  # Linear drift removal
+  time <- 1:length(padded_signal)
+  linear_model <- lm(padded_signal ~ time)
+  linear_trend <- linear_model$fitted.values
+  detrended_signal <- padded_signal - linear_trend
+  
+  # Remove padding
+  detrended_signal <- detrended_signal[(window_size + 1):(length(detrended_signal) - window_size)]
+
+  # Local signal drift correction using sliding window
+  baseline <- rollmean(detrended_signal, baseline_window_size, fill = NA, align = "center")
+  corrected_signal <- detrended_signal - baseline
+  
+  # Apply median filtering to remove spikes
+  median_filtered_signal <- rollapply(corrected_signal, window_size, median, fill = NA, align = "center")
+  
+  # Mean smoothing using a rolling window
+  smoothed_signal <- rollmean(median_filtered_signal, window_size, fill = NA, align = "center")
+  
+  # Apply Savitzky-Golay filter to further smooth the signal
+  sg_filtered_signal <- sgolayfilt(smoothed_signal, p = 3, n = window_size)  # p = polynomial order, n = window size
+  
+  # Detect spikes and set them to NA for debugging
+  spike_indices <- which(abs(sg_filtered_signal) > threshold * sd(sg_filtered_signal, na.rm = TRUE))
+  
+  # Extend the NA marking around each detected spike
+  for (i in spike_indices) {
+    start <- max(1, i - extension_samples)
+    end <- min(length(sg_filtered_signal), i + extension_samples)
+    sg_filtered_signal[start:end] <- NA
+  }
+  
+  # Comment out interpolation for debugging
+  # sg_filtered_signal <- na.locf(sg_filtered_signal, na.rm = FALSE, fromLast = TRUE)
+  # sg_filtered_signal[is.na(sg_filtered_signal)] <- 0
+  
+  # Final trimming to ensure the size matches the original signal
+  final_signal <- sg_filtered_signal[1:length(signal)]
+  
+  # Return the processed signal
+  return(final_signal)
+}
+
+# Example usage
+fs <- 250  # Sampling rate in Hz
+
+
+
+# Apply the preprocessing function
+dta_117 <- dta_117 %>%
+  mutate(resp_detrend_smooth_processed = fn_smooth_detrend_resp(resp_ecg_resp_24bit_cal_m_v, fs))
+
+# Plot the original and processed signals
+library(ggplot2)
+
+ggplot(dta_117, aes(x = resp_timerezero_sync_unix_cal_ms)) +
+  # geom_point(aes(y = resp_detrend_smooth_processed), colour = "green", alpha = 0.5, size = .01) +
+    geom_point(aes(y = resp_detrend_smooth_processed), colour = "blue", size = .01,alpha = .2) +
+  # geom_line(aes(y = resp_detrend_smooth_processed), colour = "blue") +
+  labs(title = "Signal Smoothing and Detrending",
+       x = "Time (ms)",
+       y = "Amplitude",
+       caption = "Green: Original, Blue: Processed") +
+  theme_minimal()+
+      xlim(100000*5,100000*10)
+
+
+
+ggplot(dta_117, aes(x = resp_timerezero_sync_unix_cal_ms)) +
+  geom_point(aes(y = resp_ecg_resp_24bit_cal_m_v), colour = "green", alpha = 0.5, size = .01) +
+    # geom_point(aes(y = resp_detrend_smooth_processed), colour = "blue", size = .01,alpha = .2) +
+  # geom_line(aes(y = resp_detrend_smooth_processed), colour = "blue") +
+  labs(title = "Signal Smoothing and Detrending",
+       x = "Time (ms)",
+       y = "Amplitude",
+       caption = "Green: Original, Blue: Processed") +
+  theme_minimal()+
+      xlim(100000*5,100000*10)
+
+
+```
+
+library(zoo)
+library(signal)
+```{r}
+fn_smooth_detrend_resp <- function(signal, sampling_rate, window_size_ms = 25, baseline_window_sec = 60, threshold = 3) {
+  # Calculate window sizes in samples
+  window_size <- round(window_size_ms / 1000 * sampling_rate)
+  if (window_size %% 2 == 0) window_size <- window_size + 1  # Ensure window size is odd for the Savitzky-Golay filter
+
+  baseline_window_size <- round(baseline_window_sec * sampling_rate)
+  
+  # Left-right padding: Add zeros on both sides
+  padded_signal <- c(rep(0, window_size), signal, rep(0, window_size))
+  
+  # Linear drift removal
+  time <- 1:length(padded_signal)
+  linear_model <- lm(padded_signal ~ time)
+  linear_trend <- linear_model$fitted.values
+  detrended_signal <- padded_signal - linear_trend
+  
+  # Remove padding
+  detrended_signal <- detrended_signal[(window_size + 1):(length(detrended_signal) - window_size)]
+
+  # Local signal drift correction using sliding window
+  baseline <- rollmean(detrended_signal, baseline_window_size, fill = NA, align = "center")
+  corrected_signal <- detrended_signal - baseline
+  
+  # Apply median filtering to remove spikes
+  median_filtered_signal <- rollapply(corrected_signal, window_size, median, fill = NA, align = "center")
+  
+  # Mean smoothing using a rolling window
+  smoothed_signal <- rollmean(median_filtered_signal, window_size, fill = NA, align = "center")
+  
+  # Apply Savitzky-Golay filter to further smooth the signal
+  sg_filtered_signal <- sgolayfilt(smoothed_signal, p = 3, n = window_size)  # p = polynomial order, n = window size
+  
+  # Detect spikes and apply correction
+  spike_indices <- which(abs(sg_filtered_signal) > threshold * sd(sg_filtered_signal, na.rm = TRUE))
+  
+  # Create a window to apply correction around detected spikes
+  correction_window <- round(sampling_rate * 0.5)  # Adjust the window size around spikes (e.g., 0.1 seconds)
+  
+  # Improved spike correction logic
+  for (i in spike_indices) {
+    start <- max(1, i - correction_window)
+    end <- min(length(sg_filtered_signal), i + correction_window)
+    sg_filtered_signal[start:end] <- rollapply(sg_filtered_signal[start:end], correction_window, median, fill = NA, align = "center", na.rm = TRUE)
+  }
+  
+  # Smooth the transition between corrected areas
+  smoothed_correction <- rollmean(sg_filtered_signal, correction_window, fill = NA, align = "center")
+  sg_filtered_signal[!is.na(smoothed_correction)] <- smoothed_correction[!is.na(smoothed_correction)]
+  
+  # Handle NA values and final adjustments
+  sg_filtered_signal <- na.locf(sg_filtered_signal, na.rm = FALSE, fromLast = TRUE)
+  sg_filtered_signal[is.na(sg_filtered_signal)] <- 0
+  
+  # Final trimming to ensure the size matches the original signal
+  final_signal <- sg_filtered_signal[1:length(signal)]
+  
+  # Return the processed signal
+  return(final_signal)
+}
+
+
+# Apply the preprocessing function
+dta_117 <- dta_117 %>%
+  mutate(resp_detrend_smooth_processed = fn_smooth_detrend_resp(resp_ecg_resp_24bit_cal_m_v, fs))
+
+# Plot the original and processed signals
+library(ggplot2)
+ggplot(dta_117, aes(x = resp_timerezero_sync_unix_cal_ms)) +
+  
+  # geom_line(aes(y = resp_ecg_resp_24bit_cal_m_v), colour = "green", alpha = 0.5) +
+   geom_line(aes(y =(resp_detrend_smooth_processed+.1)), colour = "green") +
+    geom_line(aes(y =log2(resp_detrend_smooth_processed+.1)), colour = "blue") +
+  # geom_line(aes(y = resp_detrend_smooth_processed), colour = "blue") +
+  labs(title = "Signal Smoothing and Detrending",
+       x = "Time (ms)",
+       y = "Amplitude",
+       caption = "Green: Original, Blue: Processed") +
+  theme_minimal()+
+    xlim(100000*5,100000*7)
+
+```
+
+
+```{r}
+install.packages("RespirAnalyzer")
+
+
+?RespirAnalyzer::find.peaks()
+
+
+peakindex<- RespirAnalyzer::find.peaks(dta_117$resp_ecg_resp_24bit_cal_m_v,
+                           Fs = 250)
+
+
+dta_117<-dta_117%>%
+  mutate(index_r = 1:n())
+
+peak_time<- dta_117%>%
+  filt(index_r %in% peakindex$PeakIndex)%>%
+  select(resp_timerezero_sync_unix_cal_ms)
+
+ggplot(dta_117, aes(x = resp_timerezero_sync_unix_cal_ms)) +
+  
+  # geom_line(aes(y = resp_ecg_resp_24bit_cal_m_v), colour = "green", alpha = 0.5) +
+   geom_line(aes(y =(resp_detrend_smooth_processed+.1)), colour = "green") +
+    geom_line(aes(y =log2(resp_detrend_smooth_processed+.1)), colour = "blue") +
+  geom_vline(xintercept =peak_time$resp_timerezero_sync_unix_cal_ms)
+  # geom_line(aes(y = resp_detrend_smooth_processed), colour = "blue") +
+  labs(title = "Signal Smoothing and Detrending",
+       x = "Time (ms)",
+       y = "Amplitude",
+       caption = "Green: Original, Blue: Processed") +
+  theme_minimal()
+    xlim(100000*5,100000*7)
+
+
+
+
+range(dta_117$resp_detrend_smooth_processed)
+
+RespirAnalyzer::find.peaks(dta_117$resp_detrend_smooth+100,
+                           Fs = 250)
+
+RespirAnalyzer::find.peaks(dta_117$resp_detrend_smooth_processed+100,
+                           Fs = 250)
+
+
+?RespirAnalyzer::Seriesplot.fn()
+
+RespirAnalyzer::Seriesplot.fn(x = dta_117$resp_timerezero_sync_unix_cal_ms,
+                               y = dta_117$resp_ecg_resp_24bit_cal_m_v)
+
+
+install.packages("respR")
+
+str(dta_117)
+
+
+# Function to create a time vector
+create_time_vector <- function(signal_length, sampling_rate) {
+  # Calculate the duration of the signal in seconds
+  duration_sec <- signal_length / sampling_rate
+  
+  # Create the time vector
+  time_vector <- seq(0, duration_sec, by = 1/sampling_rate)[1:signal_length]
+  
+  # Return the time vector
+  return(time_vector)
+}
+
+# Example usage
+signal_length <- length(dta_117$resp_ecg_resp_24bit_cal_m_v)  # Number of samples in the signal
+sampling_rate <- 250   # Sampling rate in Hz (samples per second)
+
+time_vector <- create_time_vector(signal_length, sampling_rate)
+print(head(time_vector))
+dta_117$time_new_ms<- time_vector
+test<-respR::inspect(dta_117,
+                time = "time_new_ms",
+                oxygen = "resp_detrend_smooth")
+  xlim(500,1000)
+
+
+respR::
+
 ```
