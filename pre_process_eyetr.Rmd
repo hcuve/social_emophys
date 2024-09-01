@@ -8,9 +8,9 @@ output: html_document
 
 
 # Overview 
-Starts with a clean enciroment
+Starts with a clean environment
 In this file I aim to process all the gaze data, essentially read, clean and combines multiple files with gaze data and their metadata, then compute and aggregate gaze metrics (parsing fixation and saccades, calculating entropy and AOI summaries, pupil, etc).
-see ouput names in the end of the code
+see output names in the end of the code
 
 # Conventions
 For data: dta_
