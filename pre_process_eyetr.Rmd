@@ -52,7 +52,7 @@ require(readr)
 # BiocManager::install(version = "3.19")
 # 
 # BiocManager::install("rhdf5")
-library(rhdf5)
+# library(rhdf5)
 
 
 
@@ -1451,12 +1451,36 @@ ggplot()+
   geom_hline( yintercept = 924, colour = "red")
 
 
+plt_aoi <- ggplot()+
+  geom_vline( xintercept = 0, size = 0.8)+
+  geom_vline( xintercept = 1920, size = 0.8)+
+  geom_hline( yintercept = 0, size = 0.8)+
+  geom_hline( yintercept = 1080, size = 0.8)+
+  
+  geom_segment(aes(x = 448, y = 156, yend = 924), colour = "red", size = 1.5)+
+  geom_segment(aes(x = 1472, y = 156, yend = 924), colour = "red", size = 1.5)+
+  geom_segment(aes(x = 448, xend = 1472, y = 156), colour = "red", size = 1.5)+
+  geom_segment(aes(x = 448, xend = 1472, y = 924), colour = "red", size = 1.5)+
+  geom_segment(aes(x = 448, xend = 1472, y = 540), colour = "blue", size = 0.6)+
+  geom_segment(aes(x = 960, y = 156, yend = 924), colour = "blue", size = 0.6)+
+  
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())+
+  
+  xlab("screen width (mm)") +
+  ylab("screen height (mm)")
+  # labs(title = "Gaze entropy areas of interest")
+
+ggsave("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/Images for thesis/plt_aoi.png", plt_aoi, width = 10.5, height = 6.5, units = "in")
+
+
 
 ```
   
   aoi stim not stim
   
 ```{r}
+dta_gp_all_fix_sacc <- readRDS("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/2023-24 Project/Data backup/RData/dta_gp_all_fix_sacc.rds")
 
 dta_gp_all_fix_sacc
 # not we are doing this in the whole dataset bit this is actially more meaningful for stimuli screen
@@ -1503,6 +1527,61 @@ dta_gp_all_fix_sacc%>%
   geom_hline( yintercept = 924, colour = "red")+
   scale_y_reverse()+
   scale_color_brewer(palette = "Dark2")
+
+
+
+plt_gaze_by_aoi <- dta_gp_all_fix_sacc%>%
+  ggplot(aes(mean_x, mean_y, color = aoi_quadrant))+
+  geom_point(size = .5, alpha = .4)+
+  # geom_path()+
+  # facet_grid(aoi_stim_nonstim)+
+  geom_vline( xintercept = 0)+
+  geom_vline( xintercept = 1920)+
+  geom_hline( yintercept = 0)+
+  geom_hline( yintercept = 1080)+
+  
+    geom_vline( xintercept = 448, colour = "red")+
+  geom_vline( xintercept = 1472, colour = "red")+
+
+    geom_hline( yintercept = 156, colour = "red")+
+  geom_hline( yintercept = 924, colour = "red")+
+  scale_y_reverse()+
+  scale_color_brewer(palette = "Dark2")+
+  guides(color = guide_legend(override.aes = list(size = 3, alpha = 1)))
+
+ggsave("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/Images for thesis/plt_gaze_by_aoi.png", plt_gaze_by_aoi, width = 10.5, height = 6.5, units = "in")
+
+
+
+plt_aoi_regions <- ggplot()+
+  # Define each AOI quadrant as a shaded rectangle
+  geom_rect(aes(xmin = 448, xmax = 960, ymin = 540, ymax = 924), fill = "#1B9E77", alpha = 1) +  # Quadrant 1
+  geom_rect(aes(xmin = 960, xmax = 1472, ymin = 540, ymax = 924), fill = "#D95F02", alpha = 1) +  # Quadrant 2
+  geom_rect(aes(xmin = 448, xmax = 960, ymin = 156, ymax = 540), fill = "#7570B3", alpha = 1) +    # Quadrant 3
+  geom_rect(aes(xmin = 960, xmax = 1472, ymin = 156, ymax = 540), fill = "#E7298A", alpha = 1)+   # Quadrant 4
+  geom_rect(aes(xmin = 0, xmax = 448, ymin = 0, ymax = 1080), fill = "#66A61E", alpha = 1)+   # Quadrant 5
+  geom_rect(aes(xmin = 1472, xmax = 1920, ymin = 0, ymax = 1080), fill = "#66A61E", alpha = 1)+   # Quadrant 5
+  geom_rect(aes(xmin = 448, xmax = 1472, ymin = 0, ymax = 156), fill = "#66A61E", alpha = 1)+   # Quadrant 5
+  geom_rect(aes(xmin = 448, xmax = 1472, ymin = 924, ymax = 1080), fill = "#66A61E", alpha = 1)+   # Quadrant 5
+  
+  geom_vline( xintercept = 0, size = 0.7)+
+  geom_vline( xintercept = 1920, size = 0.7)+
+  geom_hline( yintercept = 0, size = 0.7)+
+  geom_hline( yintercept = 1080, size = 0.7)+
+  
+    geom_vline( xintercept = 448, colour = "red", size = 1.5)+
+  geom_vline( xintercept = 1472, colour = "red", size = 1.5)+
+
+    geom_hline( yintercept = 156, colour = "red", size = 1.5)+
+  geom_hline( yintercept = 924, colour = "red", size = 1.5)+
+  
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+
+ggsave("C:/Users/st20965/OneDrive - University of Bristol/4th Year Masters/Images for thesis/plt_aoi_regions.png", plt_aoi_regions, width = 10.5, height = 6.5, units = "in")
+
+
 ```
 
 
