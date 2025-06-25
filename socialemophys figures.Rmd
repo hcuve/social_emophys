@@ -1,0 +1,125 @@
+---
+title: "Figures"
+author: "Helio"
+date: "2025-06-19"
+output: html_document
+---
+
+
+
+```{r}
+dta_emo_face_scale
+
+
+dta_emo_face_scale$PC1
+
+
+
+
+dta_emo_sel<- dta_emo%>%
+  left_join(dta_emo_face_scale%>%
+              select(participant, stim_iaps, PC1, PC2, PC3))%>%
+ select(participant,condition, stim_iaps, PC1, PC2, PC3, hr_mean_diff, log_cda_phasic_max, mean_fix_dur)
+     
+dta_emo_sel%>%
+pivot_longer(
+    cols      = c(PC1, PC2, PC3, hr_mean_diff, log_cda_phasic_max, mean_fix_dur),
+    names_to  = "variables",      # name of the new “variable” column
+    values_to = "variable_values"      # name of the new “value” column
+  )%>%
+  mutate(variables = factor(variables, 
+                            levels =c("log_cda_phasic_max","hr_mean_diff","PC1","PC2","PC3","mean_fix_dur"), 
+                            labels = c("scr phas", "hr diff", "facePC1", "facePC2", "facePC3", "fix dur")))%>%
+  group_by(participant,condition, variables)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(
+       aes(x = condition, y = variable_values,
+           colour = condition, fill = condition, shape = condition)) +
+ 
+  facet_wrap(~ variables, nrow = 1,scales = "free") +
+  stat_summary(fun.data=mean_se, fun.args = list(mult=1), 
+                 geom="pointrange")+
+   geom_boxplot(alpha = .1, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, alpha = .2)+
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  # alpha = .5, dotsize = .6, binwidth = .2, colour = "black") +
+    xlab("condition")+
+     # ylab("transition entropy (bits)")+
+  
+  ylab("value")+
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic()+
+  p$graphstyle_int+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# with outliers
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggrepel)
+
+# 1. build your long, summarised data
+df <- dta_emo_sel %>%
+  pivot_longer(
+    cols      = c(PC1, PC2, PC3, hr_mean_diff,
+                  log_cda_phasic_max, mean_fix_dur),
+    names_to  = "variables",
+    values_to = "variable_values"
+  ) %>%
+  mutate(
+    variables = factor(variables,
+      levels = c("log_cda_phasic_max","hr_mean_diff",
+                 "PC1","PC2","PC3","mean_fix_dur"),
+      labels = c("scr phas", "hr diff",
+                 "facePC1","facePC2","facePC3","fix dur")
+    )
+  ) %>%
+  group_by(participant, condition, variables) %>%
+  summarise(mean_value = mean(variable_values, na.rm = TRUE), .groups="drop")
+
+# 2. compute outliers per facet × condition
+outliers <- df %>%
+  group_by(variables, condition) %>%
+  mutate(
+    Q1  = quantile(mean_value, 0.25),
+    Q3  = quantile(mean_value, 0.75),
+    IQR = Q3 - Q1
+  ) %>%
+  filter(mean_value < Q1 - 1.5*IQR |
+         mean_value > Q3 + 1.5*IQR) %>%
+  ungroup()
+
+# 3. plot
+df%>%
+  subset(participant!= "116")%>%
+    subset(participant!= "243")%>%
+    subset(participant!= "117")%>%
+ggplot( aes(x = condition, y = mean_value,
+               colour = condition, fill = condition)) +
+
+  # boxplot without its own outliers
+  geom_boxplot(outlier.shape = NA, alpha = .1, colour = "black", notch = TRUE) +
+
+  # all points
+  geom_jitter(width = .2, size = 2, alpha = .4) +
+  ggpubr::stat_compare_means()+
+
+  # only the outliers, labelled
+  geom_text_repel(
+    data     = outliers,
+    aes(label = participant),
+    position = position_jitter(width = .2),
+    size     = 3,
+    colour   = "black"
+  ) +
+
+  facet_wrap(~ variables, nrow = 1, scales = "free_y") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  xlab("condition") + ylab("value") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```

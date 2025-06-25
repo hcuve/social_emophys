@@ -4,3 +4,4847 @@ author: "Helio"
 date: "2025-05-30"
 output: html_document
 ---
+
+
+Plan
+- analyse each signal in isolation
+- compare is there a social effect of internal vs external signals
+- whats the coherence
+- use derived emotion
+
+
+packages
+```{r}
+require(tidyverse)
+require(readr)
+require(lmerTest)
+
+```
+
+load datasets
+
+
+plot settings
+
+
+```{r}
+p$graphstyle_int
+
+sf = 1 # scaling factor to make it easier to change sizes of everything, in which case change here
+
+p<- list()
+
+p$graphstyle_int <-  theme(#base plot theme
+  
+  # axis lines
+  axis.line.y = element_line(color="black", size = 1.5),
+  axis.line.x = element_line(color="black", size = 1,5),
+  
+  axis.title.y=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
+  axis.title.x=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
+  
+  # text
+  strip.text.x = element_text(size = 16*(sf+.5),  colour = "black"),
+  strip.text.y = element_text(size = 16*(sf+.5),  colour = "black"),
+  
+  text=element_text(size = 14),
+  axis.text.x = element_text(size = 15*(sf+.5), colour = "black",),
+  axis.text.y = element_text(size = 15*(sf+.5), colour = "black"),
+  
+  
+  # panel
+  panel.grid.major = element_blank(),
+  panel.background = element_blank(),
+  
+  # legend
+  legend.position = "top",
+  legend.key = element_rect(colour = "transparent", fill="transparent"),
+
+  legend.text = element_text(size = 16*(sf+.5)),
+  # legend.title= element_text(size = 16*(sf+.5)),
+  legend.title = element_blank()
+      
+  # legend.title = element_text(size = 10*(sf+.3)),
+  # legend line tends to be really small in print so adjust here
+  # legend.key.height = unit(.5, "cm"),
+  # legend.key.width = unit(2, "cm"),
+  
+  #legend.text = element_text(size = 10*sf),
+  # legend.title=element_blank(),
+  #legend.text = element_blank(),
+  #axis.ticks = element_blank(),
+)
+
+
+
+```
+use derived emotion
+```{r}
+dta_emo <- read_csv("Emotion_full_dataset2.csv")
+View(dta_emo)
+
+dta_emo
+dta_emo%>%
+  group_by(participant,social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, obs_slider_response))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")+
+  ggpubr::stat_compare_means(method = "t.test")
+
+
+dta_emo%>%
+  group_by(participant,emotioncategory, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(emotioncategory, log_cda_scr))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")
+  ggpubr::stat_compare_means(method = "t.test")
+
+  facet_grid(~social_nonsocial)
+  
+  
+  
+  
+  dta_emo%>%
+  group_by(participant,emotioncategory, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(emotioncategory, log_cda_scr))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")
+  ggpubr::stat_compare_means(method = "t.test")
+
+  facet_grid(~social_nonsocial)
+  
+  
+  
+    dta_emo%>%
+  group_by(participant,emotioncategory, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(emotioncategory, int_slider_response))+
+  # geom_point()+
+  stat_summary(geom = "pointrange")
+  ggpubr::stat_compare_means(method = "t.test")
+
+  facet_grid(~social_nonsocial)
+
+
+
+```
+
+
+lmms
+```{r}
+
+colnames(dta_emo)
+# Valence
+
+mod_res<- list()
+
+mod_res$val<- lmer(val_slider_response ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + 
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+dta_emo%>%
+  group_by(participant,social_nonsocial, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, val_slider_response, colour = social_nonsocial))+
+  geom_jitter(alpha = .2)+
+  # geom_dotplot(binaxis='y', stackdir='center',alpha = .2, width = .01, size = .03)+
+  # stat_summary(geom = "pointrange")+
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
+                 geom="pointrange", color="red")+
+  # ylim(0,10)+
+  facet_grid(~emotioncategory)+
+  ggpubr::stat_compare_means()
+
+anova(mod_res$val)
+emmeans::emmeans(mod_res$val, pairwise ~ social_nonsocial|emotioncategory, 
+                 adjust = "tukey")
+```
+Type III Analysis of Variance Table with Satterthwaite's method
+                                 Sum Sq Mean Sq NumDF  DenDF F value
+social_nonsocial                   0.06   0.056     1   89.2  0.0288
+emotioncategory                  463.68  92.737     5   60.0 48.1140
+social_nonsocial:emotioncategory  18.00   3.600     5 5251.0  1.8679
+                                               Pr(>F)    
+social_nonsocial                              0.86554    
+emotioncategory                  < 0.0000000000000002 ***
+social_nonsocial:emotioncategory              0.09647 .  
+arousal
+```{r}
+mod_res<- list()
+
+
+# use emotion category
+
+mod_res$int<- lmer(int_slider_response ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$int)
+# summary(mod_res$int)
+
+emmeans::emmeans(mod_res$int, pairwise ~ social_nonsocial|emotioncategory, 
+                 adjust = "tukey")
+
+report::report(mod_res$int)
+report::report(anova(mod_res$int))
+
+# significant for happy
+
+# visualise
+
+dta_emo$pred_int<- predict(mod_res$int)
+dta_emo%>%
+  ggplot(aes(pred_int, int_slider_response))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylim(0,10)+
+  facet_grid(~social_nonsocial)
+
+
+
+dta_emo%>%
+  group_by(participant,social_nonsocial, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, pred_int, colour = social_nonsocial, fill = social_nonsocial))+
+  # geom_jitter(alpha = .2)+
+  geom_dotplot(binaxis='y', stackdir='center', alpha = .3)+
+stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
+                 geom="pointrange", color="red")+
+  # ylim(0,10)+
+  facet_grid(~emotioncategory)
+
+
+dta_emo$condition = if_else(dta_emo$social_nonsocial == "social", "social", "control")
+
+dta_emo%>%
+  group_by(participant,condition, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(condition, int_slider_response, colour = condition, fill = condition))+
+  # geom_jitter(alpha = .2)+
+  
+  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_dotplot(binaxis = "y", stackdir = "center",
+               alpha = .4, dotsize = .6, binwidth = .2) +
+
+  facet_grid(~emotioncategory)+
+    xlab("condition")+
+     # ylab("transition entropy (bits)")+
+  
+  # ylab("rating")+
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic()+
+  p$graphstyle_int+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                                 Sum Sq Mean Sq NumDF  DenDF F value
+social_nonsocial                   7.06   7.056     1  90.00  1.7388
+emotioncategory                  338.29  67.658     5  59.83 16.6730
+social_nonsocial:emotioncategory  78.36  15.672     5 684.01  3.8621
+                                          Pr(>F)    
+social_nonsocial                        0.190638    
+emotioncategory                  0.0000000002763 ***
+social_nonsocial:emotioncategory        0.001854 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+internal
+
+
+$contrasts
+emotioncategory = anger:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.355 0.277 Inf   1.282  0.2000
+
+emotioncategory = disgust:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.165 0.277 Inf   0.596  0.5514
+
+emotioncategory = fear:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.439 0.277 Inf   1.583  0.1135
+
+emotioncategory = happy:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.566 0.277 Inf   2.040  0.0413
+
+emotioncategory = neutral:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.564 0.277 Inf   2.034  0.0419
+
+emotioncategory = sad:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   -0.131 0.277 Inf  -0.474  0.6356
+
+Degrees-of-freedom method: asymptotic 
+
+
+
+
+We fitted a linear mixed model (estimated using ML and nloptwrap optimizer) to
+predict int_slider_response with social_nonsocial and emotioncategory (formula:
+int_slider_response ~ 1 + social_nonsocial * emotioncategory). The model
+included participant as random effects (formula: list(~1 | participant, ~1 |
+stim_iaps)). The model's total explanatory power is substantial (conditional R2
+= 0.51) and the part related to the fixed effects alone (marginal R2) is of
+0.21. The model's intercept, corresponding to social_nonsocial = nonsocial and
+emotioncategory = anger, is at 5.68 (95% CI [4.91, 6.46], t(5385) = 14.36, p <
+.001). Within this model:
+
+  - The effect of social nonsocial [social] is statistically non-significant and
+negative (beta = -0.36, 95% CI [-0.90, 0.19], t(5385) = -1.29, p = 0.198; Std.
+beta = -0.12, 95% CI [-0.31, 0.06])
+  - The effect of emotioncategory [disgust] is statistically non-significant and
+positive (beta = 0.65, 95% CI [-0.35, 1.64], t(5385) = 1.28, p = 0.201; Std.
+beta = 0.23, 95% CI [-0.12, 0.57])
+  - The effect of emotioncategory [fear] is statistically non-significant and
+negative (beta = -0.78, 95% CI [-1.77, 0.22], t(5385) = -1.53, p = 0.126; Std.
+beta = -0.27, 95% CI [-0.61, 0.08])
+  - The effect of emotioncategory [happy] is statistically non-significant and
+negative (beta = -0.34, 95% CI [-1.34, 0.65], t(5385) = -0.68, p = 0.498; Std.
+beta = -0.12, 95% CI [-0.46, 0.23])
+  - The effect of emotioncategory [neutral] is statistically significant and
+negative (beta = -2.86, 95% CI [-3.86, -1.87], t(5385) = -5.64, p < .001; Std.
+beta = -0.99, 95% CI [-1.34, -0.65])
+  - The effect of emotioncategory [sad] is statistically non-significant and
+positive (beta = 0.83, 95% CI [-0.16, 1.83], t(5385) = 1.64, p = 0.100; Std.
+beta = 0.29, 95% CI [-0.06, 0.63])
+  - The effect of social nonsocial [social] × emotioncategory [disgust] is
+statistically non-significant and positive (beta = 0.19, 95% CI [-0.18, 0.56],
+t(5385) = 1.00, p = 0.317; Std. beta = 0.07, 95% CI [-0.06, 0.20])
+  - The effect of social nonsocial [social] × emotioncategory [fear] is
+statistically non-significant and negative (beta = -0.08, 95% CI [-0.46, 0.29],
+t(5385) = -0.44, p = 0.661; Std. beta = -0.03, 95% CI [-0.16, 0.10])
+  - The effect of social nonsocial [social] × emotioncategory [happy] is
+statistically non-significant and negative (beta = -0.21, 95% CI [-0.58, 0.16],
+t(5385) = -1.11, p = 0.269; Std. beta = -0.07, 95% CI [-0.20, 0.06])
+  - The effect of social nonsocial [social] × emotioncategory [neutral] is
+statistically non-significant and negative (beta = -0.21, 95% CI [-0.58, 0.16],
+t(5385) = -1.10, p = 0.273; Std. beta = -0.07, 95% CI [-0.20, 0.06])
+  - The effect of social nonsocial [social] × emotioncategory [sad] is
+statistically significant and positive (beta = 0.49, 95% CI [0.11, 0.86],
+t(5385) = 2.56, p = 0.011; Std. beta = 0.17, 95% CI [0.04, 0.30])
+
+Standardized parameters were obtained by fitting the model on a standardized
+version of the dataset. 95% Confidence Intervals (CIs) and p-values were
+computed using a Wald t-distribution approximation.
+
+
+
+Emotion ratings
+```{r}
+
+# use emotion category
+# "happy_slide_response",
+#   "sad_slide_response",
+#   "fear_slide_response",
+#   "disgust_slide_response",
+#   "anger_slide_response"
+
+mod_res$slid_hap<- lmer(happy_slide_response ~ 1+ social_nonsocial + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+mod_res$slid_hap2<- lmer(happy_slide_response ~ 1+ social_nonsocial + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo%>%
+                     subset(emotioncategory == "happy"))
+
+anova(mod_res$slid_hap)
+
+mod_res$slid_sad<- lmer(sad_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$slid_sad2<- lmer(sad_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo%>%
+                     subset(emotioncategory == "sad"))
+
+
+mod_res$slid_fear<- lmer(fear_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+dta_emo$emotioncategory
+
+mod_res$slid_fear2<- lmer(fear_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                 data = dta_emo%>%
+                     subset(emotioncategory == "fear"))
+
+mod_res$slid_disg<- lmer(disgust_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+mod_res$slid_disg2<- lmer(disgust_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                    data = dta_emo%>%
+                     subset(emotioncategory == "disgust"))
+
+mod_res$slid_ang<- lmer(anger_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+mod_res$slid_ang2<- lmer(anger_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                 data = dta_emo%>%
+                     subset(emotioncategory == "anger"))
+
+
+anova(mod_res$slid_hap)
+anova(mod_res$slid_ang)
+anova(mod_res$slid_fear)
+anova(mod_res$slid_disg)
+anova(mod_res$slid_sad)
+
+
+anova(mod_res$slid_hap2)
+anova(mod_res$slid_ang2)
+anova(mod_res$slid_fear2)
+anova(mod_res$slid_disg2)
+anova(mod_res$slid_sad2)
+
+summary(mod_res$slid_sad2)
+
+
+```
+
+
+
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(forcats)
+library(ggplot2)
+
+# 1. Pivot and average per participant × condition × slider
+summary_df <- dta_emo %>%
+  pivot_longer(
+    cols      = c(happy_slide_response, sad_slide_response,
+                  fear_slide_response, disgust_slide_response,
+                  anger_slide_response, int_slider_response,
+                  val_slider_response),
+    names_to  = "emo_slider",
+    values_to = "value"
+  ) %>%
+  group_by(participant, social_nonsocial, emo_slider) %>%
+  summarise(mean_value = mean(value, na.rm = TRUE), .groups = "drop") %>%
+
+  # 2. Label conditions more nicely
+  mutate(condition = if_else(social_nonsocial == "social", "social", "control")) %>%
+
+  # 3. Compute per-slider difference
+  group_by(emo_slider) %>%
+  mutate(
+    diff = abs(
+      mean(mean_value[condition == "social"]) -
+      mean(mean_value[condition == "control"])
+    )
+  ) %>%
+  ungroup() %>%
+
+  # 4. Reorder the factor by that diff (descending)
+  mutate(
+    emo_slider = fct_reorder(emo_slider, diff, .desc = TRUE)
+  )
+
+# 5. Plot
+summary_df$emo_slider
+
+
+
+summary_df%>%
+  group_by(condition,emo_slider )%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  arrange(diff)
+
+
+plts$subje_affect<-
+summary_df%>%
+  mutate(emo_slider =str_remove(emo_slider, "_.*$"))%>%
+  mutate(emo_slider = factor(emo_slider, levels = c( "int","val","sad", "fear", "anger","disgust", "happy"), labels = c("intensity","valence","sad", "fear", "anger","disgust", "happy")))%>%
+ggplot(
+       aes(x = condition, y = mean_value,
+           colour = condition, fill = condition, shape = condition)) +
+  geom_boxplot(alpha = .1, colour = "black", notch = TRUE) +
+  geom_dotplot(binaxis = "y", stackdir = "center",
+               alpha = .5, dotsize = .6, binwidth = .2, colour = "black") +
+  facet_grid(~ emo_slider) +
+    xlab("condition")+
+     # ylab("transition entropy (bits)")+
+  
+  ylab("rating")+
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic()+
+  p$graphstyle_int+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+plts$subje_affect
+```
+# summary(mod_res$int)
+
+
+emmeans::emmeans(mod_res$int, pairwise ~ social_nonsocial|emotioncategory, 
+                 adjust = "tukey")
+
+report::report(mod_res$int)
+report::report(anova(mod_res$int))
+
+# significant for happy
+
+# visualise
+
+dta_emo$pred_int<- predict(mod_res$int)
+dta_emo%>%
+  ggplot(aes(pred_int, int_slider_response))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylim(0,10)+
+  facet_grid(~social_nonsocial)
+
+
+
+dta_emo%>%
+  group_by(participant,social_nonsocial, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, pred_int, colour = social_nonsocial))+
+  geom_jitter(alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  # ylim(0,10)+
+  facet_grid(~emotioncategory)+
+  ggpubr::stat_compare_means()
+
+
+dta_emo subjective emotion new
+
+
+```{r}
+colnames(dta_emo)
+
+emotion_cols <- c(
+  "happy_slide_response",
+  "sad_slide_response",
+  "fear_slide_response",
+  "disgust_slide_response",
+  "anger_slide_response"
+)
+
+ 
+dta_emo
+
+dta_emo<-dta_emo %>%
+  rowwise() %>%
+  mutate(
+    # Compute the maximum slider score
+    max_score = max(c_across(all_of(emotion_cols))),
+    
+    # Count how many sliders equal that max
+    n_tied = sum(c_across(all_of(emotion_cols)) == max_score),
+    
+    # Determine label: neutral if < 4.5, “ambiguous” if multiple share max,
+    # otherwise pick the single highest
+    subj_emotion_label2 = case_when(
+      max_score < 4.5      ~ "neutral",
+      n_tied > 1           ~ "ambiguous",
+      TRUE                 ~ {
+        # exactly one winner—find which column it is
+        best_idx <- which.max(c_across(all_of(emotion_cols)))
+        sub("_slide_response$", "", emotion_cols[best_idx])
+      }
+    )
+  ) %>%
+  ungroup() %>%
+  select(-max_score, -n_tied)
+
+unique(dta_emo$subj_emotion_label2)
+
+# dta_emo group based emotion category
+
+
+dta_label_emo <- dta_emo %>%
+  group_by(stim_iaps) %>%
+  summarise(
+    across(all_of(emotion_cols), ~ mean(.x, na.rm = TRUE)),
+    .groups = "drop"
+  ) %>%
+  rowwise() %>%
+  mutate(
+    # compute the maximum of the five average scores
+    max_avg = max(c_across(all_of(emotion_cols))),
+    # count how many sliders tie at that maximum
+    n_tied = sum(c_across(all_of(emotion_cols)) == max_avg),
+    # assign label (neutral if max_avg < 4.5; “tie” if more than one share max; otherwise pick the one with the single highest mean)
+    subj_emo_label_agg = case_when(
+      max_avg < 4            ~ "neutral",
+      n_tied  >  1             ~ "tie",
+      TRUE                     ~ {
+        best_idx <- which.max(c_across(all_of(emotion_cols)))
+        sub("_slide_response$", "", emotion_cols[best_idx])
+      }
+    )
+  ) %>%
+  ungroup() %>%
+  select(stim_iaps, subj_emo_label_agg)#emotion_cols
+
+
+unique(dta_label_emo$subj_emo_label_agg)
+dta_label_emo%>%
+  
+     pivot_longer(
+    cols      = emotion_cols,
+    names_to  = "emotion",      # name of the new “variable” column
+    values_to = "emo_slider"      # name of the new “value” column
+  )%>%
+  ggplot(aes(emo_slider, colour = emotion))+
+  geom_histogram()+
+  facet_grid(emotion_label~emotion)+
+  geom_vline(xintercept = 4.5)
+  
+
+
+# 2b. Join that label back onto the original dta_emo (so long format is preserved):
+dta_emo <- dta_emo %>%
+  left_join(dta_label_emo, by = "stim_iaps")
+
+unique(dta_emo$subj_emotion_label2)
+dta_emo$subj_emo_lab_no_amb<- if_else(dta_emo$subj_emotion_label2 == "ambiguous", dta_emo$subj_emo_label_agg, dta_emo$subj_emotion_label2)
+
+unique(dta_emo$subj_emo_lab_no_amb)
+
+
+
+table(dta_emo$emotioncategory)
+
+table(dta_emo$subj_emo_lab_no_amb)
+
+table(dta_emo$subj_emo_label_agg)
+
+
+```
+
+
+subjective based lmms on intensity
+
+```{r}
+mod_res$int_subj<- lmer(int_slider_response ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$int_subj)
+# summary(mod_res$int)
+
+emmeans::emmeans(mod_res$int_subj, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+mod_res$int_subj_agg<- lmer(int_slider_response ~ 1+ social_nonsocial * subj_emo_label_agg + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$int_subj_agg)
+# summary(mod_res$int)
+
+emmeans::emmeans(mod_res$int_subj_agg, pairwise ~ social_nonsocial|subj_emo_label_agg, 
+                 adjust = "tukey")
+
+
+
+```
+
+type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF  F value                Pr(>F)    
+social_nonsocial                        4.35    4.35     1   91.8   1.2164              0.272960    
+subj_emo_lab_no_amb                  2830.44  566.09     5 5174.5 158.2168 < 0.00000000000000022 ***
+social_nonsocial:subj_emo_lab_no_amb   71.90   14.38     5 5284.0   4.0191              0.001216 ** 
+
+
+subj_emo_lab_no_amb = anger:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.196 0.289 Inf   0.677  0.4983
+
+subj_emo_lab_no_amb = disgust:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.142 0.230 Inf   0.615  0.5384
+
+subj_emo_lab_no_amb = fear:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.368 0.254 Inf   1.449  0.1474
+
+subj_emo_lab_no_amb = happy:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.589 0.227 Inf   2.593  0.0095
+
+subj_emo_lab_no_amb = neutral:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.216 0.247 Inf   0.872  0.3833
+
+subj_emo_lab_no_amb = sad:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   -0.110 0.244 Inf  -0.448  0.6538
+
+lmm s with subjective and ojective are consistent
+
+
+
+GSR
+
+```{r}
+dta_emo
+mod_res$log_cda_phasic_max<- NULL
+
+dta_emo$participant<- factor(dta_emo$participant)
+
+range(dta_emo$log_cda_n_scr)
+mod_res$scr_cda_phas <- lmer(log_cda_phasic_max ~ 1+ social_nonsocial * emotioncategory + 
+                     (1:emotioncategory|participant) + # doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo %>%subset(log_cda_n_scr>-10))
+
+
+
+anova(mod_res$scr_cda_phas)
+
+mod_res$scr_cda_phas_2 <- lmer(log_cda_phasic_max ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + # doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$scr_cda_phas_3 <- lmer(log_cda_phasic_max ~ 1+ social_nonsocial * subj_emo_label_agg + 
+                     (1|participant) + # doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+anova(mod_res$scr_cda_phas)
+anova(mod_res$scr_cda_phas_2)
+anova(mod_res$scr_cda_phas_3)
+
+
+
+summary(mod_res$scr_cda_phas)
+??emmeans::emmeans
+# emmeans::emmeans(mod_res$scr_cda_phas, pairwise ~ social_nonsocial|subjective_emotion, 
+#                  adjust = "tukey")
+
+report::report(mod_res$int)
+report::report(anova(mod_res$int))
+
+dta_emo%>%
+  group_by(participant,social_nonsocial, subjective_emotion)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, log_cda_phasic_max, colour = social_nonsocial))+
+  # geom_jitter(alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  # ylim(0,10)+
+  facet_grid(~subjective_emotion)+
+  ggpubr::stat_compare_means()
+
+
+```
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                                  Sum Sq Mean Sq NumDF  DenDF F value  Pr(>F)  
+social_nonsocial                  3.4529  3.4529     1   90.0  2.5802 0.11171  
+emotioncategory                  14.3772  2.8754     5   59.1  2.1487 0.07202 .
+social_nonsocial:emotioncategory  4.9331  0.9866     5 5251.0  0.7372 0.59545  
+---
+
+
+```{r}
+dta_emo
+
+# mod_res$log_cda_phasic_max<- NULL
+
+
+mod_res$hr_mean_diff <- lmer(hr_mean_diff ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$hr_mean_bpm <- lmer(hr_mean_bpm ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$hr_ibi <- lmer(ibi_mean_s ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$hr_ibi2 <- lmer(ibi_mean_diff ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+
+anova(mod_res$hr_mean_diff)
+anova(mod_res$hr_ibi2)
+anova(mod_res$hr_mean_bpm)
+anova(mod_res$hr_ibi)
+
+
+```
+
+mod_res$hr_mean_diff_2 <- lmer(hr_mean_diff ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$hr_mean_diff_3 <- lmer(hr_mean_diff ~ 1+ social_nonsocial * subj_emo_label_agg + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+
+
+anova(mod_res$hr_mean_diff)
+anova(mod_res$hr_mean_diff_2)
+
+
+
+anova(mod_res$hr_mean_diff_3)
+summary(mod_res$hr_mean_diff)
+??emmeans::emmeans
+
+emmeans::emmeans(mod_res$scr_cda_phas, pairwise ~ social_nonsocial|subjective_emotion, 
+                 adjust = "tukey")
+
+report::report(mod_res$int)
+report::report(anova(mod_res$int))
+
+emmeans::emmeans(mod_res$hr_mean_diff, pairwise ~ social_nonsocial, 
+                 adjust = "tukey")
+
+
+
+dta_emo%>%
+  group_by(participant,social_nonsocial, subjective_emotion)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, hr_mean_diff, colour = social_nonsocial))+
+  # geom_jitter(alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  # ylim(0,10)+
+  facet_grid(~subjective_emotion)+
+  ggpubr::stat_compare_means()
+
+
+
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                                 Sum Sq Mean Sq NumDF  DenDF F value   Pr(>F)
+social_nonsocial                 154.38 154.381     1   90.0  8.8029 0.003852
+emotioncategory                  278.19  55.639     5   59.4  3.1726 0.013232
+social_nonsocial:emotioncategory 107.85  21.570     5 5250.8  1.2299 0.292093
+                                   
+social_nonsocial                 **
+emotioncategory                  * 
+social_nonsocial:emotioncategory   
+external
+
+
+Fixed effects:
+                                                Estimate Std. Error         df t value
+(Intercept)                                     -1.30919    0.34221  183.39011  -3.826
+social_nonsocialsocial                          -0.85045    0.44847  195.92238  -1.896
+emotioncategorydisgust                           0.42686    0.34155  122.78648   1.250
+emotioncategoryfear                              0.33980    0.34155  122.78648   0.995
+emotioncategoryhappy                             0.34898    0.34155  122.78648   1.022
+emotioncategoryneutral                           0.99565    0.34155  122.78648   2.915
+emotioncategorysad                               0.02175    0.34155  122.78648   0.064
+social_nonsocialsocial:emotioncategorydisgust   -0.81155    0.39522 5250.81865  -2.053
+social_nonsocialsocial:emotioncategoryfear      -0.23969    0.39522 5250.81865  -0.606
+social_nonsocialsocial:emotioncategoryhappy      0.07001    0.39522 5250.81865   0.177
+social_nonsocialsocial:emotioncategoryneutral   -0.24255    0.39522 5250.81865  -0.614
+social_nonsocialsocial:emotioncategorysad       -0.23948    0.39522 5250.81865  -0.606
+                                              Pr(>|t|)    
+(Intercept)                                   0.000179 ***
+social_nonsocialsocial                        0.059386 .  
+emotioncategorydisgust                        0.213756    
+emotioncategoryfear                           0.321761    
+emotioncategoryhappy                          0.308905    
+emotioncategoryneutral                        0.004228 ** 
+emotioncategorysad                            0.949331    
+social_nonsocialsocial:emotioncategorydisgust 0.040082 *  
+social_nonsocialsocial:emotioncategoryfear    0.544226    
+social_nonsocialsocial:emotioncategoryhappy   0.859403    
+social_nonsocialsocial:emotioncategoryneutral 0.539426    
+social_nonsocialsocial:emotioncategorysad     0.544577    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+                       (Intr) scl_nn emtnctgryd emtnctgryf emtnctgryh emtnctgryn
+scl_nnsclsc            -0.626                                                   
+emtnctgryds            -0.499  0.244                                            
+emtnctgryfr            -0.499  0.244  0.500                                     
+emtnctgryhp            -0.499  0.244  0.500      0.500                          
+emtnctgrynt            -0.499  0.244  0.500      0.500      0.500               
+emtnctgrysd            -0.499  0.244  0.500      0.500      0.500      0.500    
+scl_nnsclscl:mtnctgryd  0.276 -0.441 -0.553     -0.276     -0.276     -0.276    
+scl_nnsclscl:mtnctgryf  0.276 -0.441 -0.276     -0.553     -0.276     -0.276    
+scl_nnsclscl:mtnctgryh  0.276 -0.441 -0.276     -0.276     -0.553     -0.276    
+scl_nnsclscl:mtnctgryn  0.276 -0.441 -0.276     -0.276     -0.276     -0.553    
+scl_nnsclscl:mtnctgrys  0.276 -0.441 -0.276     -0.276     -0.276     -0.276    
+                       emtnctgrys scl_nnsclscl:mtnctgryd scl_nnsclscl:mtnctgryf
+scl_nnsclsc                                                                    
+emtnctgryds                                                                    
+emtnctgryfr                                                                    
+emtnctgryhp                                                                    
+emtnctgrynt                                                                    
+emtnctgrysd                                                                    
+scl_nnsclscl:mtnctgryd -0.276                                                  
+scl_nnsclscl:mtnctgryf -0.276      0.500                                       
+scl_nnsclscl:mtnctgryh -0.276      0.500                  0.500                
+scl_nnsclscl:mtnctgryn -0.276      0.500                  0.500                
+scl_nnsclscl:mtnctgrys -0.553      0.500                  0.500                
+                       scl_nnsclscl:mtnctgryh scl_nnsclscl:mtnctgryn
+scl_nnsclsc                                                         
+emtnctgryds                                                         
+emtnctgryfr                                                         
+emtnctgryhp                                                         
+emtnctgrynt                                                         
+emtnctgrysd                                                         
+scl_nnsclscl:mtnctgryd                                              
+scl_nnsclscl:mtnctgryf                                              
+scl_nnsclscl:mtnctgryh                                              
+scl_nnsclscl:mtnctgryn  0.500                                       
+scl_nnsclscl:mtnctgrys  0.500                  0.500 
+
+
+
+$emmeans
+ social_nonsocial emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial        -0.954 0.262 Inf     -1.47    -0.441
+ social           -2.048 0.273 Inf     -2.58    -1.513
+
+Results are averaged over the levels of: emotioncategory 
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social     1.09 0.369 Inf   2.967  0.0030
+
+Results are averaged over the levels of: emotioncategory 
+Degrees-of-freedom method: asymptotic
+```{r}
+
+
+mod_res$entr1 <- lmer(mean_trans_entropy_maxnorm_norm_by_img ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant), #subjective_emotion doesn't converge
+                     # (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+# mod_res$entr2 <- lmer(mean_stat_entropy_maxnorm_norm_by_img ~ 1+ social_nonsocial * subjective_emotion + 
+#                      (1|participant), #subjective_emotion doesn't converge
+#                      # (1|stim_iaps), #social_nonsocial doesn't converge
+#                    REML = FALSE,
+#                    data = dta_emo)
+
+dta_emo$rat_fix_dur<- dta_emo$mean_fix_dur_stim_aoi/ (dta_emo$mean_fix_dur_stim_aoi+dta_emo$mean_fix_dur_nonstim_aoi)
+dta_emo$mean_fix_dur<- (dta_emo$mean_fix_dur_stim_aoi+dta_emo$mean_fix_dur_nonstim_aoi)/2
+dta_emo$mean_sac_amp<- (dta_emo$mean_sac_amp_stim_aoi + dta_emo$mean_sac_amp_nonstim_aoi)/2
+
+
+
+mod_res$mean_fix_dur <- lmer(log1p(mean_fix_dur+.1) ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$mean_fix_dur_2 <- lmer(log1p(mean_fix_dur+.1) ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$mean_fix_dur_3 <- lmer(log1p(mean_fix_dur+.1) ~ 1+ social_nonsocial * subj_emo_label_agg + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+anova(mod_res$mean_fix_dur)
+anova(mod_res$mean_fix_dur_2)
+anova(mod_res$mean_fix_dur_3)
+
+```
+
+plot(mod_res$mean_fix_dur)
+
+
+
+```{r}
+mod_res$mean_sac_amp <- lmer(mean_sac_amp ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+mod_res$mean_sac_amp_2 <- lmer(mean_sac_amp ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$mean_sac_amp_3 <- lmer(mean_sac_amp ~ 1+ social_nonsocial * subj_emo_label_agg + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+anova(mod_res$mean_sac_amp )
+anova(mod_res$mean_sac_amp_2 )
+anova(mod_res$mean_sac_amp_3 )
+
+
+```
+
+
+
+mod_res$mean_fix_dur_nonstim_aoi <- lmer(mean_fix_dur_nonstim_aoi ~ 1+ social_nonsocial * subjective_emotion + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$rat_fix_dur <- lmer(rat_fix_dur ~ 1+ social_nonsocial * subjective_emotion + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+anova(mod_res$entr1)
+anova(mod_res$entr2)
+```{r}
+anova(mod_res$mean_fix_dur_stim_aoi)
+anova(mod_res$mean_fix_dur_nonstim_aoi)
+
+
+```
+
+anova(mod_res$rat_fix_dur)
+summary(mod_res$entr1)
+??emmeans::emmeans
+emmeans::emmeans(mod_res$mean_fix_dur_stim_aoi, pairwise ~ social_nonsocial|emotioncategory, 
+                 adjust = "tukey")
+
+report::report(mod_res$int)
+report::report(anova(mod_res$int))
+
+
+PCA first
+
+
+```{r}
+# start with a PCA
+options(scipen = 999)
+colnames(dta_emo)
+dta_emo_face<- dta_emo[,c(1:3,96,97,31:47)]
+
+# PCA first
+
+scale_vars <- names(dta_emo)[31:47]
+
+dta_emo_face_scale<-dta_emo_face%>%
+  ungroup()%>%
+  # group_by(participant)%>%
+  # 1. group by your grouping vars
+  
+  # 2. for each of the scale_vars, replace with (x - mean)/sd
+  mutate(across(
+    all_of(scale_vars),
+    ~ as.numeric( scale(.x) ),      # scale() returns a 1-column matrix, so we coerce back to numeric
+    .names = "{.col}_z"              # optional: give new columns a “_z” suffix
+  )) %>%
+  # 3. drop the grouping
+  ungroup()
+  
+# gather first
+colnames(dta_emo_face_scale)
+
+
+dta_emo_face_scale
+
+
+
+
+# 1a. PCA on the raw variables, centring & scaling in one go
+mod_res$pca <- prcomp(dta_emo_face_scale[, scale_vars],
+                  centre = TRUE,    # subtract variable means
+                  scale. = TRUE)    # divide by variable sds
+
+mod_res$pca 
+dta_emo_face_scale_soc<- dta_emo_face_scale%>%subset(social_nonsocial == "social")
+dta_emo_face_scale_nsoc<- dta_emo_face_scale%>%subset(social_nonsocial != "social")
+
+social_nonsocial
+mod_res$pca_soc1 <- prcomp(dta_emo_face_scale_soc[, scale_vars],
+                  centre = TRUE,    # subtract variable means
+                  scale. = TRUE)
+
+mod_res$pca_nsoc1 <- prcomp(dta_emo_face_scale_nsoc[, scale_vars],
+                  centre = TRUE,    # subtract variable means
+                  scale. = TRUE) 
+
+dta_emo_wide_mfa_nonsocial
+
+
+get_pca_var(mod_res$pca_soc1)
+get_pca_var(mod_res$pca_nsoc1)
+
+summary(mod_res$pca_nsoc1)
+summary(mod_res$pca_soc1)
+
+
+colnames(dta_emo_wide_mfa_nonsocial)
+
+dta_emo_wide_mfa_nonsocial
+
+dta_emo_wide_mfa_soc
+  
+  17*60
+mod_res$pca_nsoc2 <- prcomp(dta_emo_wide_mfa_nonsocial[, 663:1682],
+                  centre = TRUE,    # subtract variable means
+                  scale. = TRUE) 
+
+mod_res$pca_soc2 <- prcomp(dta_emo_wide_mfa_soc[, 663:1682],
+                  centre = TRUE,    # subtract variable means
+                  scale. = TRUE)
+
+summary(mod_res$pca_nsoc2)
+summary(mod_res$pca_soc2)
+
+
+(mod_res$pca_nsoc1$sdev)^2
+(mod_res$pca_soc1$sdev)^2
+
+# missMDA::
+
+```
+
+
+to do
+
+
+```{r}
+ library(MissMDA)
+library(dplyr)
+library(lme4)
+
+# a) pivot so each participant is one row, blocks = (trial × AU)
+wide_ml <- dta_emo_face_scale_long %>%
+  unite("trial_AU", trial, AU, sep = "_") %>%
+  pivot_wider(names_from  = trial_AU,
+              values_from = value) %>%
+  column_to_rownames("participant")
+
+# b) run the 2‐level PCA
+res_ml <- multilevelPCA(wide_ml, scale = TRUE, ncp = 5)
+
+# c1) Between‐subject scores (one per participant)
+between <- as.data.frame(res_ml$comp.datas$`1`) %>%
+  rownames_to_column("participant") %>%
+  left_join(dta_emo_face_scale_long %>% 
+              distinct(participant, social_nonsocial),
+            by = "participant")
+
+# test group difference on Between1 (simple linear model)
+mod3_between <- lm(
+  Between1 ~ social_nonsocial,
+  data = between
+)
+summary(mod3_between)
+
+# c2) Within‐subject scores (one per trial)
+within <- as.data.frame(res_ml$comp.datas$`2`)
+dta_ml   <- bind_cols(dta_emo_face_scale_long, within)
+
+# test whether groups differ in their trial‐to‐trial deviations
+mod3_within_group <- lmer(
+  Within1 ~ social_nonsocial + 
+              (1 | participant) + 
+              (1 | stim_iaps),
+  data = dta_ml,
+  REML = FALSE
+)
+summary(mod3_within_group)
+
+
+```
+
+```{r}
+
+# install.packages("factoextra")
+
+library(factoextra)
+
+fviz_eig(mod_res$pca, addlabels = TRUE, 
+         ylim = c(0, 50), 
+         main = "Variance Explained by PCs")
+
+fviz_pca_biplot(mod_res$pca , repel = TRUE,
+                geom.ind = "point",
+                col.ind = "steelblue",
+                col.var = "darkred",
+                title = "PCA Biplot")
+
+
+mod_res$pca$rotation
+
+
+# get variable information
+var_info <- get_pca_var(mod_res$pca)
+
+# % contribution of all variables to PC1
+desc(var_info$contrib[, "Dim.1"])
+
+var_info$contrib
+
+mod_res$pca$rotation
+
+
+fviz_contrib(mod_res$pca, choice = "var", axes = 1,
+             top    = 10,
+             title  = "Top 10 contributors to PC1")
+# pc 1 is mouth nose and eyes (overall facia moveent)
+
+fviz_contrib(mod_res$pca, choice = "var", axes = 2,
+             top    = 10,
+             title  = "Top 10 contributors to PC2")
+
+# pc 2 mouth
+
+fviz_contrib(mod_res$pca, choice = "var", axes = 3,
+             top    = 10,
+             title  = "Top 10 contributors to PC3")
+# PC3 mostly eye
+dta_emo_face_scale<-dta_emo_face
+
+dta_emo_face_scale$PC1<- mod_res$pca$x[, 1]
+dta_emo_face_scale$PC2<- mod_res$pca$x[, 2]
+dta_emo_face_scale$PC3<- mod_res$pca$x[, 3]
+
+dta_emo_face_scale
+dta_emo_face_scale_long
+
+mod_res$au_pc1 <- lmer(PC1 ~ 1+ social_nonsocial *emotioncategory+
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale)
+
+mod_res$au_pc2 <- lmer(PC2 ~ 1+ social_nonsocial *emotioncategory+
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale)
+
+mod_res$au_pc3 <- lmer(PC3 ~ 1+ social_nonsocial *emotioncategory+
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale)
+
+anova(mod_res$au_pc1)
+anova(mod_res$au_pc2)
+anova(mod_res$au_pc3)
+
+emmeans::emmeans(mod_res$au_pc1, pairwise~social_nonsocial)
+emmeans::emmeans(mod_res$au_pc2, pairwise~social_nonsocial)
+emmeans::emmeans(mod_res$au_pc3, pairwise~social_nonsocial)
+
+emmeans::emmeans(mod_res$au_pc3, pairwise~social_nonsocial|emotioncategory)
+
+emmeans::emmeans(mod_res$au_pc2, pairwise~social_nonsocial|emotioncategory)
+
+mod_res$au_pc2 
+```
+
+
+```{r}
+
+dta_emo_face_scale$subj_emo_label_agg<- dta_emo$subj_emo_label_agg
+
+dta_emo_face_scale$subj_emo_lab_no_amb<- dta_emo$subj_emo_lab_no_amb
+
+dta_emo_face_scale_long<- dta_emo_face_scale%>%
+   pivot_longer(
+    cols      = c(PC1,PC2,PC3),
+    names_to  = "au_pcs",      # name of the new “variable” column
+    values_to = "pc_scores"      # name of the new “value” column
+  )
+
+
+dta_emo_face_scale_long%>%
+  ggplot(aes(au_pcs, pc_scores,colour = social_nonsocial ))+
+  stat_summary(geom = "pointrange")
+
+```
+
+
+# do MFA or PCA while avoiding violatign the independence of observations assumptions
+
+```{r}
+
+colnames(dta_emo_face_scale)
+colnames(dta_emo_face)
+
+options(scipen = 999)
+dta_emo_face[,c(1:4,6:22)]%>%
+  select(participant, social_nonsocial, stim_iaps, emotioncategory, everything()) %>%
+  pivot_wider(
+    id_cols     = c(participant, social_nonsocial),
+    names_from  = c(stim_iaps, emotioncategory),
+    values_from = names(dta_emo_face)[6:22],
+    names_sep   = "_"  
+  )
+  pivot_wider(
+    id_cols     = c(participant, social_nonsocial),
+    names_from  = c(stim_iaps,emotioncategory),
+    values_from = names(dta_emo_face[,6:22]),
+    names_sep   = "_"   # optional: how to separate the original column name from the stimulus ID
+  )
+
+# sd(dta_emo_face$au01_inner_brow_raise)
+# sd(dta_emo_face_scale$au01_inner_brow_raise_z)
+  
+  
+  
+  dta_emo_face <- dta_emo_face %>%
+  mutate(
+    emotioncategory = factor(
+      emotioncategory
+    )
+  )
+
+# 2. pivot with emotioncategory first:
+wide
+dta_emo_face$emotioncategory
+
+library(dplyr); library(tidyr)
+
+dta_emo_face_wide <- dta_emo_face %>%
+  select(participant, social_nonsocial, stim_iaps, emotioncategory, everything()) %>%
+  pivot_wider(
+    id_cols     = c(participant, social_nonsocial),
+    names_from  = c(stim_iaps,emotioncategory),    # ← flip these two
+    values_from = names(dta_emo_face)[6:22],
+    names_sep   = "_"
+  )%>%
+  relocate(ends_with("_anger"),  .after = social_nonsocial)%>%
+  relocate(ends_with("_fear"),   .after = (ends_with("_anger"))) %>%
+  relocate(ends_with("_happy"),  .after = (ends_with("_fear"))) %>%
+  relocate(ends_with("_sad"),  .after = (ends_with("_happy"))) %>%  
+  relocate(ends_with("_neutral"),.after = (ends_with("_sad")))
+
+
+
+# aggregate by emotion
+
+
+dta_emo_face_wide_emo<- 
+
+dta_emo_face %>%
+  select(participant, social_nonsocial, stim_iaps, emotioncategory, everything()) %>%
+  group_by(participant,social_nonsocial, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  pivot_wider(
+    id_cols     = c(participant, social_nonsocial),
+    names_from  = c(emotioncategory),    # ← flip these two
+    values_from = names(dta_emo_face)[6:22],
+    names_sep   = "_"
+  )%>%
+  relocate(ends_with("_anger"),  .after = social_nonsocial)%>%
+  relocate(ends_with("_fear"),   .after = (ends_with("_anger"))) %>%
+  relocate(ends_with("_happy"),  .after = (ends_with("_fear"))) %>%
+  relocate(ends_with("_sad"),  .after = (ends_with("_happy"))) %>%  
+  relocate(ends_with("_neutral"),.after = (ends_with("_sad")))
+
+
+dta_emo_face_wide_emo
+
+colnames(dta_emo_face_wide)
+# 1a. PCA on the raw variables, centering & scaling in one go
+ # divide by variable sds
+
+require(Factoshiny)
+require(factoextra)
+
+
+?FactoMineR::PCA
+mod_res$pca_wide <- FactoMineR::PCA(dta_emo_face_wide[, 2:1022],
+                  # centre = TRUE,    # subtract variable means
+                  scale.unit = TRUE,
+                  graph = TRUE,
+                  quali.sup =1)   
+
+
+fviz_screeplot(mod_res$pca_wide )
+
+
+
+factoextra::fviz_pca_ind(mod_res$pca_wide )
+?factoextra:::fviz_contrib
+factoextra:::fviz_contrib(mod_res$pca_wide, choice = "var", top = 10, axes = 1)
+factoextra:::fviz_contrib(mod_res$pca_wide, choice = "var", top = 10, axes = 2)
+factoextra:::fviz_contrib(mod_res$pca_wide, choice = "var", top = 15, axes = 3)
+
+
+mod_res$pca_wide$ind$coord
+
+mod_res$pca_wide$var$coord
+
+dta_emo_face_wide$pc1<- mod_res$pca_wide$ind$coord[,1]
+dta_emo_face_wide$pc2<- mod_res$pca_wide$ind$coord[,2]
+dta_emo_face_wide$pc3<- mod_res$pca_wide$ind$coord[,3]
+dta_emo_face_wide$pc4<- mod_res$pca_wide$ind$coord[,4]
+
+dta_emo_face_wide%>%
+  ggplot(aes(social_nonsocial,pc1, fill = social_nonsocial)) +
+  geom_dotplot(binaxis='y', stackdir='center', alpha = .3)+
+  stat_summary(geom = "pointrange")+
+  ggpubr::stat_compare_means()
+
+dta_emo_face_wide%>%
+  ggplot(aes(social_nonsocial,pc2, fill = social_nonsocial)) +
+  geom_dotplot(binaxis='y', stackdir='center', alpha = .3)+
+  stat_summary(geom = "pointrange")+
+    ggpubr::stat_compare_means()
+
+
+dta_emo_face_wide%>%
+  ggplot(aes(social_nonsocial,pc3, fill = social_nonsocial)) +
+  geom_dotplot(binaxis='y', stackdir='center', alpha = .3)+
+  stat_summary(geom = "pointrange")+
+    ggpubr::stat_compare_means()
+
+dta_emo_face_wide%>%
+  ggplot(aes(social_nonsocial,pc4, fill = social_nonsocial)) +
+  geom_dotplot(binaxis='y', stackdir='center', alpha = .3)+
+  stat_summary(geom = "pointrange")+
+    ggpubr::stat_compare_means()
+
+
+ dta_emo_face_wide%>%
+   pivot_longer( cols      = c(pc1, pc2, pc3, pc4),
+    names_to  = "pcs",      # name of the new “variable” column
+    values_to = "pc_scores"      # name of the new “value” column
+  )%>%
+   
+  # group_by(participant,au_pcs,social_nonsocial)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, pc_scores,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+   facet_grid(~pcs)+
+   ggpubr::stat_compare_means()
+ 
+ 
+ # agg emotion
+colnames(dta_emo_face_wide_emo)
+mod_res$pca_wide_emo <- FactoMineR::PCA(dta_emo_face_wide_emo[, 2:104],
+                  # centre = TRUE,    # subtract variable means
+                  scale.unit = TRUE,
+                  graph = TRUE,
+                  quali.sup =1)   
+
+
+
+factoextra::fviz_pca_ind(mod_res$pca_wide_emo )
+
+factoextra:::fviz_contrib(mod_res$pca_wide_emo, choice = "var", top = 10, axes = 1)
+factoextra:::fviz_contrib(mod_res$pca_wide_emo, choice = "var", top = 10, axes = 2)
+factoextra:::fviz_contrib(mod_res$pca_wide_emo, choice = "var", top = 15, axes = 3)
+
+
+
+dta_emo_face_wide_emo$pc1<- mod_res$pca_wide_emo$ind$coord[,1]
+dta_emo_face_wide_emo$pc2<- mod_res$pca_wide_emo$ind$coord[,2]
+dta_emo_face_wide_emo$pc3<- mod_res$pca_wide_emo$ind$coord[,3]
+dta_emo_face_wide_emo$pc4<- mod_res$pca_wide_emo$ind$coord[,4]
+
+
+
+ dta_emo_face_wide_emo%>%
+   pivot_longer( cols      = c(pc1, pc2, pc3, pc4),
+    names_to  = "pcs",      # name of the new “variable” column
+    values_to = "pc_scores"      # name of the new “value” column
+  )%>%
+   
+  # group_by(participant,au_pcs,social_nonsocial)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, pc_scores,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+   facet_grid(~pcs)+
+   ggpubr::stat_compare_means()
+ 
+ 
+ # proper MFA
+ dta_emo_face_wide%>%
+   select(contains("au01"))
+ colnames(dta_emo_face_wide[,3:1022])
+
+
+ unique(dta_emo$stim_iaps)
+ 
+
+
+ mod_res$mfa_face_wide <- MFA(dta_emo_face_wide[,2:1022],
+                           group=c(1,170,170,170,170,170,170),
+                           type=c("n","s","s","s","s","s", "s"),
+                           name.group=c("social_non_soc","anger","fear", "happy","sad","neutral","disgust"),
+                           num.group.sup=c(1),
+                           graph=TRUE)
+ 
+ 
+ factoextra:::fviz_contrib(mod_res$mfa_face_wide, choice = "quanti.var", top = 10, axes = 1)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide, choice = "quanti.var", top = 10, axes = 2)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide, choice = "quanti.var", top = 15, axes = 3)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide, choice = "quanti.var", top = 15, axes = 4)
+
+
+
+
+dta_emo_face_wide$ma_pc1<- mod_res$mfa_face_wide$ind$coord[,1]
+dta_emo_face_wide$ma_pc2<- mod_res$mfa_face_wide$ind$coord[,2]
+dta_emo_face_wide$ma_pc3<- mod_res$mfa_face_wide$ind$coord[,3]
+dta_emo_face_wide$ma_pc4<- mod_res$mfa_face_wide$ind$coord[,4]
+
+
+
+ dta_emo_face_wide%>%
+   pivot_longer( cols      = c(pc1, pc2, pc3, pc4),
+    names_to  = "mfa_pcs",      # name of the new “variable” column
+    values_to = "mfa_pc_scores"      # name of the new “value” column
+  )%>%
+   
+  # group_by(participant,au_pcs,social_nonsocial)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc_scores,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+   facet_grid(~mfa_pcs)+
+   ggpubr::stat_compare_means()
+```
+
+
+
+ emo wide agg mfa
+```{r}
+
+ # agg emotion
+colnames(dta_emo_face_wide_emo)
+
+dta_emo_face_wide_emo
+
+
+dta_emo_face %>%
+  select(participant, social_nonsocial, emotioncategory, everything()) %>%
+  group_by(participant,social_nonsocial, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  pivot_wider(
+    id_cols     = c(participant, social_nonsocial),
+    names_from  = c(emotioncategory),    # ← flip these two
+    values_from = names(dta_emo_face)[6:22],
+    names_sep   = "_"
+  )%>%
+  relocate(ends_with("_anger"),  .after = social_nonsocial)%>%
+  relocate(ends_with("_fear"),   .after = (ends_with("_anger"))) %>%
+  relocate(ends_with("_happy"),  .after = (ends_with("_fear"))) %>%
+  relocate(ends_with("_sad"),  .after = (ends_with("_happy"))) %>%  
+  relocate(ends_with("_neutral"),.after = (ends_with("_sad")))
+
+
+```
+
+dta_emo_face_wide_emo
+
+```{r}
+mod_res$pca_wide_emo <- FactoMineR::PCA(dta_emo_face_wide_emo[, 2:104],
+                  # centre = TRUE,    # subtract variable means
+                  scale.unit = TRUE,
+                  graph = TRUE,
+                  quali.sup =1)   
+
+
+
+factoextra::fviz_pca_ind(mod_res$pca_wide_emo )
+
+factoextra:::fviz_contrib(mod_res$pca_wide_emo, choice = "var", top = 10, axes = 1)
+factoextra:::fviz_contrib(mod_res$pca_wide_emo, choice = "var", top = 10, axes = 2)
+factoextra:::fviz_contrib(mod_res$pca_wide_emo, choice = "var", top = 15, axes = 3)
+
+
+
+dta_emo_face_wide_emo$pc1<- mod_res$pca_wide_emo$ind$coord[,1]
+dta_emo_face_wide_emo$pc2<- mod_res$pca_wide_emo$ind$coord[,2]
+dta_emo_face_wide_emo$pc3<- mod_res$pca_wide_emo$ind$coord[,3]
+dta_emo_face_wide_emo$pc4<- mod_res$pca_wide_emo$ind$coord[,4]
+
+
+
+ dta_emo_face_wide_emo%>%
+   pivot_longer( cols      = c(pc1, pc2, pc3, pc4),
+    names_to  = "pcs",      # name of the new “variable” column
+    values_to = "pc_scores"      # name of the new “value” column
+  )%>%
+   
+  # group_by(participant,au_pcs,social_nonsocial)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, pc_scores,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+   facet_grid(~pcs)+
+   ggpubr::stat_compare_means()
+ 
+```
+
+
+```{r}
+ # proper MFA
+ dta_emo_face_wide%>%
+   select(contains("au01"))
+ colnames(dta_emo_face_wide[,3:1022])
+
+
+ unique(dta_emo$stim_iaps)
+ 
+
+MFA()
+ mod_res$mfa_face_wide <- MFA(dta_emo_face_wide[,2:1022],
+                           group=c(1,170,170,170,170,170,170),
+                           type=c("n","s","s","s","s","s", "s"),
+                           name.group=c("social_non_soc","anger","fear", "happy","sad","neutral","disgust"),
+                           num.group.sup=c(1),
+                           graph=TRUE)
+ 
+ 
+ factoextra:::fviz_contrib(mod_res$mfa_face_wide, choice = "quanti.var", top = 10, axes = 1)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide, choice = "quanti.var", top = 10, axes = 2)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide, choice = "quanti.var", top = 15, axes = 3)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide, choice = "quanti.var", top = 15, axes = 4)
+
+
+
+
+dta_emo_face_wide$mfa_pc1<- mod_res$mfa_face_wide$ind$coord[,1]
+dta_emo_face_wide$mfa_pc2<- mod_res$mfa_face_wide$ind$coord[,2]
+dta_emo_face_wide$mfa_pc3<- mod_res$mfa_face_wide$ind$coord[,3]
+dta_emo_face_wide$mfa_pc4<- mod_res$mfa_face_wide$ind$coord[,4]
+
+
+
+ dta_emo_face_wide%>%
+   pivot_longer( cols      = c(mfa_pc1, mfa_pc2, mfa_pc3, mfa_pc4),
+    names_to  = "mfa_pcs",      # name of the new “variable” column
+    values_to = "mfa_pc_scores"      # name of the new “value” column
+  )%>%
+   
+  # group_by(participant,au_pcs,social_nonsocial)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc_scores,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+   facet_grid(~mfa_pcs)+
+   ggpubr::stat_compare_means()
+
+
+ 
+```
+ 
+```{r}
+ mod_res$mfa_face_wide_emo <- MFA(dta_emo_face_wide_emo[, 2:104],
+                           group=c(1,17,17,17,17,17,17),
+                           type=c("n","s","s","s","s","s", "s"),
+                           name.group=c("social_non_soc","anger","fear", "happy","sad","neutral","disgust"),
+                           num.group.sup=c(1),
+                           graph=TRUE)
+ 
+ 
+ factoextra:::fviz_contrib(mod_res$mfa_face_wide_emo, choice = "quanti.var", top = 10, axes = 1)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide_emo, choice = "quanti.var", top = 10, axes = 2)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide_emo, choice = "quanti.var", top = 15, axes = 3)
+factoextra:::fviz_contrib(mod_res$mfa_face_wide_emo, choice = "quanti.var", top = 15, axes = 4)
+
+
+
+
+dta_emo_face_wide_emo$mfa_pc1<- mod_res$mfa_face_wide_emo$ind$coord[,1]
+dta_emo_face_wide_emo$mfa_pc2<- mod_res$mfa_face_wide_emo$ind$coord[,2]
+dta_emo_face_wide_emo$mfa_pc3<- mod_res$mfa_face_wide_emo$ind$coord[,3]
+dta_emo_face_wide_emo$mfa_pc4<- mod_res$mfa_face_wide_emo$ind$coord[,4]
+
+
+
+ dta_emo_face_wide_emo%>%
+    pivot_longer( cols      = c(mfa_pc1, mfa_pc2, mfa_pc3, mfa_pc4),
+    names_to  = "mfa_pcs",      # name of the new “variable” column
+    values_to = "mfa_pc_scores"      # name of the new “value” column
+  )%>%
+   
+  # group_by(participant,au_pcs,social_nonsocial)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc_scores,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+   facet_grid(~mfa_pcs)+
+   ggpubr::stat_compare_means()
+
+ 
+ 
+ 
+```
+ 
+ face pc lmms
+ 
+```{r}
+
+dta_emo_face_scale_long<- dta_emo_face_scale_long%>%
+  left_join(dta_emo_agg_demogs)
+
+mod_res$au_pcs_scores <- lmer(pc_scores ~ 1+ social_nonsocial* emotioncategory *au_pcs+
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1+au_pcs|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale_long)
+
+
+dta_emo_face_scale_long$au_pcs
+mod_res$au_pcs_scores1 <- lmer(pc_scores ~ 1+ social_nonsocial* emotioncategory+
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale_long%>%subset(au_pcs == "PC1"))
+
+mod_res$au_pcs_scores2 <- lmer(pc_scores ~ 1+ social_nonsocial* emotioncategory+
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale_long%>%subset(au_pcs == "PC2"))
+
+
+mod_res$au_pcs_scores3 <- lmer(pc_scores ~ 1+ social_nonsocial* emotioncategory +
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale_long%>%subset(au_pcs == "PC3"))
+summary(mod_res$int )
+
+summary(mod_res$au_pcs_scores )
+anova(mod_res$au_pcs_scores )
+anova(mod_res$au_pcs_scores1 )
+anova(mod_res$au_pcs_scores2 )
+anova(mod_res$au_pcs_scores3 )
+
+
+```
+
+
+```{r}
+mod_res$au_pcs_scores_2 <- lmer(pc_scores ~ 1+ social_nonsocial* subj_emo_lab_no_amb *au_pcs+
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale_long)
+
+mod_res$au_pcs_scores_3 <- lmer(pc_scores ~ 1+ social_nonsocial* subj_emo_label_agg *au_pcs+
+                       # social_nonsocial:au_pcs+ social_nonsocial: subjective_emotion+    
+                     (1|participant)+ #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_face_scale_long)
+
+
+
+
+
+
+
+```
+
+```{r}
+ anova(mod_res$au_pcs_scores)
+ 
+ 
+  anova(mod_res$au_pcs_scores_2)
+   anova(mod_res$au_pcs_scores_3)
+ 
+   
+ emmeans::emmeans(mod_res$au_pcs_scores, pairwise ~ social_nonsocial|au_pcs, adjust = "tukey")
+ 
+ 
+  emmeans::emmeans(mod_res$au_pcs_scores, pairwise ~ emotioncategory|au_pcs, adjust = "tukey")
+ 
+
+
+
+
+
+ dta_emo_face_scale_long%>%
+  # group_by(participant,au_pcs,social_nonsocial)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, pc_scores, colour = social_nonsocial))+
+
+  # geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+   facet_grid(~au_pcs)
+  theme(axis.text.x = element_text(hjust = 1,angle = 45))
+  
+  
+  
+  
+  
+  
+  dta_emo_face_scale_long%>%
+  # group_by(participant,au_pcs,emotioncategory)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(emotioncategory, pc_scores, colour = emotioncategory))+
+
+  # geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ # geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+   facet_grid(~au_pcs)
+  
+  # ylim(0,10)+
+```
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                                         Sum Sq Mean Sq NumDF   DenDF F value
+social_nonsocial                          0.002   0.002     1    90.0  0.0007
+emotioncategory                          19.964   3.993     5    59.3  1.6788
+au_pcs                                    0.508   0.254     2 16050.9  0.1069
+social_nonsocial:emotioncategory          4.657   0.931     5 16050.9  0.3916
+social_nonsocial:au_pcs                 257.365 128.683     2 16050.9 54.1049
+emotioncategory:au_pcs                   97.302   9.730    10 16050.9  4.0911
+social_nonsocial:emotioncategory:au_pcs  11.737   1.174    10 16050.9  0.4935
+                                                       Pr(>F)    
+social_nonsocial                                       0.9797    
+emotioncategory                                        0.1538    
+au_pcs                                                 0.8986    
+social_nonsocial:emotioncategory                       0.8549    
+social_nonsocial:au_pcs                 < 0.00000000000000022 ***
+emotioncategory:au_pcs                              0.0000119 ***
+social_nonsocial:emotioncategory:au_pcs                0.8955 
+
+
+$contrasts
+au_pcs = PC1:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.0557 0.128 Inf   0.437  0.6622
+
+au_pcs = PC2:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social  -0.3288 0.128 Inf  -2.579  0.0099
+
+au_pcs = PC3:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.2825 0.128 Inf   2.216  0.0267
+ 
+ 
+can we check wether the social vs no social affect coherence and divergence
+
+
+
+agg subjective is more consistent with emotion category
+
+```{r}
+
+colnames(dta_emo)
+dta_emo$mean_stat_entropy_maxnorm_norm_by_img
+
+dta_emo_4mfa<- dta_emo[,c(1:10,13,18,24,52,31:47)]
+colnames(dta_emo_4mfa)
+
+install.packages("Factoshiny")
+# FactoMineR::MFA()
+# factoextra
+require(Factoshiny)
+
+Factoshiny::MFAshiny(dta_emo_4mfa)
+
+dta_emo_4mfa
+
+newDF <- dta_emo[,c("val_slider_response","int_slider_response","happy_slide_response","sad_slide_response","fear_slide_response","disgust_slide_response","anger_slide_response","hr_mean_diff","log_cda_phasic_max","mean_fix_dur","mean_sac_amp","au14_dimpler","au12_lip_corner_pull","au_04_brow_lower","au26_jaw_drop","au01_inner_brow_raise","au02_outer_brow_raise","au05_eye_lid_raise","au06_cheek_raise","au07_eye_lid_tighten","au09_nose_wrinkle","au10_upper_lip_raise","au15_lip_corner_depress","au20_lip_stretch","au17_chin_raise","au23_lip_tighten","au25_lips_apart","au45_eye_blink","social_nonsocial","participant","stim_iaps")]
+colnames(newDF)
+
+mod_res$mfa_result <- MFA(newDF[,1:29],group=c(7,1,1,2,17,1), type=c("s","s","s","s","s","n"),name.group=c("subj_aff","phys_hr","phys_scr","gaze","face","social_non_soc"),num.group.sup=c(6),graph=FALSE)
+
+plot.MFA(mod_res$mfa_result, choix="ind",lab.par=FALSE,invisible= 'quali',select='cos2  0.25',habillage='social_nonsocial',title="Individual factor map")
+# plot.MFA(res.MFA, choix="var",habillage='group',title="Correlation circle")
+# plot.MFA(res.MFA, choix="group")
+# plot.MFA(res.MFA, choix="axes",habillage='group')
+
+mod_res$mfa_result$eig #about 2 or 3 dimensions
+fviz_screeplot(mod_res$mfa_result)
+
+mod_res$mfa_result$quanti.var
+
+mod_res$mfa_result$quanti.var
+
+# 
+mod_res$mfa_result$quanti.var$contrib
+
+
+mod_res$mfa_result$group$contrib
+
+
+# dim 2 is the coerence dimension
+
+# Dimension 1: Cardiac‒Face‒Gaze Intensity
+# 	2.	Dimension 2: Subjective‒SCR‒Gaze Coupling
+# 	3.	Dimension 3: Phasic SCR (Phasic‐SCR Dominant)
+
+# hierarquical
+
+
+
+```
+
+
+    Dim.1      Dim.2     Dim.3      Dim.4      Dim.5
+subj_aff  1.428230 54.2605088 13.698084 17.4047604 12.8463704
+phys_hr  37.095963 15.5052843  2.013076  2.3982781 38.0356168
+phys_scr  1.347262 16.9088468 77.657241  0.2527347  0.1674103
+gaze     15.145339 12.9441659  2.306574 72.9265774  7.6025720
+face     44.983206  0.3811942  4.325024  7.0176494 41.3480306
+  Dim.1           Dim.2         Dim.3       Dim.4
+val_slider_response      0.144929822 10.390056887238  2.8157716824  2.81577114
+int_slider_response      0.425686216  4.355168506726  1.5792801419  1.95273366
+happy_slide_response     0.014688112  7.227136691208  2.1263357225  1.68919682
+sad_slide_response       0.130230099  8.304003125301  1.6254456301  2.64369921
+fear_slide_response      0.224494527  7.211935062462  1.6402588003  2.54960759
+disgust_slide_response   0.334196432  8.649328528461  2.0707500209  2.83559844
+anger_slide_response     0.154004397  8.122879987497  1.8402419763  2.91815353
+hr_mean_diff            37.095962664 15.505284295661  2.0130760416  2.39827812
+log_cda_phasic_max       1.347262275 16.908846800595 77.6572413790  0.25273474
+mean_fix_dur             5.749530171  1.504901933570  1.8237401524 46.61280615
+mean_sac_amp             9.395808870 11.439263932984  0.4828339904 26.31377122
+au14_dimpler             0.575298149  0.050819445436  0.1308681843  0.25058669
+au12_lip_corner_pull     0.823175444  0.031068949081  0.0525393300  0.27690684
+au_04_brow_lower         0.002251773  0.000076371102  0.6653145760  0.01252775
+au26_jaw_drop            5.913818746  0.101127060323  0.0253927446  0.60223477
+au01_inner_brow_raise    2.858645419  0.008600101129  0.5551605863  0.63701110
+au02_outer_brow_raise    2.742984002  0.032845208759  0.4446636381  0.39719119
+au05_eye_lid_raise       1.527983867  0.036246787748  0.2220348040  0.18760065
+au06_cheek_raise         0.519460185  0.044914775957  0.9303877414  0.04981729
+au07_eye_lid_tighten     0.170388493  0.017895249357  0.2394942510  0.09959091
+au09_nose_wrinkle        3.151913366  0.003108638597  0.3293007593  0.67252248
+au10_upper_lip_raise     0.553621891  0.022261584089  0.2404797201  0.33424289
+au15_lip_corner_depress  3.799541789  0.000006043545  0.1136853435  0.60215941
+au20_lip_stretch         4.660381555  0.022207673026  0.0546703919  0.67841173
+au17_chin_raise          6.297064113  0.001810097166  0.0694498595  0.86546655
+au23_lip_tighten         4.711374435  0.003781805474  0.0364605357  0.58268333
+au25_lips_apart          5.579054672  0.001702147823  0.2142136563  0.70703716
+au45_eye_blink           1.096248514  0.002722309683  0.0009083401  0.06165863
+                             Dim.5
+val_slider_response      2.5576979
+int_slider_response      0.5016437
+happy_slide_response     1.9414361
+sad_slide_response       2.3184011
+fear_slide_response      1.5172850
+disgust_slide_response   1.2936244
+anger_slide_response     2.7162822
+hr_mean_diff            38.0356168
+log_cda_phasic_max       0.1674103
+mean_fix_dur             5.1179634
+mean_sac_amp             2.4846086
+au14_dimpler             2.5823215
+au12_lip_corner_pull     3.7296635
+au_04_brow_lower         0.0402684
+au26_jaw_drop            2.9633193
+au01_inner_brow_raise    2.8395880
+au02_outer_brow_raise    2.5858712
+au05_eye_lid_raise       1.2309732
+au06_cheek_raise         1.5776225
+au07_eye_lid_tighten     0.1882272
+au09_nose_wrinkle        2.1965405
+au10_upper_lip_raise     1.7923782
+au15_lip_corner_depress  3.5699602
+au20_lip_stretch         3.1618848
+au17_chin_raise          4.5329889
+au23_lip_tighten         3.4638951
+au25_lips_apart          4.2229833
+au45_eye_blink           0.6695447
+
+= 
+
+```{r}
+
+# Contribution to the first dimension
+fviz_contrib(mod_res$mfa_result, "group", axes = 1)
+fviz_contrib(mod_res$mfa_result, "group", axes = 2)
+fviz_contrib(mod_res$mfa_result, "group", axes = 3)
+# fviz_contrib(mod_res$mfa_result, "group", axes = 4)
+# fviz_contrib(mod_res$mfa_result, "group", axes = 5)
+# Contribution to the second dimension
+
+mod_res$mfa_result$quanti.var
+
+dta_emo_4mfa$pc1_mfa<- mod_res$mfa_result$ind$coord[, 1]
+dta_emo_4mfa$pc2_mfa<- mod_res$mfa_result$ind$coord[, 2]
+
+dta_emo_4mfa$pc3_mfa<- mod_res$mfa_result$ind$coord[, 3]
+dta_emo_4mfa$pc4_mfa<- mod_res$mfa_result$ind$coord[, 4]
+dta_emo_4mfa$pc5_mfa<- mod_res$mfa_result$ind$coord[, 5]
+
+dta_emo_4mfa%>%
+  pivot_longer( cols      = c(pc1_mfa,pc2_mfa,pc3_mfa,pc4_mfa,pc5_mfa),
+    names_to  = "mfa_pcs",      # name of the new “variable” column
+    values_to = "mfa_pc_scores"      # name of the new “value” column
+  )%>%
+  subset( mfa_pcs== c("pc1_mfa","pc2_mfa")) %>%
+  group_by(participant, social_nonsocial, mfa_pcs)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc_scores, 
+             colour = social_nonsocial))+
+  geom_point(alpha =.1)+
+  stat_summary(geom = "pointrange")+
+
+  facet_grid(~mfa_pcs)+
+      ggpubr::stat_compare_means(method = "t.test")
+
+
+library(dplyr)
+library(ggplot2)
+library(ggside)
+library(ggpubr)
+
+dta_emo_4mfa %>%
+  # ── 1. Reshape to long, keep only PC1 & PC2 ───────────────────────────────────
+  pivot_longer(
+    cols      = c(pc1_mfa, pc2_mfa, pc3_mfa, pc4_mfa, pc5_mfa),
+    names_to  = "mfa_pcs",
+    values_to = "mfa_pc_scores"
+  ) %>%
+  filter(mfa_pcs %in% c("pc1_mfa", "pc2_mfa")) %>%
+  # ── 2. Summarise per participant × group × PC ─────────────────────────────────
+  group_by(participant, social_nonsocial, mfa_pcs) %>%
+  summarise(mfa_pc_scores = mean(mfa_pc_scores, na.rm = TRUE), .groups = "drop") %>%
+  # ── 3. Plot with ggsides ───────────────────────────────────────────────────────
+  ggplot(aes(x = social_nonsocial, y = mfa_pc_scores, colour = social_nonsocial)) +
+  geom_boxplot()+
+  
+  # 3.1 Jittered points to show individual values
+  # geom_jitter(
+  #   position = position_jitter(width = 0.15),
+  #   alpha    = 0.3,
+  #   size     = 1.5,
+  #   show.legend = FALSE
+  # ) +
+  
+  # 3.2 Mean ± 95% CI for each group
+  stat_summary(
+    # fun.data = mean_cl_boot,
+    geom     = "pointrange",
+    size     = 0.8,
+    colour   = "black"
+  ) +
+  
+  # 3.3 Side‐boxplots (right margin) for the distribution of scores by group
+  # geom_ysidedensity
+  # geom_ysidedensity(
+  #   aes(fill = social_nonsocial),
+  #   orientation   = "y",
+  #   # width         = 0.3,
+  #   smooth = .2,
+  #   # outlier.shape = NA,
+  #   alpha         = 0.2,
+  #   show.legend   = FALSE
+  # )+ 
+  
+  # 3.4 Facet by which PC we’re plotting
+  facet_grid(~ mfa_pcs, scales = "free_y") +
+  
+  # 3.5 Add p‐values for t‐test between social vs non‐social within each PC
+  ggpubr::stat_compare_means(
+     aes(label = ..p.signif..),
+  method       = "t.test",
+  # method.args  = list(alternative = "lesser"),
+  label.x.npc  = 0.5,
+  label.y.npc  = 0.95,
+  size         = 4)
+  
+  # 3.6 Shared colour/fill scales
+  scale_colour_brewer(palette = "Set1", name = "Group") +
+  scale_fill_brewer(palette = "Set1", guide = "none") +
+  
+  # 3.7 Labels and styling
+  labs(
+    x     = NULL,
+    y     = "MFA score",
+    title = "PC1 & PC2 Distributions by Social vs Non‐Social",
+    subtitle = "Dots = individual participants; bars = mean ± 95% CI; side‐boxplots show full distribution"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.minor   = element_blank(),
+    panel.grid.major   = element_line(colour = "grey90", size = 0.2),
+    strip.background   = element_rect(fill = "grey95", colour = NA),
+    strip.text         = element_text(face = "bold"),
+    plot.title         = element_text(hjust = 0.5),
+    plot.subtitle      = element_text(hjust = 0.5),
+    legend.position    = "none"
+  ) 
+  
+  # 3.8 Reserve space for side geoms
+  ggside::theme_sides(panel.scale = 0.5)
+
+
+```
+
+
+mixed models
+
+```{r}
+dta_emo_4mfa
+
+mod_res$lmer_pc1_mfa<- lmer(pc1_mfa ~ 1+ social_nonsocial+ 
+                     (1|participant) + 
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+summary(mod_res$lmer_pc1_mf)
+
+report::report(mod_res$lmer_pc1_mf)
+
+
+anova(mod_res$lmer_pc1_mf)
+
+
+anova(mod_res$lmer_pc1_mf)
+
+
+
+```
+We fitted a linear mixed model (estimated using ML and nloptwrap optimizer) to
+predict pc1_mfa with social_nonsocial (formula: pc1_mfa ~ 1 + social_nonsocial).
+The model included participant as random effects (formula: list(~1 |
+participant, ~1 | stim_iaps)). The model's total explanatory power is moderate
+(conditional R2 = 0.23) and the part related to the fixed effects alone
+(marginal R2) is of 0.01. The model's intercept, corresponding to
+social_nonsocial = nonsocial, is at 0.11 (95% CI [-0.04, 0.26], t(5395) = 1.49,
+p = 0.136). Within this model:
+
+  - The effect of social nonsocial [social] is statistically significant and
+negative (beta = -0.23, 95% CI [-0.44, -0.03], t(5395) = -2.27, p = 0.023; Std.
+beta = -0.22, 95% CI [-0.40, -0.03])
+
+
+
+```{r}
+mod_res$lmer_pc2_mfa<- lmer(pc2_mfa ~ 1+ social_nonsocial+ 
+                     (1|participant) + 
+                     (1+social_nonsocial|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+summary(mod_res$lmer_pc2_mfa)
+anova(mod_res$lmer_pc2_mfa)
+
+
+mod_res$lmer_pc3_mfa<- lmer(pc3_mfa ~ 1+ social_nonsocial+ 
+                     (1|participant) + 
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+summary(mod_res$lmer_pc3_mfa)
+
+anova(mod_res$lmer_pc2_mfa)
+anova(mod_res$lmer_pc3_mfa)
+
+# install.packages("MFAmix")   # (do this once)
+# library(MFAmix)
+ml_mfa_res <- MFAmix::mlMFA(
+  data       = list(subj_aff_df, hr_df, scr_df, gaze_df, face_df),
+  group      = c(
+    ncol(subj_aff_df) - 3,  # 7 subjective‐affect columns
+    ncol(hr_df)   - 3,      # 1 HR column
+    ncol(scr_df)  - 3,      # 1 SCR column
+    ncol(gaze_df) - 3,      # 2 gaze columns
+    ncol(face_df) - 3       # 17 face‐AU columns
+  ),
+  type       = c("s", "s", "s", "s", "s"),
+  between    = c("participant", "social_nonsocial"),
+  within     = "stim_iaps",
+  name.group = c("subj_aff", "phys_hr", "phys_scr", "gaze", "face")
+)
+
+```
+
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                  Sum Sq Mean Sq NumDF  DenDF F value Pr(>F)
+social_nonsocial 0.53441 0.53441     1 89.456  1.3537 0.2477
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                  Sum Sq Mean Sq NumDF  DenDF F value Pr(>F)
+social_nonsocial 0.42625 0.42625     1 89.958  1.7357  0.191
+aggregated MFA one observation
+
+[1] "val_slider_response"                   
+ [2] "int_slider_response"                   
+ [3] "happy_slide_response"                  
+ [4] "sad_slide_response"                    
+ [5] "fear_slide_response"                   
+ [6] "disgust_slide_response"                
+ [7] "anger_slide_response"                  
+ [8] "hr_mean_diff"                          
+ [9] "mean_trans_entropy_maxnorm_norm_by_img"
+[10] "mean_fix_dur_stim_aoi"                 
+[11] "log_cda_phasic_max"                    
+[12] "au01_inner_brow_raise"                 
+[13] "au02_outer_brow_raise"                 
+[14] "au_04_brow_lower"                      
+[15] "au05_eye_lid_raise"                    
+[16] "au06_cheek_raise"                      
+[17] "au07_eye_lid_tighten"                  
+[18] "au09_nose_wrinkle"                     
+[19] "au10_upper_lip_raise"                  
+[20] "au12_lip_corner_pull"                  
+[21] "au14_dimpler"                          
+[22] "au15_lip_corner_depress"               
+[23] "au17_chin_raise"                       
+[24] "au20_lip_stretch"                      
+[25] "au23_lip_tighten"                      
+[26] "au25_lips_apart"                       
+[27] "au26_jaw_drop"                         
+[28] "au45_eye_blink"                        
+[29] "participant"                           
+[30] "stim_iaps"                             
+[31] "social_nonsocial"                      
+[32] "emotioncategory"
+```{r}
+
+colnames(newDF)
+
+unique(dta_emo$stim_iaps)
+
+newDF$emotioncategory<- dta_emo$emotioncategory
+colnames(newDF)
+
+
+
+
+dta_emo_wide_mfa<- newDF%>%
+ pivot_wider(
+    id_cols     = c(participant, social_nonsocial),
+    names_from  = c(stim_iaps,emotioncategory),
+    values_from = names(newDF[,1:28]),
+    names_sep   = "_"   # optional: how to separate the original column name from the stimulus ID
+  )
+
+
+# 
+
+  
+
+dta_emo_wide_mfa
+colnames(dta_emo_wide_mfa)
+# val_slider_response"                   
+#   [5] "int_slider_response"                   
+#   [6] "happy_slide_response"                  
+#   [7] "sad_slide_response"                    
+#   [8] "fear_slide_response"                   
+#   [9] "disgust_slide_response"                
+#  [10] "anger_slide_response"
+
+60*7 #subjective #420
+
+17*60 #aus #1020
+dta_emo_wide_mfa[,422]
+dta_emo_wide_mfa
+sum(c(420,60,60,120,1020,1))
+dta_emo_wide_mfa[,c(3:1682,2)]
+?MFA
+colnames(dta_emo_wide_mfa)
+mod_res$mfa_result_wide <- MFA(dta_emo_wide_mfa[,c(3:1682,2)],
+                          group=c(420,60,60,120,1020,1),
+                          type=c("s","s","s","s","s","n"),  
+                          name.group= c("subj_aff","phys_hr","phys_scr","gaze","face","social_non_soc"),
+                          num.group.sup=c(6),#position of group above
+                          graph=FALSE)
+
+
+
+
+
+plot.MFA(mod_res$mfa_result_wide, choix="ind",lab.par=FALSE,invisible= 'quali',select='cos2  0.25',habillage='social_nonsocial',title="Individual factor map")
+
+
+mod_res$mfa_result_wide$eig #about 2 or 3 dimensions
+fviz_screeplot(mod_res$mfa_result_wide)
+```
+
+
+
+
+
+
+```{r}
+# Contribution to the first dimension
+
+
+
+# 
+# fviz_contrib(mod_res$mfa_result, "group", axes = 1)
+# fviz_contrib(mod_res$mfa_result, "group", axes = 2)
+# fviz_contrib(mod_res$mfa_result, "group", axes = 3)
+# fviz_contrib(mod_res$mfa_result, "group", axes = 4)
+# fviz_contrib(mod_res$mfa_result, "group", axes = 5)
+# Contribution to the second dimension
+
+fviz_contrib(mod_res$mfa_result_wide, "group", axes = 1)
+fviz_contrib(mod_res$mfa_result_wide, "group", axes = 2)
+fviz_contrib(mod_res$mfa_result_wide, "group", axes = 3)
+fviz_contrib(mod_res$mfa_result_wide, "group", axes = 4)
+fviz_contrib(mod_res$mfa_result_wide, "group", axes = 5)
+# Contribution to the second dimension
+
+mod_res$mfa_result_wide$group
+
+# dim 1 - Cardiac–Face–Gaze Intensity
+	# 2.	Dimension 2 (“Phasic-SCR – Gaze – Face Coupling”)
+	# 3.	Dimension 3 (“Cardiac – Face – Gaze Blend”)
+
+```
+
+
+
+
+
+
+tests of wide mfa with all the stim
+
+
+```{r}
+
+
+dta_emo_wide_mfa$pc1_mfa<- mod_res$mfa_result_wide$ind$coord[, 1]
+dta_emo_wide_mfa$pc2_mfa<- mod_res$mfa_result_wide$ind$coord[, 2]
+
+dta_emo_wide_mfa$pc3_mfa<- mod_res$mfa_result_wide$ind$coord[, 3]
+dta_emo_wide_mfa$pc4_mfa<- mod_res$mfa_result_wide$ind$coord[, 4]
+dta_emo_wide_mfa$pc5_mfa<- mod_res$mfa_result_wide$ind$coord[, 5]
+
+mod_res$mfa_result$ind$coord[,1:5]
+  
+dta_emo_4mfa_coord<-dta_emo_4mfa%>%
+  select(participant)
+
+
+dta_emo_wide_coord1<-  as.data.frame(mod_res$mfa_result_wide$ind$coord[,1:5])
+dta_emo_wide_coord1$participant<- dta_emo_wide_mfa$participant
+
+
+
+
+
+```
+
+```{r}
+
+
+dta_emo_wide_mfa%>%
+  pivot_longer( cols      = c(pc1_mfa,pc2_mfa,pc3_mfa,pc4_mfa,pc5_mfa),
+    names_to  = "mfa_pcs",      # name of the new “variable” column
+    values_to = "mfa_pc_scores"      # name of the new “value” column
+  )%>%
+  group_by(participant, social_nonsocial, mfa_pcs)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc_scores, 
+             colour = social_nonsocial))+
+  geom_point(alpha =.1)+
+  stat_summary(geom = "pointrange")+
+
+  facet_grid(~mfa_pcs)+
+      ggpubr::stat_compare_means(method = "t.test")
+
+install.packages("afex")
+?afex::aov_ez()
+afex::aov_ez(data = dta_emo_wide_mfa,
+             id = "participant",
+             dv = "pc1_mfa",
+             between = "social_nonsocial")
+
+afex::aov_ez(data = dta_emo_wide_mfa,
+             id = "participant",
+             dv = "pc2_mfa",
+             between = "social_nonsocial")
+
+afex::aov_ez(data = dta_emo_wide_mfa,
+             id = "participant",
+             dv = "pc3_mfa",
+             between = "social_nonsocial")
+
+# if coherence is 2 this suggets that difefneces are driven by changes in the signal (1) not cohertence per se?
+```
+Response: pc1_mfa
+            Effect    df  MSE      F  ges p.value
+1 social_nonsocial 1, 88 1.54 6.21 * .066    .015
+
+pc2 and pc were no significant
+separate MFAs
+
+
+
+
+
+
+
+aggregated by ground truth (iaps)
+```{r}
+dta_emo_agg<- dta_emo%>%
+  group_by(participant,social_nonsocial, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)
+
+
+
+
+tmp_var<- c("val_slider_response","int_slider_response","happy_slide_response","sad_slide_response","fear_slide_response","disgust_slide_response","anger_slide_response","hr_mean_diff","log_cda_phasic_max","mean_fix_dur","mean_sac_amp","au14_dimpler","au12_lip_corner_pull","au_04_brow_lower","au26_jaw_drop","au01_inner_brow_raise","au02_outer_brow_raise","au05_eye_lid_raise","au06_cheek_raise","au07_eye_lid_tighten","au09_nose_wrinkle","au10_upper_lip_raise","au15_lip_corner_depress","au20_lip_stretch","au17_chin_raise","au23_lip_tighten","au25_lips_apart","au45_eye_blink","social_nonsocial","participant","emotioncategory")
+dta_emo_agg
+dta_emo_agg1<- dta_emo_agg[, tmp_var] 
+
+dta_emo_agg_wide_mfa<- dta_emo_agg1 %>%
+ pivot_wider(
+    id_cols     = c("participant", "social_nonsocial"),
+    names_from  = c("emotioncategory"),
+    values_from = tmp_var[1:28],
+    names_sep   = "_"   # optional: how to separate the original column name from the stimulus ID
+  )
+
+
+dta_emo_agg_wide_mfa
+unique(dta_emo_agg$emotioncategory)
+dta_emo_agg
+
+6*7
+6*17
+colnames(dta_emo_agg_wide_mfa)
+?MFA
+mod_res$mfa_result_wide_agg <- MFA(dta_emo_agg_wide_mfa[,c(3:170,2)],
+                          group=c(42,6,6,12,102,1),
+                          type=c("s","s","s","s","s","n"),  
+                          name.group= c("subj_aff","phys_hr","phys_scr","gaze","face","social_non_soc"),
+                          num.group.sup=c(6),#position of group above
+                          graph=FALSE)
+
+
+
+
+
+
+
+
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 1)
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 2)
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 3)
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 4)
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 5)
+
+
+# the first three dimensions are consisetnt with the full stiom mfa
+
+
+```
+
+
+```{r}
+
+mod_res$mfa_result_wide$group
+
+
+
+
+dta_emo_agg_wide_mfa$pc1_mfa<- mod_res$mfa_result_wide_agg$ind$coord[, 1]
+dta_emo_agg_wide_mfa$pc2_mfa<- mod_res$mfa_result_wide_agg$ind$coord[, 2]
+
+dta_emo_agg_wide_mfa$pc3_mfa<- mod_res$mfa_result_wide_agg$ind$coord[, 3]
+dta_emo_agg_wide_mfa$pc4_mfa<- mod_res$mfa_result_wide_agg$ind$coord[, 4]
+dta_emo_agg_wide_mfa$pc5_mfa<- mod_res$mfa_result_wide_agg$ind$coord[, 5]
+
+
+  
+
+
+
+dta_emo_agg_wide_mfa_coord1<-  as.data.frame(mod_res$mfa_result_wide_agg$ind$coord[,1:5])
+dta_emo_agg_wide_mfa_coord1$participant<- dta_emo_agg_wide_mfa$participant
+
+
+
+dta_emo_agg_wide_mfa%>%
+  pivot_longer( cols      = c(pc1_mfa,pc2_mfa,pc3_mfa,pc4_mfa,pc5_mfa),
+    names_to  = "mfa_pcs",      # name of the new “variable” column
+    values_to = "mfa_pc_scores"      # name of the new “value” column
+  )%>%
+  group_by(participant, social_nonsocial, mfa_pcs)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc_scores, 
+             colour = social_nonsocial))+
+  geom_point(alpha =.1)+
+  stat_summary(geom = "pointrange")+
+
+  facet_grid(~mfa_pcs)+
+      ggpubr::stat_compare_means(method = "t.test")
+
+
+
+afex::aov_ez(data = dta_emo_agg_wide_mfa,
+             id = "participant",
+             dv = "pc1_mfa",
+             between = "social_nonsocial")
+
+
+afex::aov_ez(data = dta_emo_agg_wide_mfa,
+             id = "participant",
+             dv = "pc2_mfa",
+             between = "social_nonsocial")
+
+afex::aov_ez(data = dta_emo_agg_wide_mfa,
+             id = "participant",
+             dv = "pc3_mfa",
+             between = "social_nonsocial")
+```
+
+now use the wide one for separate MFAS
+
+
+```{r}
+dta_emo_wide_mfa_soc<- dta_emo_wide_mfa%>%
+  subset(social_nonsocial != "nonsocial")
+
+dta_emo_wide_mfa_nonsocial<- dta_emo_wide_mfa%>%
+  subset(social_nonsocial == "nonsocial")
+
+dta_emo_wide_mfa_nonsocial[,c(1682)]
+
+
+mod_res$mfa_result_wide_nonsoc <- MFA(dta_emo_wide_mfa_nonsocial[,c(3:1682)],
+                                   group=c(420,60,60,120,1020,1),
+                              type=c("s","s","s","s","s"),                              name.group=c("subj_aff","phys_hr","phys_scr","gaze","face"),
+                               graph=FALSE)
+
+
+
+mod_res$mfa_result_wide_soc <- MFA(dta_emo_wide_mfa_soc[,c(3:1682)],
+                                   group=c(420,60,60,120,1020,1),
+                              type=c("s","s","s","s","s"),                              name.group=c("subj_aff","phys_hr","phys_scr","gaze","face"),
+                               graph=FALSE)
+
+
+mod_res$mfa_result_wide_nonsoc$eig #about 5 dikmension untoil eigen drops
+fviz_screeplot(mod_res$mfa_result_wide_nonsoc)
+
+mod_res$mfa_result_wide_soc$eig #about 3
+fviz_screeplot(mod_res$mfa_result_wide_soc)
+mod_res$mfa_result_wide_soc$eig 
+mod_res$mfa_result_nonsoc$eig
+
+```
+
+social
+eigenvalue percentage of variance cumulative percentage of variance
+comp 1   1.9348631              7.5718543                          7.571854
+comp 2   1.7003519              6.6541227                         14.225977
+comp 3   1.6256227              6.3616790                         20.587656
+comp 4   1.2924545              5.0578654                         25.645521
+comp 5   1.1145220              4.3615478                         30.007069
+comp 6   1.0111642              3.9570695                         33.964139
+comp 7   0.9573629              3.7465245                         37.710663
+comp 8   0.9188596              3.5958468                         41.306510
+comp 9   0.8654731              3.3869250                         44.693435
+comp 10  0.7765796              3.0390509                         47.732486
+comp 11  0.7217630              2.8245327                         50.557019
+
+non social:
+igenvalue percentage of variance cumulative percentage of variance
+comp 1  1.27421561             13.6525348                          13.65253
+comp 2  1.17750867             12.6163720                          26.26891
+comp 3  1.04457643             11.1920745                          37.46098
+comp 4  0.96119879             10.2987280                          47.75971
+comp 5  0.85437014              9.1541164                          56.91383
+comp 6  0.71734560              7.6859722                          64.59980
+comp 7  0.48292949              5.1743297                          69.77413
+comp 8  0.34311949              3.6763408                          73.45047
+comp 9  0.29180334              3.1265158                          76.57698
+comp 10 0.24489453              2.6239131                          79.20090
+
+non social is summarised in fewer dimensions, it means those blocks are more coherent or redundant: they share more common variance, so fewer latent factors are needed.
+whereas social needing more dimensions means the blocks are less collinear/coherent and contain more independent sources of variance.
+
+
+
+wide aggregared separate MFAS
+```{r}
+
+dta_emo_agg_wide_mfa_soc<- dta_emo_agg_wide_mfa%>%
+  subset(social_nonsocial != "nonsocial")
+
+dta_emo_agg_wide_mfa_nonsocial<- dta_emo_agg_wide_mfa%>%
+  subset(social_nonsocial == "nonsocial")
+
+colnames(dta_emo_agg_wide_mfa_nonsocial)
+
+mod_res$mfa_result_agg_wide_nonsoc <- MFA(dta_emo_agg_wide_mfa_nonsocial[,c(3:170)],
+                          group=c(42,6,6,12,102),
+                              type=c("s","s","s","s","s"),                              name.group=c("subj_aff","phys_hr","phys_scr","gaze","face"),
+                               graph=TRUE)
+
+
+```
+
+
+```{r}
+mod_res$mfa_result_agg_wide_soc <- MFA(dta_emo_agg_wide_mfa_soc[,c(3:170)],
+                          group=c(42,6,6,12,102),
+                              type=c("s","s","s","s","s"),                              name.group=c("subj_aff","phys_hr","phys_scr","gaze","face"),
+                               graph=TRUE)
+
+mod_res$mfa_result_agg_wide_soc$group$RV
+
+
+  pivot_longer(
+    names_to  = "block",      # name of the new “variable” column
+    values_to = "value" 
+  )
+
+
+ as.data.frame(mod_res$mfa_result_agg_wide_nonsoc$group$RV)
+  as.data.frame(mod_res$mfa_result_agg_wide_soc$group$RV)
+  
+  
+  
+as.data.frame(mod_res$mfa_result_agg_wide_nonsoc$group$RV)%>%
+  reshape2::melt(varnames = c("Variable1", "Variable2"), 
+                 value.name = "Correlation")%>%
+ggplot( aes(x = Variable2, y = Variable1, fill = Correlation)) +
+  geom_tile(colour = "white") + 
+  # Reverse y-axis so that the first row is at the top
+  # scale_y_discrete(limits = rev(levels(mat_long$Variable1))) +
+  # Use a diverging colour scale centred at 0.5 (or 0 if you prefer)
+  scale_fill_gradient2(
+    low = "navy",       # low end of the spectrum
+    mid = "white",      # mid-point
+    high = "firebrick", # high end of the spectrum
+    midpoint = 0.5,     # centre of the scale
+    name = "Correlation\nCoefficient"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = NULL,
+    y = NULL,
+    title = "Heatmap of RV Coefficients")
+```
+
+
+```{r}
+
+
+mod_res$mfa_result_agg_wide_nonsoc$eig #about 5 dikmension untoil eigen drops
+fviz_screeplot(mod_res$mfa_result_agg_wide_nonsoc)
+
+mod_res$mfa_result_agg_wide_soc$eig #about 6
+fviz_screeplot(mod_res$mfa_result_agg_wide_soc)
+mod_res$mfa_result_agg_wide_soc$eig 
+mod_res$mfa_result_agg_wide_nonsoc$eig
+
+```
+
+
+R Script: Permutation Test for Difference in # of Eigenvalues > 1
+#             between Social and Non‐Social MFAs - wide all stim
+```{r}
+#----------------------------------------------------------
+# R Script: Permutation Test for Difference in # of Eigenvalues > 1
+#             between Social and Non‐Social MFAs
+#----------------------------------------------------------
+
+# 0. PREAMBLE: Install & load necessary packages
+#    (Uncomment the install.packages lines if you don’t already have them.)
+# install.packages("FactoMineR")
+# install.packages("dplyr")
+# install.packages("pbapply")   # for a progress bar (optional but helpful)
+library(FactoMineR)
+library(dplyr)
+# install.packages("pbapply")
+library(pbapply)
+
+# 1. ASSUMPTIONS ABOUT YOUR DATA FRAME `dta_emo_wide_mfa`
+#    - Column 1: participant (not needed for MFA itself)
+#    - Column 2: social_nonsocial  (factor with exactly two levels: "social" and "nonsocial")
+#    - Columns  3:1682 (inclusive) are your measurement columns, in this order:
+#        * subj_aff block:   cols  3 :   422  (count = 420)
+#        * phys_hr block:    cols 423 :   482  (count =  60)
+#        * phys_scr block:   cols 483 :   542  (count =  60)
+#        * gaze block:       cols 543 :   662  (count = 120)
+#        * face block:       cols 663 :  1682  (count =1020)
+#    Adjust these indices if your column counts differ.
+
+# 2. FUNCTION TO RUN A “BLOCK‐SPECIFIED” MFA AND RETURN # OF EIGENVALUES > 1
+run_mfa_count_dims <- function(df_wide) {
+  # df_wide: a data frame with columns 3:1682 = all measurement cols
+  # Run MFA on those cols, using the same group/type/name specifications.
+  mfa_result <- MFA(
+    df_wide, 
+    group      = c(420, 60, 60, 120, 1020),
+    type       = c("s", "s", "s", "s", "s"),
+    name.group = c("subj_aff", "phys_hr", "phys_scr", "gaze", "face"),
+    graph      = FALSE
+  )
+  eig_vals <- mfa_result$eig[ , "eigenvalue"]
+  # Count how many eigenvalues exceed 1.0
+  sum(eig_vals > 1.0)
+}
+
+# 3. COMPUTE THE OBSERVED DIFFERENCE D_obs
+#    3a. Subset the data frame into true social vs non‐social
+dta_emo_wide_mfa_soc    
+dta_emo_wide_mfa_nonsocial 
+
+#    3b. Take only the measurement columns (3:1682) for each subset
+meas_cols <- 3:1682
+mst_social    <- dta_emo_wide_mfa_soc   [ , meas_cols ]
+mst_nonsocial <- dta_emo_wide_mfa_nonsocial[ , meas_cols ]
+
+#    3c. Run MFAs on each subset and count dims>1
+dims_social_obs   <- run_mfa_count_dims(mst_social)
+dims_nonsocial_obs<- run_mfa_count_dims(mst_nonsocial)
+
+#    3d. Observed difference
+D_obs <- dims_social_obs - dims_nonsocial_obs
+
+cat("Observed #dims >1:\n",
+    "  Social:    ", dims_social_obs, "\n",
+    "  Non-social:", dims_nonsocial_obs, "\n",
+    "Observed difference (Social – Non-social) = ", D_obs, "\n\n")
+
+# 4. PERMUTATION TEST
+#    4a. Parameters for permutation
+set.seed(2025)
+B <- 1000  # number of permutations (adjust to taste; 1000–2000 is common)
+
+#    4b. Vector to store differences under the null
+null_diffs <- integer(B)
+
+#    4c. Original “social_nonsocial” labels
+orig_labels <- dta_emo_wide_mfa$social_nonsocial
+
+#    4d. Measurement‐only matrix for convenience
+all_meas_mat <- dta_emo_wide_mfa[ , meas_cols ]
+
+#    4e. Permutation loop (with a progress bar)
+null_diffs <- pbapply::pblapply(seq_len(B), function(b) {
+  # 1) Permute the social/non‐social labels
+  perm_labels <- sample(orig_labels)
+
+  # 2) Split the measurement matrix according to permuted labels
+  is_soc_perm   <- perm_labels == "social"
+  is_nons_perm  <- perm_labels == "nonsocial"
+  mat_soc_perm  <- all_meas_mat[is_soc_perm,   ]
+  mat_nons_perm <- all_meas_mat[is_nons_perm, ]
+
+  # 3) Run MFA on each permuted subset and count dims>1
+  dims_soc_b   <- run_mfa_count_dims(mat_soc_perm)
+  dims_nons_b  <- run_mfa_count_dims(mat_nons_perm)
+
+  # 4) Return the difference (Social – Non‐social) for this permutation
+  dims_soc_b - dims_nons_b
+}, cl = 1)  # cl = 1 means run sequentially; remove cl arg for defaults
+
+null_diffs <- unlist(null_diffs)
+
+# 5. CALCULATE EMPIRICAL P‐VALUE
+#    Two‐sided test: how often does |D_b| >= |D_obs| ?
+p_emp <- (sum(abs(null_diffs) >= abs(D_obs)) + 1) / (B + 1)
+
+cat("Permutation test results:\n",
+    "  Number of permutations  = ", B, "\n",
+    "  Observed difference     = ", D_obs, "\n",
+    "  Proportion |D_b| ≥ |D_obs|  = ", signif(p_emp, 3), "\n\n")
+
+# 6. INTERPRETATION MESSAGE
+if (p_emp < 0.05) {
+  cat("Conclusion: The observed difference in the number of dimensions > 1\n",
+      "between social and non‐social is statistically significant (p =", signif(p_emp, 3), ").\n",
+      "This suggests that the intrinsic dimensionality (and thus block coherence)\n",
+      "differs between the two conditions.\n")
+} else {
+  cat("Conclusion: The observed difference in the number of dimensions > 1\n",
+      "between social and non‐social is NOT statistically significant (p =", signif(p_emp, 3), ").\n",
+      "There is insufficient evidence to claim that one group truly needs\n",
+      "more dimensions (lower coherence) than the other.\n")
+}
+
+# END OF SCRIPT
+
+```
+Conclusion: The observed difference in the number of dimensions > 1
+ between social and non‐social is NOT statistically significant (p = 0.783 ).
+ There is insufficient evidence to claim that one group truly needs
+ more dimensions (lower coherence) than the other.
+ 
+ 
+ 
+ R Script: Permutation Test for Difference in # of Eigenvalues > 1
+#             between Social and Non‐Social MFAs - wide - aggregated by emotion
+```{r}
+#----------------------------------------------------------
+# R Script: Permutation Test for Difference in # of Eigenvalues > 1
+#             between Social and Non‐Social MFAs
+#----------------------------------------------------------
+
+
+# FUNCTION TO RUN A “BLOCK‐SPECIFIED” MFA AND RETURN # OF EIGENVALUES > 1
+run_mfa_count_dims <- function(df_wide) {
+  # df_wide: a data frame with columns 3:1682 = all measurement cols
+  # Run MFA on those cols, using the same group/type/name specifications.
+  mfa_result <- MFA(
+    df_wide, 
+    group      = c(420, 60, 60, 120, 1020),
+    type       = c("s", "s", "s", "s", "s"),
+    name.group = c("subj_aff", "phys_hr", "phys_scr", "gaze", "face"),
+    graph      = FALSE
+  )
+  eig_vals <- mfa_result$eig[ , "eigenvalue"]
+  # Count how many eigenvalues exceed 1.0
+  sum(eig_vals > 1.0)
+}
+
+# 3. COMPUTE THE OBSERVED DIFFERENCE D_obs
+#    3a. Subset the data frame into true social vs non‐social
+dta_emo_wide_mfa_soc    
+dta_emo_wide_mfa_nonsocial 
+
+#    3b. Take only the measurement columns (3:1682) for each subset
+meas_cols <- 3:1682
+mst_social    <- dta_emo_wide_mfa_soc   [ , meas_cols ]
+mst_nonsocial <- dta_emo_wide_mfa_nonsocial[ , meas_cols ]
+
+#    3c. Run MFAs on each subset and count dims>1
+dims_social_obs   <- run_mfa_count_dims(mst_social)
+dims_nonsocial_obs<- run_mfa_count_dims(mst_nonsocial)
+
+#    3d. Observed difference
+D_obs <- dims_social_obs - dims_nonsocial_obs
+
+cat("Observed #dims >1:\n",
+    "  Social:    ", dims_social_obs, "\n",
+    "  Non-social:", dims_nonsocial_obs, "\n",
+    "Observed difference (Social – Non-social) = ", D_obs, "\n\n")
+
+# 4. PERMUTATION TEST
+#    4a. Parameters for permutation
+set.seed(2025)
+B <- 1000  # number of permutations (adjust to taste; 1000–2000 is common)
+
+#    4b. Vector to store differences under the null
+null_diffs <- integer(B)
+
+#    4c. Original “social_nonsocial” labels
+orig_labels <- dta_emo_wide_mfa$social_nonsocial
+
+#    4d. Measurement‐only matrix for convenience
+all_meas_mat <- dta_emo_wide_mfa[ , meas_cols ]
+
+#    4e. Permutation loop (with a progress bar)
+null_diffs <- pbapply::pblapply(seq_len(B), function(b) {
+  # 1) Permute the social/non‐social labels
+  perm_labels <- sample(orig_labels)
+
+  # 2) Split the measurement matrix according to permuted labels
+  is_soc_perm   <- perm_labels == "social"
+  is_nons_perm  <- perm_labels == "nonsocial"
+  mat_soc_perm  <- all_meas_mat[is_soc_perm,   ]
+  mat_nons_perm <- all_meas_mat[is_nons_perm, ]
+
+  # 3) Run MFA on each permuted subset and count dims>1
+  dims_soc_b   <- run_mfa_count_dims(mat_soc_perm)
+  dims_nons_b  <- run_mfa_count_dims(mat_nons_perm)
+
+  # 4) Return the difference (Social – Non‐social) for this permutation
+  dims_soc_b - dims_nons_b
+}, cl = 1)  # cl = 1 means run sequentially; remove cl arg for defaults
+
+null_diffs <- unlist(null_diffs)
+
+# 5. CALCULATE EMPIRICAL P‐VALUE
+#    Two‐sided test: how often does |D_b| >= |D_obs| ?
+p_emp <- (sum(abs(null_diffs) >= abs(D_obs)) + 1) / (B + 1)
+
+cat("Permutation test results:\n",
+    "  Number of permutations  = ", B, "\n",
+    "  Observed difference     = ", D_obs, "\n",
+    "  Proportion |D_b| ≥ |D_obs|  = ", signif(p_emp, 3), "\n\n")
+
+# 6. INTERPRETATION MESSAGE
+if (p_emp < 0.05) {
+  cat("Conclusion: The observed difference in the number of dimensions > 1\n",
+      "between social and non‐social is statistically significant (p =", signif(p_emp, 3), ").\n",
+      "This suggests that the intrinsic dimensionality (and thus block coherence)\n",
+      "differs between the two conditions.\n")
+} else {
+  cat("Conclusion: The observed difference in the number of dimensions > 1\n",
+      "between social and non‐social is NOT statistically significant (p =", signif(p_emp, 3), ").\n",
+      "There is insufficient evidence to claim that one group truly needs\n",
+      "more dimensions (lower coherence) than the other.\n")
+}
+
+# END OF SCRIPT
+
+```
+ 
+test coherence explicitly - wide mfa with ind stimuli
+
+```{r}
+# Example (adjust column ranges to match your actual column indices):
+subj_aff_mat <- dta_emo_wide_mfa[ , 3:(3+419)]       # 420 subj_aff columns
+phys_hr_mat  <- dta_emo_wide_mfa[ , 423:(423+59)]    # next 60 HR columns
+phys_scr_mat <- dta_emo_wide_mfa[ , 483:(483+59)]    # next 60 SCR columns
+gaze_mat     <- dta_emo_wide_mfa[ , 543:(543+119)]   # next 120 gaze columns
+face_mat     <- dta_emo_wide_mfa[ , 663:(663+1019)]  # next 1020 face columns
+
+# Centre each matrix to zero‐mean by column (MFA automatically does this internally, but for RV you must replicate it manually):
+centre <- function(mat) sweep(mat, 2, colMeans(mat), FUN = "-")
+subj_aff_c  <- centre(subj_aff_mat)
+phys_hr_c   <- centre(phys_hr_mat)
+phys_scr_c  <- centre(phys_scr_mat)
+gaze_c      <- centre(gaze_mat)
+face_c      <- centre(face_mat)
+
+
+
+# Identify rows for social vs non-social:
+is_social    <- dta_emo_wide_mfa$social_nonsocial == "social"
+is_nonsocial <- dta_emo_wide_mfa$social_nonsocial == "nonsocial"
+
+# Split each centred block‐matrix accordingly:
+subj_aff_soc  <- subj_aff_c[ is_social, ]
+subj_aff_nons <- subj_aff_c[ is_nonsocial, ]
+phys_hr_soc   <- phys_hr_c[  is_social, ]
+phys_hr_nons  <- phys_hr_c[  is_nonsocial, ]
+phys_scr_soc  <- phys_scr_c[ is_social, ]
+phys_scr_nons <- phys_scr_c[ is_nonsocial, ]
+gaze_soc      <- gaze_c[     is_social, ]
+gaze_nons     <- gaze_c[     is_nonsocial, ]
+face_soc      <- face_c[     is_social, ]
+face_nons     <- face_c[     is_nonsocial, ]
+
+
+library(FactoMineR)
+# use FactoMineR::RVcoef() function (which expects two matrices with the same number of rows):
+# Example: RV between subjective-affect and face in social subset
+
+# FactoMineR::()
+RV_subj_face_soc  <- coeffRV(subj_aff_soc, face_soc)
+RV_subj_face_nons <- coeffRV(subj_aff_nons, face_nons)
+
+# RV between HR and face:
+RV_hr_face_soc    <- coeffRV(phys_hr_soc, face_soc)
+RV_hr_face_nons   <- coeffRV(phys_hr_nons, face_nons)
+
+# RV between gaze and SCR:
+RV_gaze_scr_soc   <- coeffRV(gaze_soc, phys_scr_soc)
+RV_gaze_scr_nons  <- coeffRV(gaze_nons, phys_scr_nons)
+
+
+
+
+# …repeat for each pair of blocks you care about…
+
+set.seed(2025)
+B <- 500
+rv_diff <- numeric(B)
+# Because RV is a statistic you can bootstrap (resampling rows‐with‐replacement within each condition), you can test whether, for example, RV_subj_face_soc significantly exceeds RV_subj_face_nons. A simple permutation test:
+for (b in seq_len(B)) {
+  # Permute the labels “social” vs “non‐social” among all rows:
+  perm_labels <- sample(dta_emo_wide_mfa$social_nonsocial)
+  is_soc_perm  <- perm_labels == "social"
+  is_non_perm  <- perm_labels == "nonsocial"
+
+  # Centre and split again according to permuted labels:
+  subj_aff_perm_soc  <- centre(subj_aff_mat)[is_soc_perm, ]
+  face_perm_soc      <- centre(face_mat)[is_soc_perm, ]
+
+  subj_aff_perm_nons  <- centre(subj_aff_mat)[is_non_perm, ]
+  face_perm_nons      <- centre(face_mat)[is_non_perm, ]
+
+  # Compute RV for permuted
+  rv_perm_soc     <- coeffRV(subj_aff_perm_soc,  face_perm_soc)
+  rv_perm_nons    <- coeffRV(subj_aff_perm_nons, face_perm_nons)
+  rv_diff[b]      <- rv_perm_soc$rv - rv_perm_nons$rv
+}
+
+# Observed difference:
+obs_diff <- RV_subj_face_soc$rv - RV_subj_face_nons$rv
+
+# Two‐sided p‐value:
+p_value <- mean(abs(rv_diff) >= abs(obs_diff))
+
+p_value #[1] 0.096
+
+# RV measures the overall association between two matrices of variables, say \mathbf{X} and \mathbf{Y}, each having the same number of observations (rows) but potentially a different number of columns (variables).
+```
+
+
+
+test coherence explicitly - wide mfa wide aggregated by emotion
+to work on properly
+- complete missing block comparisons
+
+```{r}
+colnames(dta_emo_agg_wide_mfa)
+# Example (adjust column ranges to mat_aggch your actual column indices):
+subj_aff_mat_agg <- dta_emo_agg_wide_mfa[ , 3:(3+41)]       
+phys_hr_mat_agg  <- dta_emo_agg_wide_mfa[ , 45:50]    
+phys_scr_mat_agg <- dta_emo_agg_wide_mfa[ , 51:56]   
+gaze_mat_agg     <- dta_emo_agg_wide_mfa[ , 57:68]   
+face_mat_agg     <- dta_emo_agg_wide_mfa[ , 69:170]  
+
+# Centre each mat_aggrix to zero‐mean by column (MFA automat_aggically does this internally, but for RV you must replicate it manually):
+centre <- function(mat_agg) sweep(mat_agg, 2, colMeans(mat_agg), FUN = "-")
+subj_aff_c_agg  <- centre(subj_aff_mat_agg)
+phys_hr_c_agg   <- centre(phys_hr_mat_agg)
+phys_scr_c_agg  <- centre(phys_scr_mat_agg)
+gaze_c_agg      <- centre(gaze_mat_agg)
+face_c_agg      <- centre(face_mat_agg)
+
+
+
+# Identify rows for social vs non-social:
+is_social_agg    <- dta_emo_agg_wide_mfa$social_nonsocial == "social"
+is_nonsocial_agg <- dta_emo_agg_wide_mfa$social_nonsocial == "nonsocial"
+
+# Split each centred block‐mat_aggrix accordingly:
+subj_aff_soc_agg <- subj_aff_c_agg[ is_social_agg, ]
+subj_aff_nons_agg<- subj_aff_c_agg[ is_nonsocial_agg, ]
+phys_hr_soc_agg  <- phys_hr_c_agg[  is_social_agg, ]
+phys_hr_nons_agg <- phys_hr_c_agg[  is_nonsocial_agg, ]
+phys_scr_soc_agg <- phys_scr_c_agg[ is_social_agg, ]
+phys_scr_nons_agg<- phys_scr_c_agg[ is_nonsocial_agg, ]
+gaze_soc_agg     <- gaze_c_agg[     is_social_agg, ]
+gaze_nons_agg    <- gaze_c_agg[     is_nonsocial_agg, ]
+face_soc_agg     <- face_c_agg[     is_social_agg, ]
+face_nons_agg    <- face_c_agg[     is_nonsocial_agg, ]
+
+
+library(FactoMineR)
+# use FactoMineR::RVcoef() function (which expects two mat_aggrices with the same number of rows):
+# Example: RV between subjective-affect and face in social subset
+
+# FactoMineR::()
+RV_subj_face_soc_agg <- coeffRV(subj_aff_soc_agg, face_soc_agg)
+RV_subj_face_nons_agg<- coeffRV(subj_aff_nons_agg, face_nons_agg)
+
+# RV between 
+RV_hr_face_soc_agg   <- coeffRV(subj_aff_soc_agg, phys_hr_soc_agg)
+RV_hr_face_nons_agg  <- coeffRV(subj_aff_nons_agg,phys_hr_nons_agg)
+
+# RV 
+RV_gaze_scr_soc_agg  <- coeffRV(subj_aff_soc_agg, gaze_soc_agg)
+RV_gaze_scr_nons_agg <- coeffRV(subj_aff_nons_agg, gaze_nons_agg)
+
+
+# …repeat for each pair of blocks you care about… to do (all block)
+
+set.seed(44)
+B <- 500
+rv_diff_agg <- numeric(B)
+# Because RV is a statistic you can bootstrap (resampling rows‐with‐replacement within each condition), you can test whether, for example, RV_subj_face_soc_aggsignificantly exceeds RV_subj_face_nons. A simple permutation test:
+for (b in seq_len(B)) {
+  # Permute the labels “social” vs “non‐social” among all rows:
+  perm_labels <- sample(dta_emo_agg_wide_mfa$social_nonsocial)
+  is_soc_perm  <- perm_labels == "social"
+  is_non_perm  <- perm_labels == "nonsocial"
+
+  # Centre and split again according to permuted labels:
+  subj_aff_perm_soc_agg <- centre(subj_aff_mat_agg)[is_soc_perm, ]
+  face_perm_soc_agg     <- centre(face_mat_agg)[is_soc_perm, ]
+
+  subj_aff_perm_nons_agg <- centre(subj_aff_mat_agg)[is_non_perm, ]
+  face_perm_nons_agg     <- centre(face_mat_agg)[is_non_perm, ]
+
+  # Compute RV for permuted
+  rv_perm_soc_agg    <- coeffRV(subj_aff_perm_soc_agg,  face_perm_soc_agg)
+  rv_perm_nons_agg   <- coeffRV(subj_aff_perm_nons_agg, face_perm_nons_agg)
+  rv_diff_agg[b]      <- rv_perm_soc$rv - rv_perm_nons$rv
+}
+
+# Observed difference:
+obs_diff_agg <- RV_subj_face_soc$rv - RV_subj_face_nons$rv
+
+# Two‐sided p‐value:
+p_value <- mean(abs(rv_diff_agg) >= abs(obs_diff_agg))
+
+p_value #[1] 0.096
+
+```
+
+
+
+R Script: Bootstrap Stability Check for the First 3 MFA Dimensions (CIs)
+```{r}
+#----------------------------------------------------------
+# R Script: Bootstrap Stability Check for the First 3 MFA Dimensions
+#----------------------------------------------------------
+
+# 0. Install & load required packages
+#    (Uncomment install.packages lines if not already installed.)
+# install.packages("FactoMineR")
+# install.packages("pbapply")
+library(FactoMineR)
+library(pbapply)
+
+# 1. ASSUMPTIONS ABOUT YOUR DATA FRAME `dta_emo_wide_mfa`
+# ----------------------------------------------------------------------------
+#   - Column 1: participant (not used in MFA)
+#   - Column 2: social_nonsocial  (factor; supplementary)
+#   - Columns 3:1682: measurement columns, five blocks concatenated in this order:
+#       * subj_aff:   420 columns  →  cols  3 : 422
+#       * phys_hr:     60 columns  → cols 423 : 482
+#       * phys_scr:    60 columns  → cols 483 : 542
+#       * gaze:       120 columns  → cols 543 : 662
+#       * face:      1020 columns  → cols 663 : 1682
+#   Adjust these indices if your block sizes differ.
+
+meas_cols   <- 3:1682
+block_groups <- c(420, 60, 60, 120, 1020)
+block_names  <- c("subj_aff", "phys_hr", "phys_scr", "gaze", "face")
+N            <- nrow(dta_emo_wide_mfa)  # total number of rows
+
+# 2. FUNCTION: Run MFA and extract first k eigenvalues + block contributions
+# ----------------------------------------------------------------------------
+compute_mfa_metrics <- function(meas_data, k = 3) {
+  # meas_data: a data.frame or matrix containing exactly the measurement columns
+  # k: number of leading dimensions to track (here, 3)
+
+  mfa_res <- MFA(
+    meas_data,
+    group      = block_groups,
+    type       = rep("s", length(block_groups)),
+    name.group = block_names,
+    graph      = FALSE
+  )
+
+  eig_all    <- mfa_res$eig[, "eigenvalue"]
+  if (length(eig_all) < k) {
+    stop("Requested k exceeds the number of available dimensions.")
+  }
+  eig_vals_k <- eig_all[1:k]
+
+  block_contrib_all <- mfa_res$group$contrib  # (n_blocks × n_dims)
+  block_contrib_k   <- block_contrib_all[, 1:k]
+
+  return(list(
+    eig_vals      = eig_vals_k,
+    block_contrib = block_contrib_k
+  ))
+}
+
+# 3. OBSERVED METRICS ON THE ENTIRE DATA SET (k = 3)
+# ----------------------------------------------------------------------------
+
+obs_metrics      <- compute_mfa_metrics(dta_emo_wide_mfa[, meas_cols], k = 3)
+obs_eig_vals     <- obs_metrics$eig_vals        # length 3
+obs_block_contrib <- obs_metrics$block_contrib  # matrix (5 × 3)
+
+cat("Observed first 3 eigenvalues:\n")
+print(round(obs_eig_vals, 4))
+cat("\nObserved block contributions (5 blocks × 3 dims):\n")
+print(round(obs_block_contrib, 2))
+cat("\n")
+
+# 4. BOOTSTRAP SETUP
+# ----------------------------------------------------------------------------
+set.seed(2025)
+B <- 500   # you can increase to 1000 for tighter intervals
+k <- 3     # track only the first three dimensions
+
+eig_boot    <- matrix(NA, nrow = B, ncol = k)
+contrib_boot <- array(NA, dim = c(length(block_groups), k, B),
+                      dimnames = list(block_names, paste0("Dim", 1:k), NULL))
+
+all_meas <- dta_emo_wide_mfa[, meas_cols]  # N × 1680 matrix
+
+# 5. BOOTSTRAP LOOP (resample rows with replacement)
+# ----------------------------------------------------------------------------
+pbapply::pboptions(type = "timer")
+for (b in seq_len(B)) {
+  boot_idx      <- sample(seq_len(N), size = N, replace = TRUE)
+  boot_meas_mat <- all_meas[boot_idx, ]
+
+  boot_metrics  <- compute_mfa_metrics(boot_meas_mat, k = k)
+
+  eig_boot[b, ]       <- boot_metrics$eig_vals
+  contrib_boot[, , b] <- boot_metrics$block_contrib
+}
+
+pbapply::pboptions(reset = TRUE)
+
+
+# 6. SUMMARISE BOOTSTRAP DISTRIBUTIONS
+# ----------------------------------------------------------------------------
+# 6a. Eigenvalues summary
+eig_summary <- data.frame(
+  Dim        = paste0("Dim", 1:k),
+  Observed   = obs_eig_vals,
+  Mean_boot  = apply(eig_boot, 2, mean),
+  SD_boot    = apply(eig_boot, 2, sd),
+  CI_lower   = apply(eig_boot, 2, quantile, probs = 0.025),
+  CI_upper   = apply(eig_boot, 2, quantile, probs = 0.975)
+)
+
+# 6b. Block‐contribution summary for dims 1–3
+contrib_summary_list <- vector("list", length = k)
+names(contrib_summary_list) <- paste0("Dim", 1:k)
+
+for (d in seq_len(k)) {
+  block_contrib_dimd <- contrib_boot[, d, ]  # (5 blocks × B replicates)
+
+  summary_df <- data.frame(
+    Block     = block_names,
+    Observed  = obs_block_contrib[, d],
+    Mean_boot = apply(block_contrib_dimd, 1, mean),
+    SD_boot   = apply(block_contrib_dimd, 1, sd),
+    CI_lower  = apply(block_contrib_dimd, 1, quantile, probs = 0.025),
+    CI_upper  = apply(block_contrib_dimd, 1, quantile, probs = 0.975)
+  )
+  contrib_summary_list[[d]] <- summary_df
+}
+
+# 7. PRINT RESULTS
+# ----------------------------------------------------------------------------
+cat("===== Bootstrap Summary: First 3 Eigenvalues =====\n")
+print(eig_summary)
+cat("\n")
+
+for (d in seq_len(k)) {
+  cat("===== Block Contributions on Dim ", d, " =====\n", sep = "")
+  print(contrib_summary_list[[d]])
+  cat("\n")
+}
+
+# 8. INTERPRETATION GUIDELINES
+# ----------------------------------------------------------------------------
+# • If obs_eig_vals[d] lies well inside [CI_lower, CI_upper], then Dim d is stable.
+# • If obs_block_contrib[b, d] has a narrow CI (e.g. Observed ± 1–2 %) then block b’s
+#   contribution to dimension d is robust.
+# • If either CI dips below 1.0 (for an eigenvalue) or a block’s CI is extremely wide,
+#   treat that dimension/block loading with caution.
+
+```
+
+```{r}
+
+# Extract all bootstrap eigenvalues for Dim1:
+boot_dim1 <- eig_boot[, 1]
+
+# Compute one-sided p-value:
+p_dim1_gt1 <- ( sum(boot_dim1 >= obs_eig_vals[1]) + 1 ) / (B + 1)
+
+# Print:
+cat(
+  "Dim1 observed λ =", round(obs_eig_vals[1], 3),
+  "| bootstrap p(λ ≥ obs) =", signif(p_dim1_gt1, 3), "\n"
+)
+
+```
+
+p values ro wether the dolutionni sstable (complemets the abive CIs)
+```{r}
+#----------------------------------------------------------
+# R Script: MFA Bootstrap with Empirical p‐Values for Eigenvalues
+#           and Block Contributions (First 3 Dimensions)
+#----------------------------------------------------------
+
+# 0. Install & load required packages (if not already installed)
+# ---------------------------------------------------------------
+# install.packages("FactoMineR")
+# install.packages("pbapply")
+library(FactoMineR)
+library(pbapply)
+
+# 1. DATA ASSUMPTIONS
+# ---------------------------------------------------------------
+#   - dta_emo_wide_mfa: a data frame with:
+#       Column 1: participant (not used in MFA)
+#       Column 2: social_nonsocial (factor; supplementary)
+#       Columns 3:1682: measurement columns, five blocks concatenated:
+#         subj_aff: cols  3 :  422   (420 columns)
+#         phys_hr:  cols 423 :  482   ( 60 columns)
+#         phys_scr: cols 483 :  542   ( 60 columns)
+#         gaze:     cols 543 :  662   (120 columns)
+#         face:     cols 663 : 1682   (1020 columns)
+#
+#    Adjust `meas_cols`, `block_groups`, and `block_names` if your column ranges differ.
+
+meas_cols    <- 3:1682
+block_groups <- c(420, 60, 60, 120, 1020)
+block_names  <- c("subj_aff", "phys_hr", "phys_scr", "gaze", "face")
+N            <- nrow(dta_emo_wide_mfa)   # total number of rows (cases)
+
+# 2. FUNCTION: Run MFA and return first k eigenvalues + block contributions
+# ---------------------------------------------------------------
+compute_mfa_metrics <- function(meas_data, k = 3) {
+  # meas_data: matrix/data.frame containing exactly the measurement columns
+  # k: number of leading dimensions to extract
+  mfa_res <- MFA(
+    meas_data,
+    group      = block_groups,
+    type       = rep("s", length(block_groups)),
+    name.group = block_names,
+    graph      = FALSE
+  )
+  eig_all <- mfa_res$eig[, "eigenvalue"]
+  if (length(eig_all) < k) {
+    stop("Requested k exceeds available dimensions.")
+  }
+  eig_vals_k     <- eig_all[1:k]                 # first k eigenvalues
+  contrib_all     <- mfa_res$group$contrib        # block × dims matrix
+  contrib_vals_k  <- contrib_all[, 1:k]           # first k columns
+  return(list(
+    eig_vals      = eig_vals_k, 
+    block_contrib = contrib_vals_k
+  ))
+}
+
+# 3. RUN MFA ON FULL DATASET (OBSERVED METRICS)
+# ---------------------------------------------------------------
+obs_metrics       <- compute_mfa_metrics(dta_emo_wide_mfa[, meas_cols], k = 3)
+obs_eig_vals      <- obs_metrics$eig_vals         # length-3 vector
+obs_block_contrib <- obs_metrics$block_contrib    # 5 × 3 matrix
+
+cat("Observed eigenvalues (Dim 1–3):\n")
+print(round(obs_eig_vals, 4))
+cat("\nObserved block contributions (5 blocks × 3 dims):\n")
+print(round(obs_block_contrib, 2))
+cat("\n")
+
+# 4. BOOTSTRAP SETUP
+# ---------------------------------------------------------------
+set.seed(2025)
+
+B        <- 500   # number of bootstrap replicates
+k        <- 3     # how many dimensions to track
+eig_boot <- matrix(NA, nrow = B, ncol = k)
+# dims: bootstrap replicate × dimension
+contrib_boot <- array(NA, dim = c(length(block_groups), k, B),
+                      dimnames = list(block_names, paste0("Dim", 1:k), NULL))
+# dims: block × dimension × replicate
+
+all_meas <- dta_emo_wide_mfa[, meas_cols]  # N × 1680 measurement matrix
+
+# 5. BOOTSTRAP LOOP (RESAMPLE ROWS WITH REPLACEMENT)
+# ---------------------------------------------------------------
+pbapply::pboptions(type = "timer")
+for (b in seq_len(B)) {
+  boot_idx      <- sample(seq_len(N), size = N, replace = TRUE)
+  boot_meas_mat <- all_meas[boot_idx, ]
+  boot_metrics  <- compute_mfa_metrics(boot_meas_mat, k = k)
+  eig_boot[b, ]       <- boot_metrics$eig_vals
+  contrib_boot[, , b] <- boot_metrics$block_contrib
+}
+pbapply::pboptions(reset = TRUE)
+
+# 6. COMPUTE EMPIRICAL p‐VALUES FOR EIGENVALUES
+# ---------------------------------------------------------------
+# Test: H0: eigenvalue_d ≤ 1 (Kaiser threshold)  vs  H1: > 1
+p_eig_gt1 <- numeric(k)
+for (d in 1:k) {
+  # Count how many bootstrap λ_d ≤ 1
+  count_leq1          <- sum(eig_boot[, d] <= 1.0)
+  p_eig_gt1[d]        <- (count_leq1 + 1) / (B + 1) 
+  # one-sided p-value: probability λ_d ≤ 1 by chance
+}
+
+# Optionally, test H0: λ_d = 1 vs H1: λ_d ≠ 1 (two‐sided around 1)
+p_eig_two_sided <- numeric(k)
+for (d in 1:k) {
+  obs_dev   <- abs(obs_eig_vals[d] - 1.0)
+  boot_dev  <- abs(eig_boot[, d] - 1.0)
+  count_big <- sum(boot_dev >= obs_dev)
+  p_eig_two_sided[d] <- (count_big + 1) / (B + 1)
+}
+
+# 7. COMPUTE EMPIRICAL p‐VALUES FOR BLOCK CONTRIBUTIONS
+# ---------------------------------------------------------------
+# Example test: H0: block contribution ≤ 0  vs  H1: > 0
+# (In practice, almost all contributions will exceed 0, but you can test > threshold τ)
+threshold_contrib <- 0.05
+p_block_contrib_gt0 <- matrix(NA, nrow = length(block_names), ncol = k,
+                              dimnames = list(block_names, paste0("Dim", 1:k)))
+for (d in 1:k) {
+  for (b_idx in seq_along(block_names)) {
+    boot_vals_bc <- contrib_boot[b_idx, d, ]  # length B
+    # One-sided p-value: probability that bootstrap ≤ threshold
+    count_leq_thresh <- sum(boot_vals_bc <= threshold_contrib)
+    p_block_contrib_gt0[b_idx, d] <- (count_leq_thresh + 1) / (B + 1)
+  }
+}
+
+# Another test: H0: block contribution =  observed value (two‐sided)
+p_block_two_sided <- matrix(NA, nrow = length(block_names), ncol = k,
+                            dimnames = list(block_names, paste0("Dim", 1:k)))
+for (d in 1:k) {
+  for (b_idx in seq_along(block_names)) {
+    obs_bc    <- obs_block_contrib[b_idx, d]
+    boot_dev_bc <- abs(contrib_boot[b_idx, d, ] - obs_bc)
+    obs_dev_bc  <- 0  # distance from itself
+    count_big_bc <- sum(boot_dev_bc >= obs_dev_bc)
+    p_block_two_sided[b_idx, d] <- (count_big_bc + 1) / (B + 1)
+  }
+}
+
+# 8. DISPLAY RESULTS
+# ---------------------------------------------------------------
+cat("===== Eigenvalue p‐values (one‐sided H0: λ ≤ 1) =====\n")
+for (d in 1:k) {
+  cat("Dim", d, ": observed λ =", round(obs_eig_vals[d], 3),
+      "| p(λ ≤ 1) =", signif(p_eig_gt1[d], 3), 
+      "| p_two_sided(λ ≠ 1) =", signif(p_eig_two_sided[d], 3), "\n")
+}
+cat("\n")
+
+cat("===== Block Contribution p‐values (one‐sided H0: ≤ 0) =====\n")
+
+for (d in 1:k) {
+  cat("Dimension", d, ":\n")
+  print(
+    data.frame(
+      Block       = block_names,
+      Observed    = obs_block_contrib[, d],
+      p_gt0       = round(p_block_contrib_gt0[, d], 3)
+    )
+  )
+  cat("\n")
+}
+
+# If you want to test “observed contribution differs from its own bootstrap”:
+# (This test is trivial because |boot_dev| ≥ 0 always, so p_two_sided = 1)
+cat("===== Block Contribution p‐values (two‐sided around observed) =====\n")
+
+for (d in 1:k) {
+  cat("Dimension", d, ":\n")
+  print(
+    data.frame(
+      Block          = block_names,
+      Observed       = obs_block_contrib[, d],
+      p_two_sided_bc = round(p_block_two_sided[, d], 3)
+    )
+  )
+  cat("\n")
+}
+
+# 9. INTERPRETATION GUIDELINES
+# ---------------------------------------------------------------
+#  - If p_eig_gt1[d] < 0.05: eigenvalue of Dim d is significantly > 1 (robust).
+#  - If p_eig_two_sided[d] < 0.05: eigenvalue of Dim d differs from 1 in either direction.
+#  - If p_block_contrib_gt0[b, d] < 0.05: block b’s contribution to Dim d is significantly > 0.
+#  - Typically, you’d test whether each block’s contribution exceeds a non‐zero threshold
+#    (e.g. > 5 %), by setting threshold_contrib = 0.05 and recalculating p_block_contrib_gt0.
+
+# End of script
+p_eig_gt1[1]
+p_eig_gt1[2]
+p_eig_gt1[3]
+
+p_eig_gt1
+# overakl thsi is significant? [1] 0.001996008 0.001996008 0.001996008
+
+p_eig_two_sided
+
+p_block_contrib_gt0
+
+
+as.data.frame(eig_boot)%>%
+  ggplot(aes(x = V1))+
+  geom_histogram()
+```
+
+
+library(FactoMineR)
+sig test for null ([arallell analyssi)])
+
+```{r}
+
+N      <- nrow(all_meas)
+p      <- ncol(all_meas)    # here p = sum(block_groups)
+M      <- 500               # number of Monte Carlo replicates
+k      <- 3                 # how many leading dimensions to compare
+
+# Storage for null eigenvalues
+null_eig <- matrix(NA, nrow = M, ncol = k)
+
+for (m in seq_len(M)) {
+  # 1) Generate random noise data: N × p matrix, independent columns
+  #    Option A: Gaussian null
+  # null_data <- matrix(rnorm(N * p), nrow = N, ncol = p)
+  
+  #    Option B (nonparametric): sample each column with replacement
+  null_data <- apply(all_meas, 2, sample, size = N, replace = TRUE)
+  
+  # 2) Run MFA on null_data
+  mfa_null <- MFA(
+    null_data,
+    group      = block_groups,
+    type       = rep("s", length(block_groups)),
+    name.group = block_names,
+    graph      = FALSE
+  )
+  
+  # 3) Record the first k eigenvalues
+  null_eig[m, ] <- mfa_null$eig[1:k, "eigenvalue"]
+}
+
+# 4) Compute, for each dimension d=1..k, the 95th percentile of null_eig[,d]
+null_cutoffs <- apply(null_eig, 2, quantile, probs = 0.95)
+
+# 5) Compare to observed
+obs_metrics  <- compute_mfa_metrics(all_meas, k = k)
+obs_eig_vals <- obs_metrics$eig_vals
+
+# Print results
+for (d in 1:k) {
+  cat(sprintf(
+    "Dim %d: observed λ = %.3f, 95%% null cutoff = %.3f → %s\n",
+    d,
+    obs_eig_vals[d],
+    null_cutoffs[d],
+    if (obs_eig_vals[d] > null_cutoffs[d]) "significant" else "n.s."
+  ))
+}
+
+```
+
+
+d <- 1
+hist(null_eig_perm[, d],
+     breaks = 30,
+     col    = "grey80",
+     main   = paste("Null Distribution: Dim", d, "Eigenvalue"),
+     xlab   = paste("Permuted λ (Dim", d, ")"))
+abline(v = obs_eig_vals[d], col = "red", lwd = 2)
+text(
+  x = obs_eig_vals[d], 
+  y = max(table(cut(null_eig_perm[, d], breaks = 30))) * 0.9,
+  labels = paste0("Obs λ = ", round(obs_eig_vals[d], 3)),
+  pos    = 4, 
+  col    = "red"
+)
+p_emp <- mean(null_eig_perm[, d] >= obs_eig_vals[d])
+mtext(side = 3, text = paste0("Empirical p ≈ ", signif(p_emp, 3)))
+
+
+t tst or chance under null
+```{r}
+library(FactoMineR)
+
+M <- 500
+k <- 3
+p <- sum(block_groups)
+null_eig_perm <- matrix(NA, nrow = M, ncol = k)
+
+for (m in seq_len(M)) {
+  perm_data <- all_meas  # copy original
+  start_col <- 1
+  for (b_idx in seq_along(block_groups)) {
+    cols_b <- start_col:(start_col + block_groups[b_idx] - 1)
+    perm_data[, cols_b] <- all_meas[sample(N), cols_b]
+    start_col <- start_col + block_groups[b_idx]
+  }
+  mfa_p <- MFA(
+    perm_data,
+    group      = block_groups,
+    type       = rep("s", length(block_groups)),
+    name.group = block_names,
+    graph      = FALSE
+  )
+  null_eig_perm[m, ] <- mfa_p$eig[1:k, "eigenvalue"]
+}
+
+# 95th‐percentile cutoffs:
+perm_cutoffs <- apply(null_eig_perm, 2, quantile, probs = 0.95)
+
+# Compare to observed as before:
+for (d in 1:k) {
+  cat(sprintf(
+    "Dim %d: observed λ = %.3f, 95%% perm cutoff = %.3f → %s\n",
+    d,
+    obs_eig_vals[d],
+    perm_cutoffs[d],
+    if (obs_eig_vals[d] > perm_cutoffs[d]) "significant" else "n.s."
+  ))
+}
+
+# Empirical p-value for each d:
+p_perm_d <- sapply(1:k, function(d) mean(null_eig_perm[, d] >= obs_eig_vals[d]))
+print(p_perm_d)
+
+
+
+d <- 1
+hist(null_eig_perm[, 3],
+     breaks = 30,
+     col    = "grey80",
+     main   = paste("Null Distribution: Dim", d, "Eigenvalue"),
+     xlab   = paste("Permuted λ (Dim", d, ")"))
+abline(v = obs_eig_vals[2], col = "red", lwd = 2)
+text(
+  x = obs_eig_vals[3], 
+  y = max(table(cut(null_eig_perm[, 3], breaks = 30))) * 0.9,
+  labels = paste0("Obs λ = ", round(obs_eig_vals[3], 3)),
+  pos    = 4, 
+  col    = "red"
+)
+p_emp <- mean(null_eig_perm[, d] >= obs_eig_vals[d])
+mtext(side = 3, text = paste0("Empirical p ≈ ", signif(p_emp, 3)))
+
+p_emp
+```
+
+Permutation Test for Difference in # of Dimensions
+#             Needed to Explain ≥50% Inertia (Variance)
+#             between Social and Non‐Social MFAs
+
+
+
+
+
+Conclusion: The observed difference in the number of dimensions
+ needed to explain ≥50% inertia between social and non‐social is
+ statistically significant (p = 0.000999 ).
+ This suggests that, to reach half of the total variance,
+ one condition genuinely requires more factors (lower coherence)
+ than the other.
+```{r}
+#----------------------------------------------------------
+# R Script: Permutation Test for Difference in # of Dimensions
+#             Needed to Explain ≥50% Inertia (Variance)
+#             between Social and Non‐Social MFAs
+#----------------------------------------------------------
+
+# 0. PREAMBLE: Install & load necessary packages
+#    (Uncomment the install.packages lines if needed.)
+# install.packages("FactoMineR")
+# install.packages("dplyr")
+# install.packages("pbapply")   # for a progress bar (optional but helpful)
+library(FactoMineR)
+library(dplyr)
+library(pbapply)
+
+# 1. ASSUMPTIONS ABOUT YOUR DATA FRAME `dta_emo_wide_mfa`
+#    - Column 1: participant (not used directly in MFA)
+#    - Column 2: social_nonsocial  (factor with exactly two levels: "social" and "nonsocial")
+#    - Columns  3:1682 (inclusive) are measurement columns, ordered as:
+#        * subj_aff block:   cols  3 :   422   (count = 420)
+#        * phys_hr block:    cols 423 :   482   (count =  60)
+#        * phys_scr block:   cols 483 :   542   (count =  60)
+#        * gaze block:       cols 543 :   662   (count = 120)
+#        * face block:       cols 663 :  1682   (count =1020)
+#    Adjust these indices if your column counts differ.
+
+meas_cols <- 3:1682
+
+# 2. FUNCTION TO RUN MFA AND RETURN THE MINIMAL NUMBER OF DIMENSIONS
+#    REQUIRED TO EXPLAIN ≥50% OF TOTAL INERTIA
+run_mfa_count_to_50 <- function(meas_data) {
+  # meas_data: data frame or matrix with exactly measurement columns 3:1682
+  # Returns the smallest integer k such that the first k dimensions'
+  # cumulative "% of variance" ≥ 50.0
+  
+  mfa_res <- MFA(
+    meas_data,
+    group      = c(420, 60, 60, 120, 1020),
+    type       = c("s", "s", "s", "s", "s"),
+    name.group = c("subj_aff", "phys_hr", "phys_scr", "gaze", "face"),
+    graph      = FALSE
+  )
+  
+  # Extract the "% of variance" column from the eigen table
+  pct_var <- mfa_res$eig[, "percentage of variance"]
+  cum_pct  <- cumsum(pct_var)
+  
+  # Find the smallest k where cumulative percentage ≥ 50
+  k_needed <- which(cum_pct >= 50)[1]
+  return(k_needed)
+}
+
+# 3. PREPARE OBSERVED COUNTS FOR SOCIAL VS NON-SOCIAL
+# ----------------------------------------------------------------------------
+# Subset the main data frame into social vs non‐social:
+# dta_emo_wide_mfa_soc    <- dta_emo_wide_mfa %>% filter(social_nonsocial == "social")
+# dta_emo_wide_mfa_nonsoc <- dta_emo_wide_mfa %>% filter(social_nonsocial == "nonsocial")
+
+# Extract only the measurement columns (3:1682) for each subset
+mst_social    <- dta_emo_wide_mfa_soc   [ , meas_cols ]
+mst_nonsocial <- dta_emo_wide_mfa_nonsoc[ , meas_cols ]
+
+# Compute how many dimensions are needed to reach ≥50% for each subset
+dims_social_obs   <- run_mfa_count_to_50(mst_social)
+dims_nonsocial_obs<- run_mfa_count_to_50(mst_nonsocial)
+
+# Observed difference
+D_obs <- dims_social_obs - dims_nonsocial_obs
+
+cat("Observed #dims to reach ≥50% inertia:\n",
+    "  Social:    ", dims_social_obs, "\n",
+    "  Non-social:", dims_nonsocial_obs, "\n",
+    "Observed difference (Social – Non-social) = ", D_obs, "\n\n")
+
+# 4. PERMUTATION TEST
+# ----------------------------------------------------------------------------
+set.seed(2025)
+B <- 1000  # number of permutations
+
+# Vector to store differences under the null
+null_diffs <- integer(B)
+
+# Original “social_nonsocial” labels (length = total rows)
+orig_labels <- dta_emo_wide_mfa$social_nonsocial
+
+# Measurement‐only matrix for convenience (all rows × 1680 cols)
+all_meas_mat <- dta_emo_wide_mfa[ , meas_cols ]
+
+# Permutation loop (with progress bar)
+null_diffs <- pbapply::pblapply(seq_len(B), function(b) {
+  # 1) Permute the social/non‐social labels
+  perm_labels <- sample(orig_labels)
+  
+  # 2) Split the measurement matrix according to permuted labels
+  is_soc_perm   <- perm_labels == "social"
+  is_nons_perm  <- perm_labels == "nonsocial"
+  
+  # When permuted labels happen to create an empty group, skip this replicate
+  if (sum(is_soc_perm) == 0 || sum(is_nons_perm) == 0) {
+    return(NA_integer_)
+  }
+  
+  mat_soc_perm  <- all_meas_mat[is_soc_perm,   ]
+  mat_nons_perm <- all_meas_mat[is_nons_perm, ]
+  
+  # 3) Run MFA on each permuted subset and count dims needed for ≥50%
+  dims_soc_b   <- run_mfa_count_to_50(mat_soc_perm)
+  dims_nons_b  <- run_mfa_count_to_50(mat_nons_perm)
+  
+  # 4) Return the difference (Social – Non‐social) for this permutation
+  return(dims_soc_b - dims_nons_b)
+}, cl = 1)  # cl = 1 means sequential; remove cl argument for defaults
+
+# Convert to integer vector, omitting any NA replicates
+null_diffs <- unlist(null_diffs)
+null_diffs <- null_diffs[!is.na(null_diffs)]
+
+# 5. CALCULATE EMPIRICAL P‐VALUE
+#    Two‐sided test: proportion of |D_b| ≥ |D_obs|
+p_emp <- (sum(abs(null_diffs) >= abs(D_obs)) + 1) / (length(null_diffs) + 1)
+
+cat("Permutation test results:\n",
+    "  Number of (valid) permutations  = ", length(null_diffs), "\n",
+    "  Observed difference             = ", D_obs, "\n",
+    "  Proportion |D_b| ≥ |D_obs|      = ", signif(p_emp, 3), "\n\n")
+
+# Permutation test results:
+#    Number of (valid) permutations  =  1000 
+#    Observed difference             =  4 
+#    Proportion |D_b| ≥ |D_obs|      =  0.000999 
+
+# 6. INTERPRETATION MESSAGE
+if (p_emp < 0.05) {
+  cat("Conclusion: The observed difference in the number of dimensions\n",
+      "needed to explain ≥50% inertia between social and non‐social is\n",
+      "statistically significant (p =", signif(p_emp, 3), ").\n",
+      "This suggests that, to reach half of the total variance,\n",
+      "one condition genuinely requires more factors (lower coherence)\n",
+      "than the other.\n")
+} else {
+  cat("Conclusion: The observed difference in the number of dimensions\n",
+      "needed to explain ≥50% inertia between social and non‐social is NOT\n",
+      "statistically significant (p =", signif(p_emp, 3), ").\n",
+      "There is insufficient evidence to claim that one group truly needs\n",
+      "more dimensions to explain the same amount of variance.\n")
+}
+
+
+as.data.frame(null_diffs)%>%
+  ggplot(aes(null_diffs))+
+  geom_density(fill = "gray30")+
+  # geom_histogram(bins = 300)+
+  geom_vline(xintercept = D_obs)+
+  xlim(-3,5)
+
+
+
+fviz_mfa_var(mod_res$mfa_result_wide)
+
+
+fviz_mfa_var(mod_res$mfa_result_wide,
+             # highlight variables by group (block)
+             habillage = "group",
+             # label only those with cos² > 0.3
+             select.var = list(cos2 = 0.2),
+             # colour‐gradient by cos² (you can drop this if you want pure block colours)
+             # col.var = "cos2",
+             # gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             # repel = TRUE,       # avoid overlaps in texts
+             labelsize = 0) +
+  ggtitle("MFA – Variable Correlation Circle (Dim 1 & Dim 2)")
+```
+
+
+
+Make a plot that shows the results of the dimensions
+```{r}
+
+# 2.1 Get the coordinate matrix (variables × dimensions)
+mod_res$mfa_result_wide$quanti.var$coord
+coords_mat <- mod_res$mfa_result_wide$quanti.var$coord[, 1:2]  # first 5 axes
+
+
+
+ # 2.2 Build a data.frame that also stores “which block” each variable belongs to
+var_names   <- rownames(coords_mat)                      # e.g. “Age”, “BP”, etc.
+block_labels <- rep(block_names, times = block_groups) 
+#   – i.e. “Block1” repeated ncol(df1) times, then “Block2” repeated ncol(df2), etc.
+
+df_plot <- data.frame(
+  Variable = var_names,
+  Block    = block_labels,
+  Dim1     = coords_mat[, 1],
+  Dim2     = coords_mat[, 2],
+  row.names = NULL,
+  stringsAsFactors = FALSE
+)
+
+# ─── 3. Plain ggplot2 scatter of Dim 1 vs Dim 2, coloured by block ──────────────
+
+# Load ggplot2 (if not already)
+library(ggplot2)
+
+mod_res$mfa_result_wide$quanti.var$cos2[, 1:2]
+df_plot$dim_1_cos<- mod_res$mfa_result_wide$quanti.var$cos2[, 1]
+df_plot$dim_2_cos<- mod_res$mfa_result_wide$quanti.var$cos2[, 2]
+
+df_plot$dim_1_cont<- mod_res$mfa_result_wide$quanti.var$contrib[, 1]
+df_plot$dim_2_cont<- mod_res$mfa_result_wide$quanti.var$contrib[, 2]
+
+df_plot$dim_1_2_ratio<- df_plot$dim_1_cos/(df_plot$dim_1_cos+df_plot$dim_2_cos)
+df_plot$dim_1_2_ratio_cont<- df_plot$dim_1_cont/(df_plot$dim_1_cont+df_plot$dim_2_cont)
+
+
+
+df_plot <- df_plot %>% 
+  # (no scaling of Dim1/Dim2 here) 
+  mutate(
+    cos12_total    = dim_1_cos + dim_2_cos,
+    cos12_ratio    = dim_1_cos / (dim_1_cos + dim_2_cos),
+    # optionally cap or filter out very low cos² if you only want well-represented vars:
+    cos12_total2   = if_else(cos12_total < 0.05, NA_real_, cos12_total)
+  )
+
+
+plts<- list()
+
+
+
+plts$mfa_wide<-
+
+
+df_plot%>%
+  # group_by(Block,stim_iaps_emo)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot( aes(x = Dim1, y = Dim2)) +
+
+  # 2) scatter, mapping:
+  #    - point size to total cos² (bigger = better captured by Dims 1 & 2)
+  #    - point colour (hue) to cos² ratio (red = more Dim1, blue = more Dim2
+  
+  
+  # (after computing df_plot$cos12_total = dim_1_cos + dim_2_cos)
+
+geom_point(
+  aes(
+    colour = Block,
+    shape  = Block,
+    size   = cos12_total
+  ),
+  alpha = 0.3
+) +
+scale_size_continuous(
+  range = c(1, 6),
+  name  = "Total cos²\n(Dim1 + Dim2)"
+)+
+  # 3) shared axes
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # coord_fixed(
+  #   xlim = c(-1.1, 1.1),
+  #   ylim = c(-1.1, 1.1)
+  # ) 
+  # 4) scales & legends
+  scale_colour_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")+
+  # scale_colour_viridis_c(option = "inferno")+
+  # scale_colour_gradient2(
+  #   low      = "blue",
+  #   mid      = "grey90",
+  #   high     = "red",
+  #   midpoint = 0.5,
+  #   name     = "cos² ratio\n(Dim1 vs Dim2)"
+  # ) +
+  scale_size_continuous(
+    range = c(1, 6),
+    name  = "Total cos² (Dim1+2)"
+  ) +
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  )+ 
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE)+
+  # )+ 
+  labs(
+    x     = "MFA PC1",
+    y     = "MFA PC2",
+    title = "Shared axes: size = quality of rep."
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )+
+  guides(size = FALSE)
+
+
+
+plts$mfa_wide+
+  p$graphstyle_int
+  
+    
+```
+
+
+
+
+```{r}
+
+mod_res$mfa_result_wide_nonsoc
+
+
+
+df_plot_ind <- data.frame(
+  social_non = var_names,
+  Block    = block_labels,
+  Dim1     = coords_mat[, 1],
+  Dim2     = coords_mat[, 2],
+  row.names = NULL,
+  stringsAsFactors = FALSE
+)
+
+
+dta_emo_wide_mfa
+dta_emo_wide_coord1$social_nonsocial <- dta_emo_wide_mfa$social_nonsocial
+
+
+dta_emo_wide_mfa%>%
+  # mutate(pc1_mfa = scale(pc1_mfa),
+  #        pc2_mfa = scale(pc2_mfa))%>%
+  ggplot(aes(abs(pc1_mfa), abs(pc2_mfa), colour =social_nonsocial ))+
+  geom_point()
+
+
+dta_emo_wide_mfa%>%
+  # mutate(pc1_mfa = scale(pc1_mfa),
+  #        pc2_mfa = scale(pc2_mfa))%>%
+  ggplot(aes(abs(pc1_mfa), abs(pc2_mfa), colour =social_nonsocial ))+
+  geom_point()
+
+
+
+library(ggplot2)
+
+colnames(dta_emo_agg)
+dta_emo_agg_demogs<-dta_emo_agg%>%
+  group_by(participant, social_nonsocial)%>%
+  select(60:76)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()
+
+
+
+```
+
+
+```{r}
+
+dta_emo_agg_demogs
+dta_emo_wide_mfa<- dta_emo_wide_mfa%>%
+  left_join(dta_emo_agg_demogs)
+
+plts$mfa_wide_ind<- ggplot(dta_emo_wide_mfa, aes(x = pc1_mfa, y = pc2_mfa, colour = social_nonsocial,
+                             shape = social_nonsocial)) +
+  # 1) Draw a 95% ellipse around each group’s points
+  stat_ellipse(
+    aes(fill = social_nonsocial),
+    type   = "norm",
+    level  = 0.95,
+    geom   = "polygon",
+    alpha  = 0.1,
+    colour = NA
+  ) +
+  # 2) Plot the points themselves
+  geom_point(
+    alpha = 0.7,
+    size  = 2
+  ) +
+  # 3) Zero lines for reference
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # 4) Facet so that “social” and “non-social” appear in separate panels
+  # facet_wrap(~ social_nonsocial) +
+  # 5) Shared colour/fill scales (choose a palette you like)
+  scale_colour_brewer(palette = "Set1", name = "Group") +
+  scale_fill_brewer(palette = "Set1", guide = "none") +
+  # 6) Labels and theme tweaks
+  labs(
+    x     = "PC1 (MFA)",
+    y     = "PC2 (MFA)",
+    title = "MFA: Individuals on PC1 vs PC2, by Social vs Non-Social"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position   = "top",
+    legend.title = element_blank(),
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(colour = "grey90", size = 0.2),
+    strip.background  = element_rect(fill = "grey95", colour = NA),
+    strip.text        = element_text(face = "bold")
+  )+
+   # ggside::geom_ysidedensity(aes(y =pc2_mfa, fill = social_nonsocial, alpha = .0001),orientation = "y")+
+  
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  scale_color_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")
+
+plts$mfa_wide
+
+plts$mfa_wide_ind+
+  p$graphstyle_int+
+   scale_xsidey_continuous(breaks = NULL) +
+  scale_ysidex_continuous(breaks = NULL) 
+
+
+
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(tas20_total, pc1_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+  ggpubr::stat_cor()
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(tas20_total, pc2_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+  ggpubr::stat_cor()
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(tas20_total, pc3_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+  ylim(-2,4)+
+  ggpubr::stat_cor()
+
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(aq28_total_cont, pc1_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+  ggpubr::stat_cor()
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(aq28_total_cont, pc2_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+    ylim(-3,4)+
+  ggpubr::stat_cor()
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(aq28_total_cont, pc3_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+
+  ggpubr::stat_cor()
+
+
+  # anxiety
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(dass21_dep, pc1_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+  ggpubr::stat_cor()
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(dass21_dep, pc2_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+    # ylim(-3,4)+
+  ggpubr::stat_cor()
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(dass21_dep, pc3_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+
+  ggpubr::stat_cor()
+  
+```
+
+
+
+
+
+Make a plot that shows the results of the dimensions
+```{r}
+
+# 2.1 Get the coordinate matrix (variables × dimensions)
+mod_res$mfa_result_wide_agg$quanti.var$coord
+coords_mat_wide_agg <- mod_res$mfa_result_wide_agg$quanti.var$coord[, 1:2]  # first 5 axes
+
+
+
+ # 2.2 Build a data.frame that also stores “which block” each variable belongs to
+var_names   <- rownames(coords_mat_wide_agg)                      # e.g. “Age”, “BP”, etc.
+block_labels_2 <- rep(block_names, times = c(42,6,6,12,102)) 
+#   – i.e. “Block1” repeated ncol(df1) times, then “Block2” repeated ncol(df2), etc.
+
+df_plot_agg <- data.frame(
+  Variable = var_names,
+  Block    = block_labels_2,
+  Dim1     = coords_mat_wide_agg[, 1],
+  Dim2     = coords_mat_wide_agg[, 2],
+  row.names = NULL,
+  stringsAsFactors = FALSE
+)
+
+# ─── 3. Plain ggplot2 scatter of Dim 1 vs Dim 2, coloured by block ──────────────
+
+# Load ggplot2 (if not already)
+library(ggplot2)
+
+mod_res$mfa_result_wide_agg$quanti.var$cos2[, 1:2]
+
+df_plot_agg$dim_1_cos <- mod_res$mfa_result_wide_agg$quanti.var$cos2[, 1]
+df_plot_agg$dim_2_cos<- mod_res$mfa_result_wide_agg$quanti.var$cos2[, 2]
+
+df_plot_agg$dim_1_cont<- mod_res$mfa_result_wide_agg$quanti.var$contrib[, 1]
+df_plot_agg$dim_2_cont<- mod_res$mfa_result_wide_agg$quanti.var$contrib[, 2]
+
+# df_plot_agg$dim_1_2_ratio<- df_plot_agg$dim_1_cos/(df_plot_agg$dim_1_cos+df_plot_agg$dim_2_cos)
+# 
+# df_plot_agg$dim_1_2_ratio_cont<- df_plot_agg$dim_1_cont/(df_plot_agg$dim_1_cont+df_plot_agg$dim_2_cont)
+
+df_plot_agg
+
+df_plot_agg <- df_plot_agg %>% 
+  # (no scaling of Dim1/Dim2 here) 
+  mutate(
+    cos12_total    = dim_1_cos + dim_2_cos,
+    cos12_ratio    = dim_1_cos / (dim_1_cos + dim_2_cos),
+    # optionally cap or filter out very low cos² if you only want well-represented vars:
+    cos12_total2   = if_else(cos12_total < 0.05, NA_real_, cos12_total)
+  )
+
+# df_plot_agg$df_plot_agg<-NULL
+
+as.data.frame(df_plot_agg)%>%
+
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot( aes(x = Dim1, y = Dim2*-1)) +
+
+  # 2) scatter, mapping:
+  #    - point size to total cos² (bigger = better captured by Dims 1 & 2)
+  #    - point colour (hue) to cos² ratio (red = more Dim1, blue = more Dim2
+  
+  
+  # (after computing df_plot_agg$cos12_total = dim_1_cos + dim_2_cos)
+
+geom_point(
+  aes(
+    colour = Block,
+    shape  = Block,
+    size   = cos12_total
+  ),
+  alpha = 0.4
+) +
+    scale_color_brewer(palette = "Dark2")+
+scale_size_continuous(
+  range = c(1, 6),
+  name  = "Total cos²\n(Dim1 + Dim2)"
+)+
+  # 3) shared axes
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # coord_fixed(
+  #   xlim = c(-1.1, 1.1),
+  #   ylim = c(-1.1, 1.1)
+  # ) 
+  # 4) scales & legends
+
+  # scale_colour_viridis_d(option = "inferno")+
+  # scale_colour_gradient2(
+  #   low      = "blue",
+  #   mid      = "grey90",
+  #   high     = "red",
+  #   midpoint = 0.5,
+  #   name     = "cos² ratio\n(Dim1 vs Dim2)"
+  # ) +
+  scale_size_continuous(
+    range = c(1, 6),
+    name  = "Total cos² (Dim1+2)"
+  ) +
+  # scale_fill_brewer(
+  #   palette = "Dark2",
+  #   name    = "Block"
+  # ) +
+  labs(
+    x     = "Dimension 1",
+    y     = "Dimension 2",
+    title = "MFA variables (shared axes): colour = Dim1 vs Dim2, size = quality of rep."
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "right",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )
+
+
+
+```
+
+
+
+
+```{r}
+
+
+dta_emo_agg_wide_mfa
+ggplot(dta_emo_agg_wide_mfa, aes(x = pc1_mfa, y = pc2_mfa, colour = social_nonsocial,
+                             shape = social_nonsocial)) +
+  # 1) Draw a 95% ellipse around each group’s points
+  stat_ellipse(
+    aes(fill = social_nonsocial),
+    type   = "norm",
+    level  = 0.95,
+    geom   = "polygon",
+    alpha  = 0.1,
+    colour = NA
+  ) +
+  # 2) Plot the points themselves
+  geom_point(
+    alpha = 0.7,
+    size  = 2
+  ) +
+  # 3) Zero lines for reference
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # 4) Facet so that “social” and “non-social” appear in separate panels
+  # facet_wrap(~ social_nonsocial) +
+  # 5) Shared colour/fill scales (choose a palette you like)
+  scale_colour_brewer(palette = "Set1", name = "Group") +
+  scale_fill_brewer(palette = "Set1", guide = "none") +
+  # 6) Labels and theme tweaks
+  labs(
+    x     = "PC1 (MFA)",
+    y     = "PC2 (MFA)",
+    title = "MFA: Individuals on PC1 vs PC2, by Social vs Non-Social"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position   = "none",
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(colour = "grey90", size = 0.2),
+    strip.background  = element_rect(fill = "grey95", colour = NA),
+    strip.text        = element_text(face = "bold")
+  )+
+   # ggside::geom_ysidedensity(aes(y =pc2_mfa, fill = social_nonsocial, alpha = .0001),orientation = "y")+
+  
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  scale_color_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")
+
+```
+
+
+
+
+```{r}
+
+
+dta_emo_agg_wide_mfa<- dta_emo_agg_wide_mfa%>%
+  left_join(dta_emo_agg_demogs)
+
+
+
+
+```
+
+```{r}
+
+make_df_plot <- function(mfa_res, blocks) {
+  # 1.1 Extract Dim1, Dim2 coords for each variable
+  coords_12 <- mfa_res$quanti.var$coord[, 1:2]       # matrix (n_vars × 2)
+  cos2_mat  <- mfa_res$quanti.var$cos2[, 1:2]        # matrix of cos² on Dim1 & Dim2
+  var_names <- rownames(coords_12)
+  
+  # 1.2 Build ‘Block’ labels (must match the MFA’s `group` argument)
+  group_sizes <- sapply(blocks, ncol)
+  block_labels <- rep(names(blocks), times = group_sizes)
+  
+  # 1.3 Assemble a data.frame
+  df <- data.frame(
+    Variable    = var_names,
+    Block       = factor(block_labels, levels = names(blocks)),
+    Dim1        = coords_12[, 1],
+    Dim2        = coords_12[, 2],
+    dim_1_cos   = cos2_mat[, 1],
+    dim_2_cos   = cos2_mat[, 2],
+    stringsAsFactors = FALSE
+  )
+  
+  # 1.4 Compute total & ratio of cos² on Dim1+Dim2
+  df <- df %>%
+    mutate(
+      cos12_total = dim_1_cos + dim_2_cos,
+      cos12_ratio = dim_1_cos / (dim_1_cos + dim_2_cos)
+    )
+  
+  return(df)
+}
+
+# ─── 2. Define your ‘blocks’ list exactly as used in the two MFA calls ─────────
+
+blocks <- list(
+  subj_aff = NULL,   # placeholder, we only need the ncol counts
+  phys_hr  = NULL,
+  phys_scr = NULL,
+  gaze     = NULL,
+  face     = NULL
+)
+# Replace NULL with the actual data.frames or simply set group sizes manually:
+# e.g. blocks <- list(subj_aff = df_subj_aff, phys_hr = df_phys_hr, …)
+# The important part is that names(blocks) and sapply(blocks,ncol) match your MFA’s group= argument.
+
+# If you don’t have the original data.frames here, just set:
+group_sizes <- c(420, 60, 60, 120, 1020)
+names(group_sizes) <- c("subj_aff","phys_hr","phys_scr","gaze","face")
+# then do:
+blocks <- lapply(group_sizes, function(k) matrix(nrow = k, ncol = 1))
+# (we only care about the lengths; the actual contents don’t matter for labeling)
+
+# ─── 3. Build df_plot for non-social and for social ─────────────────────────────
+
+df_plot_nonsoc <- make_df_plot(mod_res$mfa_result_wide_nonsoc, blocks)
+df_plot_soc    <- make_df_plot(mod_res$mfa_result_wide_soc,    blocks)
+
+# ─── 4. Plot: non-social MFA variables ──────────────────────────────────────────
+
+p_nonsoc <- df_plot_nonsoc %>%
+  ggplot(aes(x = Dim1, y = Dim2)) +
+  
+  # 4.1 Scatter: size ∝ total cos², colour ∝ cos² ratio, shape ∝ Block
+  geom_point(
+    aes(
+      colour =cos12_ratio  ,#cos12_ratio
+      shape  = Block,
+      size   = cos12_total
+    ),
+    alpha = 0.4
+  ) +
+  
+  # 4.2 Zero‐lines
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  
+   # scale_colour_viridis_c(option = "inferno")+
+  # scale_colour_gradient2(
+  #   low      = "blue",
+  #   mid      = "grey90",
+  #   high     = "red",
+  #   midpoint = 0.5,
+  #   name     = "cos² ratio\n(Dim1 vs Dim2)"
+  # ) +
+  # scale_size_continuous(
+  #   range = c(1, 6),
+  #   name  = "Total cos² (Dim1+2)"
+  # ) +
+  # scale_fill_brewer(
+  #   palette = "Dark2",
+  #   name    = "Block"
+  # ) +
+  # labs(
+  #   x     = "Dimension 1",
+  #   y     = "Dimension 2",
+  #   title = "MFA variables (shared axes): colour = Dim1 vs Dim2, size = quality of rep."
+  # ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )+
+  xlim(-1,1)+
+    ylim(-1,1)+
+    scale_colour_viridis_c(option = "inferno")
+
+# ─── 5. Plot: social MFA variables ──────────────────────────────────────────────
+
+p_soc <- df_plot_soc %>%
+  ggplot(aes(x = Dim1* (-1), y = Dim2*(-1))) +
+  
+  # 5.1 Scatter: same aesthetics
+  geom_point(
+    aes(
+      colour = cos12_ratio,
+      shape  = Block,
+      size   = cos12_total
+    ),
+    alpha = 0.4
+  ) +
+  
+  # 5.2 Zero‐lines
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # scale_colour_gradient2(
+  #   low      = "blue",
+  #   mid      = "grey90",
+  #   high     = "red",
+  #   midpoint = 0.5,
+  #   name     = "cos² ratio\n(Dim1 vs Dim2)"
+  # ) +
+  # scale_size_continuous(
+  #   range = c(1, 6),
+  #   name  = "Total cos² (Dim1+2)"
+  # ) +
+  # scale_fill_brewer(
+  #   palette = "Dark2",
+  #   name    = "Block"
+  # ) +
+  # labs(
+  #   x     = "Dimension 1",
+  #   y     = "Dimension 2",
+  #   title = "MFA variables (shared axes): colour = Dim1 vs Dim2, size = quality of rep."
+  # ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )+
+  xlim(-1,1)+
+    ylim(-1,1)+
+    scale_colour_viridis_c(option = "inferno")
+
+# ─── 6. Print plots ─────────────────────────────────────────────────────────────
+
+print(p_nonsoc)
+print(p_soc)
+p_nonsoc+guides(size = FALSE, shape = FALSE)
+p_soc+
+guides(size = FALSE,shape = FALSE)
+```
+
+
+
+```{r}
+dta_emo_4mfa$social_nonsocial
+
+dta_emo_4mfa_social<- dta_emo_4mfa%>%
+  subset(social_nonsocial != "nonsocial")
+
+dta_emo_4mfa_nonsocial<- dta_emo_4mfa%>%
+  subset(social_nonsocial == "nonsocial")
+
+
+colnames(dta_emo_4mfa_social)
+
+mod_res$mfa_result_soc <- MFA(dta_emo_4mfa_social[,c(4:31)],
+                              group=c(7,1,1,2,17), 
+                              type=c("s","s","s","s","s"),                              name.group=c("subj_aff","phys_hr","phys_scr","gaze","face"),
+                              # num.group.sup=c(6),
+                              graph=FALSE)
+
+
+```
+
+
+
+```{r}
+
+
+mod_res$mfa_result_soc$eig #about 2 or 3 dimensions
+fviz_screeplot(mod_res$mfa_result_soc)
+
+# Contribution to the first dimension
+fviz_contrib(mod_res$mfa_result_soc, "group", axes = 1)
+fviz_contrib(mod_res$mfa_result_soc, "group", axes = 2)
+fviz_contrib(mod_res$mfa_result_soc, "group", axes = 3)
+fviz_contrib(mod_res$mfa_result_soc, "group", axes = 4)
+fviz_contrib(mod_res$mfa_result_soc, "group", axes = 5)
+# Contribution to the second dimension
+
+
+
+
+```
+
+
+Alexithymia and autism analysis
+
+
+```{r}
+
+
+dta_emo$tas20_total_z<- scale(dta_emo$tas20_total)
+
+dta_emo$aq28_total_cont<- scale(dta_emo$aq28_total_cont)
+
+mod_res$val_tas<- lmer(val_slider_response ~ 1+ social_nonsocial+ tas20_total_z+social_nonsocial+
+                         social_nonsocial:tas20_total_z+ social_nonsocial:emotioncategory + 
+                     (1|participant) + 
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+mod_res$val_aq<- lmer(val_slider_response ~ 1+ social_nonsocial+ aq28_total_cont+social_nonsocial+
+                         social_nonsocial:aq28_total_cont+ social_nonsocial:emotioncategory + 
+                     (1|participant) + 
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$val_tas)
+anova(mod_res$val_aq)
+
+
+
+
+mod_res$int_tas<- lmer(int_slider_response ~ 1+ social_nonsocial+ emotioncategory + tas20_total_z+
+                        social_nonsocial:tas20_total_z+ social_nonsocial: emotioncategory+
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$int_tas)
+
+
+
+mod_res$int_aq<- lmer(int_slider_response ~ 1+ social_nonsocial+ emotioncategory + aq28_total_cont+
+                        social_nonsocial:aq28_total_cont+ social_nonsocial: emotioncategory+
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$int_aq)
+
+
+mod_res$scr_cda_phas_1_tas<- lmer(log_cda_phasic_max ~ 1+ social_nonsocial+ emotioncategory + tas20_total_z+
+                        social_nonsocial:tas20_total_z+ social_nonsocial: emotioncategory+
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+mod_res$scr_cda_phas_1_aq<- lmer(log_cda_phasic_max ~ 1+ social_nonsocial+ emotioncategory + aq28_total_cont+
+                        social_nonsocial:aq28_total_cont+ social_nonsocial: emotioncategory+
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$scr_cda_phas_1_tas)
+anova(mod_res$scr_cda_phas_1_aq)
+
+
+
+mod_res$hr_mean_diff_1_tas<- lmer(hr_mean_diff ~ 1+ social_nonsocial+ emotioncategory + tas20_total_z+
+                        social_nonsocial:tas20_total_z+ social_nonsocial: emotioncategory+
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+mod_res$hr_mean_diff_1_aq<- lmer(hr_mean_diff ~ 1+ social_nonsocial+ emotioncategory + aq28_total_cont+
+                        social_nonsocial:aq28_total_cont+ social_nonsocial: emotioncategory+
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$hr_mean_diff_1_tas)
+anova(mod_res$hr_mean_diff_1_aq)
+
+
+
+
+dta_emo_face_scale_long$tas20_total_z<- scale(dta_emo_face_scale_long$tas20_total)
+dta_emo_face_scale_long$aq28_total_cont_z<- scale(dta_emo_face_scale_long$aq28_total_cont)
+
+
+mod_res$au_pcs_scores_tas<- lmer(pc_scores ~ 1+ social_nonsocial* au_pcs* tas20_total_z* emotioncategory+
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo_face_scale_long)
+
+
+mod_res$au_pcs_scores_aq<- lmer(pc_scores ~ 1+ social_nonsocial* au_pcs* aq28_total_cont_z* emotioncategory+
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo_face_scale_long)
+
+
+anova(mod_res$au_pcs_scores_tas)
+
+anova(mod_res$au_pcs_scores_aq)
+
+
+
+
+
+   dta_emo_face_scale_long%>%
+  group_by(participant,au_pcs,social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(tas20_total_z, pc_scores, colour = social_nonsocial))+
+
+  # geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+     geom_smooth(method = "lm", se = F)+
+   facet_grid(social_nonsocial~au_pcs)+
+     ggpubr::stat_cor()
+  
+   
+   
+    dta_emo_face_scale_long%>%
+  group_by(participant,au_pcs,social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(aq28_total_cont_z, pc_scores, colour = social_nonsocial))+
+
+  # geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+     geom_smooth(method = "lm", se = F)+
+   facet_grid(social_nonsocial~au_pcs)+
+     ggpubr::stat_cor()
+    
+    
+    
+        dta_emo_face_scale_long%>%
+  group_by(participant,au_pcs,social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(aq28_total_cont, tas20_total, colour = social_nonsocial))+
+
+  # geom_jitter(alpha = .2, position = position_dodge(1))+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+ geom_smooth(aes(group = participant), method = 'lm',se = F, size = .5)+
+     geom_smooth(method = "lm", se = F)+
+   facet_grid(~social_nonsocial)+
+     ggpubr::stat_cor()
+
+
+        
+        
+dta_emo_agg_wide_mfa%>%
+  subset(pc1_mfa> -3)%>%
+  ggplot(aes(tas20_total, pc1_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+  # ylim(-3,4)+
+  ggpubr::stat_cor()
+
+
+
+dta_emo_agg_wide_mfa%>%
+  ggplot(aes(tas20_total, pc2_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+  ggpubr::stat_cor()
+
+
+dta_emo_agg_wide_mfa%>%
+    subset(pc3_mfa> -3)%>%
+  # subset( )
+  ggplot(aes(tas20_total, pc3_mfa ))+
+  geom_point()+
+  facet_grid(~social_nonsocial)+
+  geom_smooth(method = "lm")+
+
+  ggpubr::stat_cor()
+
+```
+
+
+
+
+
+
+
