@@ -1,0 +1,23 @@
+---
+title: "dta_social_emophys_scr_4Jenny_rosie.csv"
+author: "Helio"
+date: "2025-08-12"
+output: html_document
+---
+
+
+```{r}
+dta_original
+dta_original_trial_exclusions
+
+colnames(dta_original)
+
+dta_original
+
+dta_social_emophys_scr<- dta_original[,c(1:57)]
+
+
+dta_social_emophys_scr
+write.csv(dta_social_emophys_scr, "dta_social_emophys_scr_4Jenny_rosie.csv")
+
+```
