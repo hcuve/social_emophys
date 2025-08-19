@@ -4045,9 +4045,6 @@ afex::aov_ez(data = dta_emo_wide_mfa,
 ```
 
 
-
-
-
 aggregated by ground truth (iaps)
 ```{r}
 dta_emo_agg<- dta_emo%>%
