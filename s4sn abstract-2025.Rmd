@@ -914,6 +914,11 @@ anova(mod_res$hr_ibi2)
 anova(mod_res$hr_mean_bpm)
 anova(mod_res$hr_ibi)
 
+cor.test(dta_emo$ibi_mean_diff, dta_emo$ibi_mean_s)
+
+
+
+
 
 ```
 
@@ -1001,6 +1006,9 @@ mod_res$entr1 <- lmer(mean_trans_entropy_maxnorm_norm_by_img ~ 1+ social_nonsoci
                      # (1|stim_iaps), #social_nonsocial doesn't converge
                    REML = FALSE,
                    data = dta_emo)
+
+
+anova(mod_res$entr1)
 # mod_res$entr2 <- lmer(mean_stat_entropy_maxnorm_norm_by_img ~ 1+ social_nonsocial * subjective_emotion + 
 #                      (1|participant), #subjective_emotion doesn't converge
 #                      # (1|stim_iaps), #social_nonsocial doesn't converge
@@ -3545,6 +3553,16 @@ coh_df
 
 # → coh_df now has one coherence score per subject×block
 head(coh_df)
+
+mod_res$mfa_result_wide$global.pca$var$cor
+
+
+mod_res$mfa_result_wide$quanti.var$cos2
+
+
+mean(mod_res$mfa_result_wide$quanti.var$cos2[,1])
+
+mean(mod_res$mfa_result_wide$quanti.var$cos2[,2])
 ```
 
 
@@ -3652,8 +3670,10 @@ afex::aov_ez(data = dta_emo_wide_mfa,
 # if coherence is 2 this suggets that difefneces are driven by changes in the signal (1) not cohertence per se?
 ```
 
+
 mixomics
 multiomics
+# this allows me to explore if using a multilevel approach leads to differences in the PCA space
 
 
 ```{r}
@@ -3667,10 +3687,10 @@ library(mixOmics)
 colnames(dta_emo_4mfa)
 dta_emo_4mfa
 
-dta_emo_4mfa
- scale.unit = TRUE,
-                  graph = TRUE,
-                  quali.sup =c(1,2,3))
+# dta_emo_4mfa
+#  scale.unit = TRUE,
+#                   graph = TRUE,
+#                   quali.sup =c(1,2,3))
 
 
   
@@ -3717,7 +3737,20 @@ mixOmics::plotLoadings(mod_res$reg_pca_test)
 mixOmics::plotLoadings(mod_res$pca_multil_omix)
 
 
+mod_res$pca_multil_omix
+mod_res$pca_multil_omix$rotation
+
+
+unique(mod_res$pca_multil_omix$design)
+
+mod_res$pca_multil_omix$x
+
+mod_res$pca_multil_omix$loadings$X
+
+mod_res$pca_multil_omix$prop_expl_var
+
 ```
+
 
 mod_res$pca_multil_omix$loadings
 mod_res$pca_multil_omix$variates$X
@@ -3747,6 +3780,7 @@ dta_emo_4mfa%>%
     values_to = "mfa_pc_scores"      # name of the new “value” column 
     )%>%
   group_by(participant, social_nonsocial, mfa_pcs)%>%
+  # mutate(mfa_pc_scores = mfa_pc_scores^2)%>%
   summarise_if(is.numeric, mean, na.rm = T)%>%
   ggplot(aes(social_nonsocial, mfa_pc_scores, 
              colour = social_nonsocial))+
@@ -3780,6 +3814,7 @@ dta_emo_4mfa%>%
       ggpubr::stat_compare_means(method = "t.test")
 
 
+require(tidyverse)
 
 dta_emo_4mfa%>%
   # subset(participant!= 116)%>%
@@ -3801,20 +3836,158 @@ dta_emo_4mfa%>%
       ggpubr::stat_compare_means(method = "t.test")
 
 
+
+
+options(scipen = 999)
+
+# this tells us the structures are very simular
+dta_emo_4mfa%>%
+  # subset(participant!= 116)%>%
+  # subset(participant!= 209)%>%  
+  #  subset(participant!= 228)%>%  
+  pivot_longer(cols      = c(pc1_trad_fact,pc2_trad_fact, pc3_trad_fact),
+    names_to  = "mfa_pcs",      # name of the new “variable” column
+    values_to = "mfa_pc_scores"      # name of the new “value” column 
+    )%>%
+  group_by(participant, social_nonsocial, emotioncategory, mfa_pcs)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(emotioncategory, mfa_pc_scores, 
+             colour = emotioncategory, shape = social_nonsocial))+
+  # geom_point(alpha =.3)+
+  stat_summary(geom = "pointrange")+
+  # geom_text(aes(label = participant))+
+
+  facet_grid(~mfa_pcs)
+      # ggpubr::stat_compare_means()
+
+
+
+dta_emo_4mfa%>%
+  pivot_longer(cols      = c(pc1_multl,pc2_multl, pc3_multl),
+    names_to  = "mfa_pcs",      # name of the new “variable” column
+    values_to = "mfa_pc_scores"      # name of the new “value” column 
+    )%>%
+  group_by(participant,social_nonsocial, emotioncategory, mfa_pcs)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(emotioncategory, mfa_pc_scores, 
+             colour = emotioncategory,shape = social_nonsocial))+
+  # geom_point(alpha =.3)+
+  stat_summary(geom = "pointrange")+
+  # geom_text(aes(label = participant))+
+
+  facet_grid(~mfa_pcs)
+      # ggpubr::stat_compare_means()
+
+
 # samples representation
 ```
-Response: pc1_mfa
-            Effect    df  MSE      F  ges p.value
-1 social_nonsocial 1, 88 1.54 6.21 * .066    .015
 
-pc2 and pc were no significant
-separate MFAs
+Lets do the multilevel PCA example on just one variable group which we know should differ by some factor (e.g. emotion) and avoid the multi group structure which may lead to lack of differences in the traditional PCA or even multilevel PCA that doesn't differentiate variable groups
 
 
-CONTINUE HERE
-here try to create groups oper stimulus instead?
 
 ```{r}
+colnames(dta_emo_4mfa)
+
+?FactoMineR::PCA
+mod_res$reg_pca_test_face <-  pca(dta_emo_4mfa[,c(15:31)], 
+                            scale = TRUE, 
+                            center = TRUE,  ncomp = 3)
+
+pca_multil_design_face <- data.frame(sample = dta_emo_4mfa$participant) # set the multilevel design
+
+# undergo multilevel PCA after scaling/centerinpca
+# ?pca
+?mixOmics::pca()
+require(mixOmics)
+
+mod_res$pca_multil_omix_face <- pca(dta_emo_4mfa[,c(15:31)], 
+                            scale = TRUE, 
+                            center = TRUE, 
+                            multilevel = pca_multil_design_face, ncomp = 3)
+
+# plot the samples on normal PCs
+plotIndiv(mod_res$reg_pca_test_face, group = dta_emo_4mfa$social_nonsocial, 
+          ind.names = dta_emo_4mfa$participant,
+          legend = TRUE, legend.title = 'Stimulation',
+          title = '(a) PCA on VAC18 data')
+
+# require(tidyverse)
+# plot the samples on multilevel PCs
+plotIndiv(mod_res$pca_multil_omix_face , group = dta_emo_4mfa$social_nonsocial, 
+          ind.names = dta_emo_4mfa$participant,
+          legend = TRUE, legend.title = 'Stimulation',
+          title = '(b) Multilevel PCA on VAC18 data')
+
+
+
+plotVar(mod_res$reg_pca_test_face , var.names = TRUE, cutoff = 0.4, pch = 16)
+
+ plotVar(mod_res$pca_multil_omix_face , var.names = TRUE, cutoff = 0.4, pch = 16)
+
+mixOmics::plotLoadings(mod_res$reg_pca_test_face)
+mixOmics::plotLoadings(mod_res$pca_multil_omix_face)
+
+
+# PLOT MULTILEVEL PCA ON AUS VS TRADITIONAL
+
+
+dta_emo_4mfa$pc1_multl_face<-mod_res$pca_multil_omix_face$variates$X[,1]
+dta_emo_4mfa$pc2_multl_face<-mod_res$pca_multil_omix_face$variates$X[,2]
+dta_emo_4mfa$pc3_multl_face<-mod_res$pca_multil_omix_face$variates$X[,3]
+
+dta_emo_4mfa$pc1_trad_face<-mod_res$reg_pca_test_face$variates$X[,1]
+dta_emo_4mfa$pc2_trad_face<-mod_res$reg_pca_test_face$variates$X[,2]
+dta_emo_4mfa$pc3_trad_face<-mod_res$reg_pca_test_face$variates$X[,3]
+
+
+# compare
+
+plts$tmp_face_pca_trad<-
+dta_emo_4mfa%>%
+  pivot_longer(cols      = c(pc1_trad_face,pc2_trad_face, pc3_trad_face),
+    names_to  = "pca_face",      # name of the new “variable” column
+    values_to = "pc_face_scores"      # name of the new “value” column 
+    )%>%
+  group_by(participant, social_nonsocial, emotioncategory, pca_face)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(emotioncategory, pc_face_scores, 
+             colour = emotioncategory, shape = social_nonsocial))+
+  # geom_point(alpha =.3)+
+  stat_summary(geom = "pointrange", position = position_dodge(1))+
+  # geom_text(aes(label = participant))+
+
+  facet_grid(~pca_face)
+      # ggpubr::stat_compare_means()
+
+
+
+plts$tmp_face_pca_mltl<- dta_emo_4mfa%>%
+  pivot_longer(cols      = c(pc1_multl_face,pc2_multl_face, pc3_multl_face),
+    names_to  = "multil_pcs",      # name of the new “variable” column
+    values_to = "mltl_pc_scores"      # name of the new “value” column 
+    )%>%
+  group_by(participant,social_nonsocial, emotioncategory, multil_pcs)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(emotioncategory, mltl_pc_scores, 
+             colour = emotioncategory,shape = social_nonsocial))+
+  stat_summary(geom = "pointrange", position = position_dodge(1))+
+  # geom_text(aes(label = participant))+
+
+  facet_grid(~multil_pcs)
+
+
+require(patchwork)
+(plts$tmp_face_pca_trad+plts$tmp_face_pca_mltl)+
+  plot_layout(guides = "collect")
+```
+
+
+
+here try to create groups per stimulus instead?
+ - note this looks at how the stimuli profiles covary, which is not the main question here
+
+```{r eval=FALSE, include=FALSE}
 # how many stimuli?
 n_stim  <- 60 
 # how many continuous vars per stimulus?
@@ -3838,12 +4011,37 @@ mod_res$by_stimulus <- MFA(
   name.group    = name_grp,
   # if you want social_non_soc SUPPLEMENTARY, use num.group.sup = n_stim + 1
   num.group.sup = NULL,   
-  graph         = TRUE
-)
+  graph         = TRUE)
 
 
 
-head(dta_emo_4mfa)
+dta_emo_wide_mfa
+
+dta_emo_wide_mfa$pc1_mfa_stm<-mod_res$by_stimulus$ind$coord[,1]
+dta_emo_wide_mfa$pc2_mfa_stm<-mod_res$by_stimulus$ind$coord[,2]
+dta_emo_wide_mfa$pc3_mfa_stm<-mod_res$by_stimulus$ind$coord[,3]
+
+
+
+afex::aov_ez(data = dta_emo_wide_mfa,
+             id = "participant",
+             dv = "pc1_mfa_stm",
+             between = "social_nonsocial")
+
+
+
+afex::aov_ez(data = dta_emo_wide_mfa,
+             id = "participant",
+             dv = "pc3_mfa_stm",
+             between = "social_nonsocial")
+
+
+afex::aov_ez(data = dta_emo_wide_mfa,
+             id = "participant",
+             dv = "pc3_mfa_stm",
+             between = "social_nonsocial")
+
+
 ```
 
 
@@ -3999,6 +4197,19 @@ fviz_screeplot(mod_res$mfa_result_wide_soc)
 mod_res$mfa_result_wide_soc$eig 
 mod_res$mfa_result_nonsoc$eig
 
+
+
+mean(mod_res$mfa_result_wide_soc$quanti.var$cos2[,1])
+mean(mod_res$mfa_result_wide_soc$quanti.var$cos2[,2])
+mean(mod_res$mfa_result_wide_nonsoc$quanti.var$cos2[,1])
+mean(mod_res$mfa_result_wide_nonsoc$quanti.var$cos2[,2])
+
+
+mean(mod_res$mfa_result_wide_soc$quanti.var$cor[,1]^2)
+mean(mod_res$mfa_result_wide_soc$quanti.var$cor[,2]^2)
+mean(mod_res$mfa_result_wide_nonsoc$quanti.var$cor[,1]^2)
+mean(mod_res$mfa_result_wide_nonsoc$quanti.var$cor[,2]^2)
+
 ```
 
 social
@@ -4097,6 +4308,21 @@ ggplot( aes(x = Variable2, y = Variable1, fill = Correlation)) +
     x = NULL,
     y = NULL,
     title = "Heatmap of RV Coefficients")
+
+
+
+
+
+mean(mod_res$mfa_result_agg_wide_nonsoc$quanti.var$cos2[,1])
+mean(mod_res$mfa_result_agg_wide_nonsoc$quanti.var$cos2[,2])
+mean(mod_res$mfa_result_agg_wide_soc$quanti.var$cos2[,1])
+mean(mod_res$mfa_result_agg_wide_soc$quanti.var$cos2[,2])
+
+
+mean(mod_res$mfa_result_agg_wide_nonsoc$quanti.var$cor[,1]^2)
+mean(mod_res$mfa_result_agg_wide_nonsoc$quanti.var$cor[,2]^2)
+mean(mod_res$mfa_result_agg_wide_soc$quanti.var$cor[,1]^2)
+mean(mod_res$mfa_result_agg_wide_soc$quanti.var$cor[,2]^2)
 ```
 
 
