@@ -44,8 +44,8 @@ p$graphstyle_int <-  theme(#base plot theme
   axis.title.x=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
   
   # text
-  strip.text.x = element_text(size = 16*(sf+.5),  colour = "black"),
-  strip.text.y = element_text(size = 16*(sf+.5),  colour = "black"),
+  strip.text.x = element_text(size = 12*(sf+0),  colour = "black"),
+  strip.text.y = element_text(size = 12*(sf+0),  colour = "black"),
   
   text=element_text(size = 14),
   axis.text.x = element_text(size = 15*(sf+.5), colour = "black",),
@@ -185,7 +185,7 @@ mod_res<- list()
 
 
 # use emotion category
-
+mod_res$int_subj
 mod_res$int<- lmer(int_slider_response ~ 1+ social_nonsocial * emotioncategory + 
                      (1|participant) + #subjective_emotion doesn't coverge
                      (1|stim_iaps), 
@@ -195,12 +195,15 @@ mod_res$int<- lmer(int_slider_response ~ 1+ social_nonsocial * emotioncategory +
 anova(mod_res$int)
 # summary(mod_res$int)
 
+
+```
+
 emmeans::emmeans(mod_res$int, pairwise ~ social_nonsocial|emotioncategory, 
                  adjust = "tukey")
 
 report::report(mod_res$int)
 report::report(anova(mod_res$int))
-
+```{r}
 # significant for happy
 
 # visualise
@@ -468,8 +471,10 @@ anova(mod_res$slid_fear2)
 anova(mod_res$slid_disg2)
 anova(mod_res$slid_sad2)
 
-summary(mod_res$slid_sad2)
+# summary(mod_res$slid_sad2)
 
+
+# pool the betas
 
 ```
 
@@ -1546,7 +1551,8 @@ for(term in term_interact) {
 ```
 
 
-
+→ social_nonsocialsocial 
+   pooled β = 0.781, SE = 0.528, Z = 1.478, p = 0.1393
 
 ```{r}
 
@@ -3890,6 +3896,7 @@ Lets do the multilevel PCA example on just one variable group which we know shou
 colnames(dta_emo_4mfa)
 
 ?FactoMineR::PCA
+
 mod_res$reg_pca_test_face <-  pca(dta_emo_4mfa[,c(15:31)], 
                             scale = TRUE, 
                             center = TRUE,  ncomp = 3)
@@ -3900,6 +3907,9 @@ pca_multil_design_face <- data.frame(sample = dta_emo_4mfa$participant) # set th
 # ?pca
 ?mixOmics::pca()
 require(mixOmics)
+
+require(factoextra)
+require(FactoMineR)
 
 mod_res$pca_multil_omix_face <- pca(dta_emo_4mfa[,c(15:31)], 
                             scale = TRUE, 

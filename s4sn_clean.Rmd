@@ -1,0 +1,611 @@
+---
+title: "s4sn cleaner models"
+author: "Helio"
+date: "2025-09-11"
+output: html_document
+---
+
+Valence and Intensity
+
+
+```{r}
+mod_res$val_subj<- lmer(val_slider_response ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+anova(mod_res$val_subj)
+
+
+```
+
+
+```{r}
+
+mod_res$int_subj<- lmer(int_slider_response ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+ # data = dta_emo%>%subset(participant!=235)%>%
+ # subset(participant!=245)) #it remains sigmificant with those
+
+anova(mod_res$int_subj)
+
+emmeans::emmeans(mod_res$int_subj, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+library(dplyr)
+library(ggplot2)
+
+# 1. Compute means by emotion × condition
+unique(dta_emo$condition)
+emo_diffs <- dta_emo %>%
+  group_by(subj_emo_lab_no_amb, condition) %>%
+  summarise(int_mean = mean(int_slider_response, na.rm = TRUE), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = condition, values_from = int_mean) %>%
+  mutate(diff = `social` - `control`)   # adjust if your condition labels differ
+
+# 2. Reorder factor levels by size of difference
+order_levels <- emo_diffs %>%
+  arrange(desc(diff)) %>%
+  pull(subj_emo_lab_no_amb)
+
+
+plts$s4sn_int<-
+dta_emo %>%
+  # subset(participant!= 235)%>%
+  # subset(participant!= 245)%>%
+  mutate(subj_emo_lab_no_amb = factor(subj_emo_lab_no_amb, levels = order_levels))%>%
+  group_by(participant, condition, subj_emo_lab_no_amb) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ggplot(aes(condition, int_slider_response, colour = condition, fill = condition)) +
+  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("intensity (au)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plts$s4sn_int
+
+ggsave("s4sn_int.png", plts$s4sn_int,  dpi = 300, width = 10, height = 6,  units = "in",
+       device = "png")
+
+ 
+ ggsave("s4sn_int.png", plts$s4sn_int, device = "png", width = 10, height = 6, dpi = 300)
+
+```
+
+
+testign individual emotion ratings
+```{r}
+
+
+mod_res$slid_hap<- lmer(happy_slide_response ~ 1+ social_nonsocial + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+anova(mod_res$slid_hap)
+
+mod_res$slid_sad<- lmer(sad_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+
+mod_res$slid_fear<- lmer(fear_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+mod_res$slid_disg<- lmer(disgust_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+mod_res$slid_ang<- lmer(anger_slide_response ~ 1+ social_nonsocial  + 
+                     (1|participant) + #subjective_emotion doesn't coverge
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+
+# 0) ANOVAs (unchanged)
+anova(mod_res$slid_hap)
+anova(mod_res$slid_ang)
+anova(mod_res$slid_fear)
+anova(mod_res$slid_disg)
+anova(mod_res$slid_sad)
+
+# 1) Collect models
+mod_list_emo_slid <- list(
+  slid_ang  = mod_res$slid_ang,
+  slid_hap  = mod_res$slid_hap,
+  slid_fear = mod_res$slid_fear,
+  slid_disg = mod_res$slid_disg,
+  slid_sad  = mod_res$slid_sad
+)
+
+# Optional tidy-up of workspace, safely
+rm(list = intersect(c("betas","beta_pool"), ls()))
+
+# 2) Extract betas/SEs for a term, with missing-term safety
+get_beta_se <- function(term, models = mod_list_emo_slid) {
+  pull_one <- function(m) {
+    coefs <- summary(m)$coefficients
+    if (!term %in% rownames(coefs)) return(c(beta = NA_real_, se = NA_real_))
+    c(beta = coefs[term, "Estimate"], se = coefs[term, "Std. Error"])
+  }
+  mat <- sapply(models, pull_one)
+  list(
+    betas = as.numeric(mat["beta", ]),
+    ses   = as.numeric(mat["se",   ])
+  )
+}
+
+# Example correct call (for a quick check):
+# get_beta_se("social_nonsocialsocial")
+
+# 3) Pooling + Z-test with NA/zero checks
+pool_effect <- function(betas, ses) {
+  keep <- is.finite(betas) & is.finite(ses)
+  if (!any(keep)) return(c(beta = NA_real_, se = NA_real_, Z = NA_real_, p = NA_real_))
+
+  beta_pool <- sqrt(sum(betas[keep]^2, na.rm = TRUE))
+  se_pool   <- sqrt(sum(ses[keep]^2,   na.rm = TRUE))
+
+  if (!is.finite(se_pool) || se_pool == 0) {
+    return(c(beta = beta_pool, se = se_pool, Z = NA_real_, p = NA_real_))
+  }
+
+  Z_stat  <- beta_pool / se_pool
+  p_value <- 2 * pnorm(-abs(Z_stat))
+  c(beta = beta_pool, se = se_pool, Z = Z_stat, p = p_value)
+}
+
+# 4) Run omnibus for your term
+term_social <- "social_nonsocialsocial"
+
+omnibus <- t(sapply(term_social, function(term) {
+  dat <- get_beta_se(term)
+  pool_effect(dat$betas, dat$ses)
+}))
+
+omnibus
+
+
+```
+
+autonomic
+
+
+```{r}
+# outliers
+# 142
+# 129
+# 235
+
+mod_res$hr_mean_diff_2 <- lmer(hr_mean_diff ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+#  data = dta_emo%>%subset(participant!=235)%>%
+# subset(participant!=142)) #results remain the same withouth these
+
+anova(mod_res$hr_mean_diff_2)
+
+dta_emo%>%
+  group_by(participant,subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  # subset(hr_mean_diff <20)%>%
+  ggplot(aes(subj_emo_lab_no_amb, hr_mean_diff, colour = subj_emo_lab_no_amb))+
+  # geom_smooth(aes(x = as.numeric(as.factor(subj_emo_lab_no_amb))))+
+  # geom_jitter(alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  # ylim(0,10)+
+  # facet_grid(~subj_emo_lab_no_amb)+
+  ggpubr::stat_compare_means()
+
+
+
+
+emo_diffs_hr <- dta_emo %>%
+  group_by(subj_emo_lab_no_amb, condition) %>%
+  summarise(hr_mean_diff_mean = mean(hr_mean_diff, na.rm = TRUE), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = condition, values_from = hr_mean_diff_mean) %>%
+  mutate(diff_hr = `social` - `control`)   # adjust if your condition labels differ
+
+# 2. Reorder factor levels by size of difference
+order_levels_hr <- emo_diffs_hr %>%
+  arrange(desc(diff_hr)) %>%
+  pull(subj_emo_lab_no_amb)
+
+plts$s4sn_hr_diff<-
+
+
+dta_emo %>%
+  subset(participant!= 235)%>%
+  subset(participant!= 142)%>%
+  # subset(participant!= 142)%>%
+  mutate(subj_emo_lab_no_amb = factor(subj_emo_lab_no_amb, levels = order_levels_hr))%>%
+  group_by(participant, condition, subj_emo_lab_no_amb) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ggplot(aes(condition, hr_mean_diff, colour = condition, fill = condition)) +
+  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("heart rate (diff)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plts$s4sn_hr_diff
+
+dta_emo %>%
+  subset(participant!= 235)%>%
+  subset(participant!= 142)%>%
+  # subset(participant!= 142)%>%
+  # mutate(subj_emo_lab_no_amb = factor(subj_emo_lab_no_amb, levels = order_levels))%>%
+  group_by(participant, condition) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ggplot(aes(condition, hr_mean_diff, colour = condition, fill = condition)) +
+  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  # facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("intensity") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plts$s4sn_int
+
+ggsave("s4sn_int.png", plts$s4sn_int,  dpi = 300, width = 10, height = 6,  units = "in",
+       device = "png")
+
+ 
+ ggsave("s4sn_int.png", plts$s4sn_int, device = "png", width = 10, height = 6, dpi = 300)
+
+```
+
+scr
+```{r}
+range(dta_emo$log_cda_n_scr)
+mod_res$scr_cda_phas_2 <- lmer(log_cda_phasic_max ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + # doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
+
+
+
+dta_emo%>%
+  subset(participant!= 104)%>%
+  subset(participant!= 105)%>%
+  subset(participant!= 147)%>%
+  subset(participant!= 206)%>%
+  subset(participant!= 248)%>%
+  group_by(participant,social_nonsocial, subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, log_cda_phasic_max, colour = social_nonsocial))+
+  geom_jitter(alpha = .2)+
+  # geom_boxplot()+
+  # geom_text(aes(label = participant))+
+  stat_summary(geom = "pointrange", fun.data = mean_se)+
+  # ylim(0,10)+
+  facet_grid(~subj_emo_lab_no_amb)
+  ggpubr::stat_compare_means()
+  
+  anova(mod_res$scr_cda_phas_2)
+
+  emmeans::emmeans(mod_res$scr_cda_phas_2, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+  
+  emmeans::emmeans(mod_res$scr_cda_phas_2, pairwise ~ social_nonsocial, 
+                 adjust = "tukey")
+  
+  
+
+
+  
+  
+  
+
+emo_diffs_scr <- dta_emo %>%
+  group_by(subj_emo_lab_no_amb, condition) %>%
+  summarise(log_cda_phasic_max_mean = mean(log_cda_phasic_max, na.rm = TRUE), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = condition, values_from = log_cda_phasic_max_mean) %>%
+  mutate(diff_scr = `social` - `control`)   # adjust if your condition labels differ
+
+# 2. Reorder factor levels by size of difference
+order_levels_scr <- emo_diffs_scr %>%
+  arrange(desc(diff_scr)) %>%
+  pull(subj_emo_lab_no_amb)
+
+plts$s4sn_scr<-
+dta_emo %>%
+  subset(participant!= 104)%>%
+  subset(participant!= 105)%>%
+  subset(participant!= 206)%>%
+  subset(participant!= 248)%>%
+  mutate(subj_emo_lab_no_amb = factor(subj_emo_lab_no_amb, levels = order_levels_scr))%>%
+  group_by(participant, condition, subj_emo_lab_no_amb) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ggplot(aes(condition, log_cda_phasic_max, colour = condition, fill = condition)) +
+  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .4) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("scr (log)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+plts$s4sn_scr
+
+```
+
+
+face
+```{r}
+
+dta_emo_face_scale
+
+colnames(dta_emo_4mfa[,c(15:31)])
+mod_res$pca_multil_omix_face <- pca(dta_emo_4mfa[,c(15:31)], 
+                            scale = TRUE, 
+                            center = TRUE, 
+                            multilevel = pca_multil_design_face, ncomp = 3)
+
+
+# interpret the components
+
+ plotVar(mod_res$pca_multil_omix_face , var.names = TRUE, cutoff = 0.4, pch = 16)
+ 
+mod_res$pca_multil_omix_face$loadings
+dta_emo_4mfa$pc1_multl_face<-mod_res$pca_multil_omix_face$variates$X[,1] #whole face
+dta_emo_4mfa$pc2_multl_face<-mod_res$pca_multil_omix_face$variates$X[,2]#mouth
+dta_emo_4mfa$pc3_multl_face<-mod_res$pca_multil_omix_face$variates$X[,3]#eyes
+
+option(scipen = 999)
+
+median(abs(mod_res$pca_multil_omix_face$loadings$X))
+
+ # 0.2048408
+
+abs(mod_res$pca_multil_omix_face$loadings$X)
+
+
+
+
+test1<- afex::aov_ez(data = dta_emo_4mfa,
+             id = "participant",
+             dv = "pc1_multl_face",
+             between = "social_nonsocial",
+             within = c("emotioncategory"))
+
+
+
+test2<- afex::aov_ez(data = dta_emo_4mfa,
+             id = "participant",
+             dv = "pc3_multl_face",
+             between = "social_nonsocial",
+             within = c("emotioncategory"))
+emmeans::emmeans(test, pairwise~ social_nonsocial|emotioncategory)
+emmeans::emmeans(test, pairwise~ emotioncategory) 
+
+```
+
+
+```{r}
+mod_res$pc1_multl_face <- lmer(pc1_multl_face ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     # (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+mod_res$pc2_multl_face <- lmer(pc2_multl_face ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     # (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+
+mod_res$pc3_multl_face <- lmer(pc3_multl_face ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     # (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+
+
+
+# anova(mod_res$pc1_trad_face)
+anova(mod_res$pc2_multl_face)
+anova(mod_res$pc3_multl_face)
+anova(mod_res$pc1_multl_face)
+# expressivity
+emmeans::emmeans(mod_res$pc1_multl_face, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+emmeans::emmeans(mod_res$pc1_multl_face, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "none")
+
+
+# car::Anova(mod_res$pc1_multl_face, type = 3)
+# car::Anova(mod_res$pc2_multl_face, type = 3)
+# car::Anova(mod_res$pc3_multl_face, type = 3)
+
+```
+
+
+mod_res$pc1_trad_face <- lmer(pc1_trad_face ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+mod_res$pc2_trad_face <- lmer(pc2_trad_face ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+
+mod_res$pc3_trad_face <- lmer(pc3_trad_face ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo_4mfa)
+
+??car::Anova
+
+anova(mod_res$pc1_trad_face)
+anova(mod_res$pc2_trad_face)
+anova(mod_res$pc3_trad_face)
+
+# car::Anova(mod_res$pc1_trad_face, type = 3)
+# car::Anova(mod_res$pc2_trad_face, type = 3)
+# car::Anova(mod_res$pc3_trad_face, type = 3)
+
+
+```{r}
+
+
+plts$s4sn_face <-
+
+
+dta_emo_4mfa %>%
+  # pivot_longer(
+  #   cols      = c(pc1_multl_face, pc2_multl_face, pc3_multl_face),
+  #   names_to  = "au_pcs",
+  #   values_to = "au_pc_scores"
+  # ) %>%
+  # mutate(subj_emo_lab_no_amb = factor(subj_emo_lab_no_amb, levels = order_levels_scr))%>%
+  mutate(condition = if_else(social_nonsocial == "social","social", "control"))%>%
+  group_by(participant, condition, subj_emo_lab_no_amb) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ggplot(aes(condition, pc1_multl_face, colour = condition, fill = condition)) +
+  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("face acticity - PC1 (z)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# plts$s4sn_face <-
+
+
+
+dta_emo_4mfa %>%
+  # pivot_longer(
+  #   cols      = c(pc1_multl_face, pc2_multl_face, pc3_multl_face),
+  #   names_to  = "au_pcs",
+  #   values_to = "au_pc_scores"
+  # ) %>%
+  # mutate(subj_emo_lab_no_amb = factor(subj_emo_lab_no_amb, levels = order_levels_scr))%>%
+  mutate(condition = if_else(social_nonsocial == "social","social", "control"))%>%
+  group_by(participant, condition, subj_emo_lab_no_amb) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ggplot(aes(condition, pc3_multl_face, colour = condition, fill = condition)) +
+  # geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  # geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("face acticity - PC3 (z)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+plts$s4sn_face
+plts$int_hr_scr <- (plts$s4sn_int+ plts$s4sn_hr_diff+plts$s4sn_scr)
+
+
+
+ ggsave("int_hr_scr.png", plts$int_hr_scr, device = "png", width = 14, height = 7, dpi = 300)
+ ggsave("int_hr_scr.pdf", plts$int_hr_scr, device = "pdf", width = 18, height = 7, dpi = 400)
+
+ 
+ 
+  ggsave("face.pdf", plts$s4sn_face, device = "pdf", width = 10, height = 5, dpi = 400)
+
+ggsave()
+
+
+
+```
+
+
+
+coherence
+
+```{r}
+
+  ggsave("face.pdf", plts$s4sn_face, device = "pdf", width = 10, height = 5, dpi = 400)
+
+
+
+
+  ggsave("mfa_wide_space.pdf", plts$mfa_wide  , device = "pdf", width = 7, height = 6, dpi = 400)
+
+  ggsave("mfa_wide_ind.pdf", plts$mfa_wide_ind  , device = "pdf", width = 5, height = 5, dpi = 400)
+
+
+
+```
