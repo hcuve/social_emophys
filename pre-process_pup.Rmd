@@ -4,9 +4,9 @@ output: html_document
 date: "2025-12-17"
 ---
 
-note originally we only did complete procesing for gaze, not pupil
+note originally we only did complete processing for gaze, not pupil
 
-so this script will take over the initla processing of pupil from pre_process_eytrk, and finalise processing for pupildata
+so this script will take over the initial processing of pupil from pre_process_eytr, and finalise processing for pupildata
 
 
 Pupil
@@ -39,6 +39,12 @@ saveRDS(dta_socemophys_pup, "dta_socemophys_pup.rds")
 ```
 
 to do
+
+
+```{r}
+dta_socemophys_pup <- readRDS("~/Library/CloudStorage/GoogleDrive-helioclemente.c@gmail.com/My Drive/Papers 2022/InteroceptionStudy/InteroStudy2020/analysis/DataAnalysisJanuary2020/DataAnalysisJan2020/2022_2023_Analyses/Data/2025 - autism and alexithymia/dta_socemophys_pup.rds")
+
+```
 
 ```{r}
 
