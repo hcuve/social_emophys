@@ -1,0 +1,560 @@
+---
+title: "pre-process_pup"
+output: html_document
+date: "2025-12-17"
+---
+
+note originally we only did complete procesing for gaze, not pupil
+
+so this script will take over the initla processing of pupil from pre_process_eytrk, and finalise processing for pupildata
+
+
+Pupil
+
+
+
+```{r}
+load("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/dta_gaze_env.RData")
+# in pre_process_eyetrk we want dta_eytr_rpx
+# from here you cna do the stanard pupil processinh
+
+
+
+```
+
+
+```{r}
+dta_socemophys_pup<- select(dta_eytr_rpx, 
+                                      c("participant", "session_id", "event_id", "ssid", 
+                                        "text","trialunq","screencontent",
+                                        "screencontent_no_na","pratice_vs_trial",                           "stimnopath",
+                                        "stimnopath_no_na",
+                            "time", "timerezero","time_backward",
+                            
+                            "pupil",
+                            "pupil_d", "trackloss", "gaze_loss_prop", "gaze_valid_prop"))
+
+
+saveRDS(dta_socemophys_pup, "dta_socemophys_pup.rds")
+```
+
+to do
+
+```{r}
+
+# remotes::install_github("dmirman/gazer")
+library(gazer)
+
+colnames(dta_gaze_clean_10s_nodup)
+
+```
+
+```{r}
+
+dta_pupil<- dta_gaze_clean_10s_nodup%>%
+  select(screencontent, pratice_vs_trial,
+ isfake_or_real,stimnopath,text,filename,bris_vs_birm,ssid_bris_birm,time,
+ timerezero, time_backward,
+ trial,
+         trackloss,gaze_valid_prop, pupil, pupil_d)
+
+range(dta_pupil$pupil, na.rm = TRUE)
+range(dta_pupil$pupil_d, na.rm = TRUE)
+max(dta_pupil$pupil, na.rm = TRUE)
+
+```
+
+```{r}
+
+dta_pupil%>%
+  ggplot(aes(pupil))+
+  geom_histogram()
+
+
+dta_pupil%>%
+  ggplot(aes(pupil_d))+
+  geom_histogram()
+
+
+```
+
+
+
+
+```{r}
+
+dta_pupil$pupil<- if_else(dta_pupil$pupil> 7, dta_pupil$pupil, NA)
+
+dta_pupil$pupil<- if_else(dta_pupil$pupil< 45, dta_pupil$pupil, NA)
+range(dta_pupil$pupil, na.rm = T)
+range(dta_pupil$pupil_d, na.rm = T)
+# 1.30 27.91
+# 
+
+
+# note that smothing and interpolating is order dependent so order by ssid, trial and time
+dta_pupil
+
+options(digits=10)
+
+
+dta_pupil<- dta_pupil %>%
+    group_by(ssid_bris_birm)%>%
+  arrange(ssid_bris_birm,time)
+
+# dta_pupil<- dta_pupil%>%
+#   group_by(ssid)%>%
+#   mutate(duplicated_event_id = duplicated(event_id),
+#          duplicated_time = duplicated(time))
+
+# dta_pupil_nodup<-subset(dta_pupil,
+#                                 duplicated_event_id == FALSE)
+         
+# 
+# table(dta_pupil$duplicated_event_id)
+# table(dta_pupil$duplicated_time)
+
+
+
+```
+
+
+```{r}
+
+dta_pupil<- dta_pupil%>%
+  group_by(ssid_bris_birm)%>%
+   arrange(ssid_bris_birm,time)%>%
+  group_by(ssid_bris_birm,screencontent)%>%
+  mutate(trial_no = cumsum(text != lag(text, default = first(text))) + 1)
+
+range(dta_pupil$trial_no)
+# dta_pupil$trial_no<- NULL
+
+# unique(dta_pupil$screencontent)
+      
+dta_pupil <- dta_pupil%>%
+  group_by(ssid_bris_birm, text,screencontent) %>%
+  mutate(extendpupil=gazer::extend_blinks(pupil, fillback=50, fillforward=50, hz=150))%>%
+  mutate(extendpupil_d=gazer::extend_blinks(pupil_d, fillback=50, fillforward=50, hz=150))
+
+range(dta_pupil$extendpupil, na.rm = TRUE)
+range(dta_pupil$extendpupil_d, na.rm = TRUE)
+range(dta_pupil$pupil, na.rm = TRUE)
+
+```
+
+# let's check
+
+```{r}
+dta_pupil%>%
+  subset(ssid_bris_birm == "bris_30" & trial_no == 15)%>%
+  # ssid = 010 & s
+  # subset(trialUnq == " stimuli 22_23__walking_outside_cafe_disgusted__J8JK3NBV.mp4" )%>%
+ggplot(aes(x = time_backward, y= extendpupil))+
+      geom_line()+
+  geom_line(aes(y = pupil), colour = "red", linetype = "dashed", size = .1) 
+
+
+
+
+```
+
+```{r}
+dta_pupil%>%
+  subset(trial_no == 15)%>%
+  # ssid = 010 & s
+  # subset(trialUnq == " stimuli 22_23__walking_outside_cafe_disgusted__J8JK3NBV.mp4" )%>%
+ggplot(aes(x = time_backward, y= extendpupil , colour = as.factor(ssid_bris_birm)))+
+      geom_line()+
+  theme(legend.position = "none")+
+  geom_vline(xintercept = 0, linetype = "dashed")
+
+# range(dta_pupil$pupil,na.rm = T)
+# range(dta_pupil$pupil_d,na.rm = T)
+# 
+# range(dta_pupil$extendpupil,na.rm = T)
+# range(dta_pupil$extendpupil_d,na.rm = T)
+```
+
+# Smooth and Interpolate
+```{r}
+
+dta_pupil$subject<- dta_pupil$ssid_bris_birm
+
+
+# ?smooth_interpolate_pupil
+
+#  order dependent
+
+
+dta_pupil$trial_unq<- paste0(dta_pupil$trial_no, paste0(dta_pupil$text))
+
+dta_pupil<- dta_pupil %>%
+  group_by(ssid_bris_birm, trial_unq,screencontent) %>%
+  gazer::smooth_interpolate_pupil(pupil="pupil", extendpupil="extendpupil",
+                                    extendblinks=TRUE,
+                           step.first= 'smooth',
+                                    maxgap=Inf,
+                                    filter = 'moving',
+                                    type="linear", hz=150, n = 30)
+
+dta_pupil$pup_interp_pix<- dta_pupil$pup_interp
+
+# diameter
+dta_pupil2<- dta_pupil %>%
+  select(-pupil,-extendpupil)%>%
+  mutate(pupil = pupil_d, extendpupil = extendpupil_d)%>%
+ group_by(ssid_bris_birm, trial_unq,screencontent) %>%
+  gazer::smooth_interpolate_pupil(pupil="pupil_d", 
+                           extendpupil="extendpupil_d",
+                                    extendblinks=TRUE,
+                           step.first= 'smooth',
+                                    maxgap=Inf,
+                                    filter = 'moving',
+                                    type="linear", hz=150, n = 30)
+
+dta_pupil$pup_interp_d <- dta_pupil2$pup_interp
+
+range(dta_pupil$pup_interp, na.rm =T)
+range(dta_pupil$pup_interp,na.rm = T)
+range(dta_pupil$pup_interp_d,na.rm = T)
+
+
+
+```
+
+```{r}
+cor.test(dta_pupil$pup_interp_pix, dta_pupil$pupil)
+cor.test(dta_pupil$pup_interp_d, dta_pupil$pupil_d)
+
+
+
+range(dta_pupil$pup_interp_pix, na.rm = TRUE)
+range(dta_pupil$pup_interp_d, na.rm = TRUE)
+
+# subset(dta_pupil, tNo == 20 & ssid == 357)%>%
+
+
+dta_pupil%>%
+  subset(ssid_bris_birm == "bris_30" & trial_no == 15)%>%
+  # ssid = 010 & s
+  # subset(trialUnq == " stimuli 22_23__walking_outside_cafe_disgusted__J8JK3NBV.mp4" )%>%
+ggplot(aes(x = time_backward, y= pup_interp_pix ))+
+
+  geom_line(colour = "blue")+
+   geom_line(aes(y = extendpupil), color = 'red')+
+  geom_line(aes(y = pupil), colour = 'black', alpha = 1)
+
+
+```
+
+
+
+
+
+
+
+```{r}
+
+# takes a lot of time
+# dta_pupil%>%
+#   subset(screencontent == "stimuli")%>%
+#   ggplot(aes(time_backward, pup_interp_pix, colour = isfake_or_real))+
+#   geom_smooth()
+```
+
+# pupil baseline correction
+
+```{r}
+
+#  Subtractive baseline correction 
+
+# Count the samples in each trial section
+# ?gazer::baseline_correction_pupil()
+# ?gazer::baseline_correction_pupil_msg
+
+min(dta_pupil$time_backward, na.rm = T)
+
+# make baseline about half a second
+dta_pupil_1<-
+
+dta_pupil%>%
+  subset(time_backward>-.5)%>%
+  group_by(ssid_bris_birm)%>%
+  arrange(ssid_bris_birm, trial_no,screencontent, time,time_backward)
+  # subset(ssid_bris_birm == "bris_10" & trial_no < 3 & time_backward< 1)
+
+
+
+
+# remove outliers to do
+dta_pupil_1<-dta_pupil_1  %>%
+  dplyr::group_by(ssid_bris_birm, trial_no) %>%
+  dplyr::mutate(pup_speed=gazer::speed_pupil(pup_interp_pix,timerezero)) %>%
+  dplyr::mutate(pup_mad=gazer::calc_mad(pup_speed)) %>%
+  mutate(pup_interp_pix_mad = if_else(pup_speed < pup_mad, pup_interp_pix, NA_real_))
+
+dta_pupil_1$pup_interp_pix_mad
+dta_pupil_1$pup_interp_pix
+#onset to stimulus
+
+
+
+dta_pupil_1$baseline<- if_else(dta_pupil_1$time_backward< .2, "baseline", "trial")
+
+
+# create baseline
+dta_pupil_1<-dta_pupil_1 %>%
+  group_by(ssid_bris_birm,trial_no)%>%
+  mutate(pup_bas_med = median(pup_interp_pix_mad[baseline == "baseline"], na.rm = T))
+
+# temp_test<- dta_pupil_1 %>%subset(ssid_bris_birm == "bris_20" & trial_no == 1)
+# 
+# temp_test<- temp_test%>%
+#   group_by(baseline)%>%
+#   mutate(test_value = mean(pup_interp_pix))
+```
+
+ 
+# Push these values down 20 steps so that all the samples needed to compute the median will always fall within the trial where they will be used
+
+  
+```{r}
+dta_pupil_1
+
+
+# Subtract pupil size from median pupil size during the baseline period
+dta_pupil_1<- dta_pupil_1 %>%
+  # arrange(ssid, text, time) %>%
+  group_by(ssid_bris_birm, trial_no) %>%
+  mutate(pup_interp_pix_bas_cor = pup_interp_pix_mad - pup_bas_med)
+
+
+dta_pupil_1%>%
+  subset(ssid_bris_birm == "bris_35" & trial_no == 25)%>%
+
+ggplot(aes(x = time_backward, y= pupil ))+
+
+  geom_line(colour = "blue")+
+   geom_line(aes(y = pup_interp_pix), color = 'red')+
+   geom_line(aes(y = pup_interp_pix_bas_cor), color = 'green')+ 
+  geom_line(aes(y = pupil), colour = 'gray', alpha = .1)
+
+
+
+```
+
+
+```{r}
+dta_pupil_1%>%
+  subset(ssid_bris_birm == "bris_30" )%>%
+
+ggplot(aes(x = time_backward, y= pup_interp_pix, group = trial_no ))+
+
+  geom_line(colour = "blue")+
+   # geom_line(aes(y = extendpupil), color = 'red')+
+   geom_line(aes(y = pup_interp_pix_bas_cor), color = 'green')
+  # geom_line(aes(y = pupil), colour = 'gray', alpha = .1)
+
+```
+
+```{r}
+dta_pupil_1%>%
+  subset(ssid_bris_birm == "bris_33" )%>%
+
+ggplot(aes(x = time_backward, y= pup_interp_pix, group = trial_no ))+
+
+  # geom_line(colour = "blue")+
+   # geom_line(aes(y = extendpupil), color = 'red')+
+   geom_line(aes(y = pup_interp_pix_bas_cor), color = 'green')
+
+dta_pupil_1$stimnopath
+
+
+
+```
+
+
+```{r}
+
+
+dta_pupil_1%>%
+  subset(stimnopath == "14_03__walking_down_street_outside_angry__PLCQJM81.mp4" )%>%
+
+ggplot(aes(x = time_backward, y= pup_interp_pix_bas_cor, group = ssid_bris_birm ))+
+
+  geom_line(colour = "blue")
+   # geom_line(aes(y = extendpupil), color = 'red')
+   # geom_point(aes(y = pup_interp_pix_bas_cor), color = 'green')
+   # 
+
+dta_pupil_1$pup_loss_true = is.na(dta_pupil_1$pup_interp_pix_mad)
+  
+colnames(dta_pupil_1)
+
+
+dta_pupil_1_agg<- dta_pupil_1%>%
+  group_by(ssid_bris_birm, trial_no)%>%
+  mutate(pup_loss_prop = mean(pup_loss_true, na.rm. =T))%>%
+  # drop screen content
+  subset(screencontent == "stimuli")%>%
+  group_by(ssid_bris_birm, pratice_vs_trial, isfake_or_real,
+           stimnopath, text, filename, bris_vs_birm, trial, trial_no, trial_unq, subject)%>%
+  summarise_if(is.numeric, mean, na.rm = T)
+  
+  
+  
+  dta_pupil_1_agg%>%
+  ggplot(aes(pup_loss_prop))+
+  geom_histogram()
+
+  
+  # 89*Ntrials
+  
+  
+  
+  
+  unique(dta_pupil_1_agg$ssid_bris_birm)
+  
+  
+```
+
+Combine pupil gaze and behaviour and questionnaires
+
+```{r}
+
+unique(dta_pupil_1_agg$ssid_bris_birm)
+dta_pupil_1_agg
+
+
+dta_pupil_1_agg_bris_23_24_birm_22_23<-dta_pupil_1_agg
+
+
+
+
+  dta_pupil_1_agg_bris_23_24_birm_22_23%>%
+    ggplot(aes(pupil, pup_interp_pix_bas_cor))+
+    geom_point(alpha = .1)+
+    geom_smooth(aes(group = ssid_bris_birm), method = lm, se = F)
+  
+  
+    dta_pupil_1_agg_bris_23_24_birm_22_23%>%
+    ggplot(aes(pup_interp_pix, pupil))+
+    geom_point(alpha = .1)+
+    geom_smooth(aes(group = ssid_bris_birm), method = lm, se = F)
+    
+    
+ table(dta_pupil_1_agg_bris_23_24_birm_22_23$ssid_bris_birm)   
+    
+```
+
+
+```{r}
+
+table(dta_gp_all_fix_sacc_entr_agg$ssid_bris_birm)
+dta_gp_all_fix_sacc_entr_agg_bris_23_24_birm_22_23<-dta_gp_all_fix_sacc_entr_agg
+
+unique(dta_gp_all_fix_sacc_entr_agg_bris_23_24_birm_22_23$ssid_bris_birm)
+unique(dta_pupil_1_agg_bris_23_24_birm_22_23$ssid_bris_birm)
+
+
+
+dta_dfst_bris_23_24_birm_22_23_eytr_behv_quest1 <- read_csv("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/Deepfakes/Deepfake_RProject/Data/2022_birm_2024_bristol/dta_dfst_bris_23_24_birm_22_23_eytr_behv_quest1.csv")
+View(dta_dfst_bris_23_24_birm_22_23_eytr_behv_quest1)
+
+
+
+dta_pupil_1_agg_bris_23_24_birm_22_23$trial_no<-as.character(dta_pupil_1_agg_bris_23_24_birm_22_23$trial_no)
+dta_gp_all_fix_sacc_entr_agg_bris_23_24_birm_22_23$filename<-NULL
+dta_pupil_1_agg_bris_23_24_birm_22_23$filename<-NULL
+
+
+unique(dta_gp_all_fix_sacc_entr_agg_bris_23_24_birm_22_23$trial)
+unique(dta_pupil_1_agg_bris_23_24_birm_22_23$trial)
+
+
+
+
+ 
+dta_dfst_bris_23_24_birm_22_23_eytr_behv_quest
+
+
+dta_bhv_quest_bris_23_24_birm_22_23%>%subset(pratice_vs_trial == "Trial")
+
+dta_df_plf_eyetrak<- 
+  dta_pupil_1_agg_bris_23_24_birm_22_23%>%
+              select(-subject,-gaze_valid_prop, -trackloss)%>%
+              subset(pratice_vs_trial == "Trial")%>%
+  left_join(dta_gp_all_fix_sacc_entr_agg_bris_23_24_birm_22_23%>%
+  select(-subject)%>%
+  subset(pratice_vs_trial == "Trial"))
+
+
+
+# combine with behavioral data
+# dta_dfplf_bris_23_24_birm_22_23_behav_quest
+
+unique(dta_df_plf_eyetrak$pratice_vs_trial)
+dta_dfplf_bris_23_24_birm_22_23_behav_quest
+
+table(dta_dfplf_bris_23_24_birm_22_23_behav_quest$ssid_bris_birm)
+
+table(dta_df_plf_eyetrak$ssid_bris_birm)
+# note gaze data may have been lost due to gazepath fixation fio
+
+unique(dta_dfplf_bris_23_24_birm_22_23_behav_quest$pratice_vs_trial)
+
+
+
+dta_dfplf_bris_23_24_birm_22_23_behav_quest_trial<- dta_dfplf_bris_23_24_birm_22_23_behav_quest%>%subset(dta_dfplf_bris_23_24_birm_22_23_behav_quest$pratice_vs_trial == "Trial")
+
+
+dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest
+
+dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest<-left_join(dta_dfplf_bris_23_24_birm_22_23_behav_quest_trial,
+          dta_df_plf_eyetrak,
+          by = join_by(ssid_bris_birm, bris_vs_birm, 
+                       stimnopath, pratice_vs_trial, 
+                       isfake_or_real))
+
+
+
+
+dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest
+
+colnames(dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest)
+
+dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest
+```
+
+
+```{r}
+
+colnames(dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest)
+
+
+dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest1<-dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest[,c(1:119,121,127,131)]
+
+tmp_cnames <-colnames(dta_dfst_bris_23_24_birm_22_23_eytr_behv_quest1)
+
+tmp_cnames<- gsub("dfs_", "dplf_", tmp_cnames)
+
+
+# desired_order <- c(1:17, 82:87, 25:28)
+# total_cols <- ncol(dta_dfst_bris_23_24_birm_22_23_eytr_behv_quest1)
+
+# Append the remaining columns (preserving their original order)
+# remaining <- setdiff(seq_len(total_cols), desired_order)
+
+# Create the new column order
+# new_order <- c(desired_order, remaining)
+
+colnames(dta_dfst_bris_23_24_birm_22_23_eytr_behv_quest1)
+
+dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest1 <-
+dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest%>%
+  select(tmp_cnames)
+
+colnames(dta_dfplf_bris_23_24_birm_22_23_eytrk_behav_quest1)
+
+```
