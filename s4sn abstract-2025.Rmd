@@ -19,6 +19,9 @@ require(tidyverse)
 require(readr)
 require(lmerTest)
 
+saveRDS(dta_emo, "dta_social_emo.Rds")
+
+saveRDS(dta_emo_wide_mfa, "dta_social_emo_wide_mfa.rds")
 ```
 
 load datasets
@@ -85,6 +88,9 @@ dta_emo <- read_csv("Emotion_full_dataset2.csv")
 View(dta_emo)
 
 dta_emo
+
+
+dta_emo
 dta_emo%>%
   group_by(participant,social_nonsocial)%>%
   summarise_if(is.numeric, mean, na.rm = T)%>%
@@ -127,10 +133,11 @@ dta_emo%>%
   ungroup()%>%
   ggplot(aes(emotioncategory, int_slider_response))+
   # geom_point()+
-  stat_summary(geom = "pointrange")
-  ggpubr::stat_compare_means(method = "t.test")
+  stat_summary(geom = "pointrange")+
 
-  facet_grid(~social_nonsocial)
+
+  facet_grid(~social_nonsocial)+
+     
 
 
 
@@ -475,7 +482,8 @@ anova(mod_res$slid_sad2)
 
 
 # pool the betas
-
+dta_emo_wide_
+dta_emo
 ```
 
 
@@ -698,6 +706,8 @@ table(dta_emo$subj_emo_label_agg)
 subjective based lmms on intensity
 
 ```{r}
+colnames(dta_emo)
+
 mod_res$int_subj<- lmer(int_slider_response ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
                      (1|participant) + #subjective_emotion doesn't coverge
                      (1|stim_iaps), 
@@ -3401,6 +3411,8 @@ coherence_long <- coherence_results %>%
 
 coherence_long%>%
   ggplot(aes(social_nonsocial,coherence))+
+  geom_point()+
+  
   facet(~modality_pair)
 
 # Mixed-effects model for coherence
