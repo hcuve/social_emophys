@@ -18,6 +18,8 @@ mod_res$val_subj<- lmer(val_slider_response ~ 1+ social_nonsocial * subj_emo_lab
 anova(mod_res$val_subj)
 
 
+
+
 ```
 
 
@@ -52,6 +54,8 @@ emo_diffs <- dta_emo %>%
 order_levels <- emo_diffs %>%
   arrange(desc(diff)) %>%
   pull(subj_emo_lab_no_amb)
+
+
 
 
 plts$s4sn_int<-
@@ -151,6 +155,8 @@ mod_list_emo_slid <- list(
   slid_sad  = mod_res$slid_sad
 )
 
+
+
 # Optional tidy-up of workspace, safely
 rm(list = intersect(c("betas","beta_pool"), ls()))
 
@@ -197,6 +203,7 @@ omnibus <- t(sapply(term_social, function(term) {
 }))
 
 omnibus
+
 
 
 ```
@@ -397,6 +404,8 @@ face
 
 dta_emo_face_scale
 
+
+
 colnames(dta_emo_4mfa[,c(15:31)])
 mod_res$pca_multil_omix_face <- pca(dta_emo_4mfa[,c(15:31)], 
                             scale = TRUE, 
@@ -588,7 +597,6 @@ plts$int_hr_scr <- (plts$s4sn_int+ plts$s4sn_hr_diff+plts$s4sn_scr)
 ggsave()
 
 
-
 ```
 
 
@@ -607,5 +615,490 @@ coherence
   ggsave("mfa_wide_ind.pdf", plts$mfa_wide_ind  , device = "pdf", width = 5, height = 5, dpi = 400)
 
 
+
+```
+
+
+
+
+
+```{r}
+dta_emo_wide_mfa<- newDF%>%
+ pivot_wider(
+    id_cols     = c(participant, social_nonsocial),
+    names_from  = c(stim_iaps,emotioncategory),
+    values_from = names(newDF[,1:28]),
+    names_sep   = "_"   # optional: how to separate the original column name from the stimulus ID
+  )
+
+
+# 
+
+  
+
+dta_emo_wide_mfa
+colnames(dta_emo_wide_mfa)
+# val_slider_response"                   
+#   [5] "int_slider_response"                   
+#   [6] "happy_slide_response"                  
+#   [7] "sad_slide_response"                    
+#   [8] "fear_slide_response"                   
+#   [9] "disgust_slide_response"                
+#  [10] "anger_slide_response"
+
+60*7 #subjective #420
+
+17*60 #aus #1020
+dta_emo_wide_mfa[,422]
+dta_emo_wide_mfa
+sum(c(420,60,60,120,1020,1))
+dta_emo_wide_mfa[,c(3:1682,2)]
+?MFA
+colnames(dta_emo_wide_mfa)
+mod_res$mfa_result_wide <- MFA(dta_emo_wide_mfa[,c(3:1682,2)],
+                          group=c(420,60,60,120,1020,1),
+                          type=c("s","s","s","s","s","n"),  
+                          name.group= c("subj_aff","phys_hr","phys_scr","gaze","face","social_non_soc"),
+                          num.group.sup=c(6),#position of group above
+                          graph=FALSE)
+
+
+
+
+
+plot.MFA(mod_res$mfa_result_wide, choix="ind",lab.par=FALSE,invisible= 'quali',select='cos2  0.25',habillage='social_nonsocial',title="Individual factor map")
+
+
+mod_res$mfa_result_wide$eig #about 2 or 3 dimensions
+fviz_screeplot(mod_res$mfa_result_wide)
+
+```
+
+Make a plot that shows the results of the dimensions
+```{r}
+
+# 2.1 Get the coordinate matrix (variables × dimensions)
+mod_res$mfa_result_wide$quanti.var$coord
+coords_mat <- mod_res$mfa_result_wide$quanti.var$coord[, 1:2]  # first 5 axes
+
+
+
+ # 2.2 Build a data.frame that also stores “which block” each variable belongs to
+var_names   <- rownames(coords_mat)                      # e.g. “Age”, “BP”, etc.
+block_labels <- rep(block_names, times = block_groups) 
+#   – i.e. “Block1” repeated ncol(df1) times, then “Block2” repeated ncol(df2), etc.
+
+df_plot <- data.frame(
+  Variable = var_names,
+  Block    = block_labels,
+  Dim1     = coords_mat[, 1],
+  Dim2     = coords_mat[, 2],
+  row.names = NULL,
+  stringsAsFactors = FALSE
+)
+
+# ─── 3. Plain ggplot2 scatter of Dim 1 vs Dim 2, coloured by block ──────────────
+
+# Load ggplot2 (if not already)
+library(ggplot2)
+
+mod_res$mfa_result_wide$quanti.var$cos2[, 1:2]
+df_plot$dim_1_cos<- mod_res$mfa_result_wide$quanti.var$cos2[, 1]
+df_plot$dim_2_cos<- mod_res$mfa_result_wide$quanti.var$cos2[, 2]
+
+df_plot$dim_1_cont<- mod_res$mfa_result_wide$quanti.var$contrib[, 1]
+df_plot$dim_2_cont<- mod_res$mfa_result_wide$quanti.var$contrib[, 2]
+
+df_plot$dim_1_2_ratio<- df_plot$dim_1_cos/(df_plot$dim_1_cos+df_plot$dim_2_cos)
+df_plot$dim_1_2_ratio_cont<- df_plot$dim_1_cont/(df_plot$dim_1_cont+df_plot$dim_2_cont)
+
+
+
+df_plot <- df_plot %>% 
+  # (no scaling of Dim1/Dim2 here) 
+  mutate(
+    cos12_total    = dim_1_cos + dim_2_cos,
+    cos12_ratio    = dim_1_cos / (dim_1_cos + dim_2_cos),
+    # optionally cap or filter out very low cos² if you only want well-represented vars:
+    cos12_total2   = if_else(cos12_total < 0.05, NA_real_, cos12_total)
+  )
+
+
+plts<- list()
+
+
+
+plts$mfa_wide<-
+
+
+df_plot%>%
+  # group_by(Block,stim_iaps_emo)%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot( aes(x = Dim1, y = Dim2)) +
+
+  # 2) scatter, mapping:
+  #    - point size to total cos² (bigger = better captured by Dims 1 & 2)
+  #    - point colour (hue) to cos² ratio (red = more Dim1, blue = more Dim2
+  
+  
+  # (after computing df_plot$cos12_total = dim_1_cos + dim_2_cos)
+
+geom_point(
+  aes(
+    colour = Block,
+    shape  = Block,
+    size   = cos12_total
+  ),
+  alpha = 0.3
+) +
+scale_size_continuous(
+  range = c(1, 6),
+  name  = "Total cos²\n(Dim1 + Dim2)"
+)+
+  # 3) shared axes
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # coord_fixed(
+  #   xlim = c(-1.1, 1.1),
+  #   ylim = c(-1.1, 1.1)
+  # ) 
+  # 4) scales & legends
+  scale_colour_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")+
+  # scale_colour_viridis_c(option = "inferno")+
+  # scale_colour_gradient2(
+  #   low      = "blue",
+  #   mid      = "grey90",
+  #   high     = "red",
+  #   midpoint = 0.5,
+  #   name     = "cos² ratio\n(Dim1 vs Dim2)"
+  # ) +
+  scale_size_continuous(
+    range = c(1, 6),
+    name  = "Total cos² (Dim1+2)"
+  ) +
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  )+ 
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE)+
+  # )+ 
+  labs(
+    x     = "MFA PC1",
+    y     = "MFA PC2",
+    title = "Shared axes: size = quality of rep."
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )+
+  guides(size = FALSE)
+
+
+
+plts$mfa_wide+
+  p$graphstyle_int
+  
+    
+```
+
+plot ind
+
+```{r}
+
+
+dta_emo_wide_mfa<- dta_emo_wide_mfa%>%
+  left_join(dta_emo_agg_demogs)
+
+plts$mfa_wide_ind <-
+
+
+ggplot(dta_emo_wide_mfa, aes(x = pc1_mfa, y = pc3_mfa, colour = social_nonsocial,
+                             shape = social_nonsocial)) +
+  # 1) Draw a 95% ellipse around each group’s points
+  stat_ellipse(
+    aes(fill = social_nonsocial),
+    type   = "norm",
+    level  = 0.95,
+    geom   = "polygon",
+    alpha  = 0.1,
+    colour = NA
+  ) +
+  # 2) Plot the points themselves
+  geom_point(
+    alpha = 0.7,
+    size  = 2
+  ) +
+  # 3) Zero lines for reference
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # 4) Facet so that “social” and “non-social” appear in separate panels
+  # facet_wrap(~ social_nonsocial) +
+  # 5) Shared colour/fill scales (choose a palette you like)
+  scale_colour_brewer(palette = "Set1", name = "Group") +
+  scale_fill_brewer(palette = "Set1", guide = "none") +
+  # 6) Labels and theme tweaks
+  labs(
+    x     = "PC1 (MFA)",
+    y     = "PC2 (MFA)",
+    title = "MFA: Individuals on PC1 vs PC2, by Social vs Non-Social"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position   = "top",
+    legend.title = element_blank(),
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(colour = "grey90", size = 0.2),
+    strip.background  = element_rect(fill = "grey95", colour = NA),
+    strip.text        = element_text(face = "bold")
+  )+
+   # ggside::geom_ysidedensity(aes(y =pc2_mfa, fill = social_nonsocial, alpha = .0001),orientation = "y")+
+  
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  scale_color_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")
+
+
+
+plts$mfa_wide_ind
+
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(social_nonsocial, pc1_mfa ))+
+  geom_point(alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  ggpubr::stat_compare_means(method = "t.test")
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(social_nonsocial, pc2_mfa ))+
+  geom_point(alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  ggpubr::stat_compare_means(method = "t.test")
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(social_nonsocial, ind_cos2_mfa1 ))+
+  geom_point(alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  ggpubr::stat_compare_means(method = "t.test")
+
+dta_emo_wide_mfa$ind_cos2_mfa1<-mod_res[["mfa_face_wide"]][["ind"]][["cos2"]][,1]
+
+dta_emo_wide_mfa$ind_contrb_mfa1<-mod_res[["mfa_face_wide"]][["ind"]][["contrib"]][,1]
+```
+
+```{r}
+#----------------------------------------------------------
+# R Script: Permutation Test for Difference in # of Dimensions
+#             Needed to Explain ≥50% Inertia (Variance)
+#             between Social and Non‐Social MFAs
+#----------------------------------------------------------
+
+# 0. PREAMBLE: Install & load necessary packages
+#    (Uncomment the install.packages lines if needed.)
+# install.packages("FactoMineR")
+# install.packages("dplyr")
+# install.packages("pbapply")   # for a progress bar (optional but helpful)
+library(FactoMineR)
+library(dplyr)
+library(pbapply)
+
+# 1. ASSUMPTIONS ABOUT YOUR DATA FRAME `dta_emo_wide_mfa`
+#    - Column 1: participant (not used directly in MFA)
+#    - Column 2: social_nonsocial  (factor with exactly two levels: "social" and "nonsocial")
+#    - Columns  3:1682 (inclusive) are measurement columns, ordered as:
+#        * subj_aff block:   cols  3 :   422   (count = 420)
+#        * phys_hr block:    cols 423 :   482   (count =  60)
+#        * phys_scr block:   cols 483 :   542   (count =  60)
+#        * gaze block:       cols 543 :   662   (count = 120)
+#        * face block:       cols 663 :  1682   (count =1020)
+#    Adjust these indices if your column counts differ.
+
+meas_cols <- 3:1682
+
+# 2. FUNCTION TO RUN MFA AND RETURN THE MINIMAL NUMBER OF DIMENSIONS
+#    REQUIRED TO EXPLAIN ≥50% OF TOTAL INERTIA
+run_mfa_count_to_50 <- function(meas_data) {
+  # meas_data: data frame or matrix with exactly measurement columns 3:1682
+  # Returns the smallest integer k such that the first k dimensions'
+  # cumulative "% of variance" ≥ 50.0
+  
+  mfa_res <- MFA(
+    meas_data,
+    group      = c(420, 60, 60, 120, 1020),
+    type       = c("s", "s", "s", "s", "s"),
+    name.group = c("subj_aff", "phys_hr", "phys_scr", "gaze", "face"),
+    graph      = FALSE
+  )
+  
+  # Extract the "% of variance" column from the eigen table
+  pct_var <- mfa_res$eig[, "percentage of variance"]
+  cum_pct  <- cumsum(pct_var)
+  
+  # Find the smallest k where cumulative percentage ≥ 50
+  k_needed <- which(cum_pct >= 50)[1]
+  return(k_needed)
+}
+
+# 3. PREPARE OBSERVED COUNTS FOR SOCIAL VS NON-SOCIAL
+# ----------------------------------------------------------------------------
+# Subset the main data frame into social vs non‐social:
+# dta_emo_wide_mfa_soc    <- dta_emo_wide_mfa %>% filter(social_nonsocial == "social")
+# dta_emo_wide_mfa_nonsoc <- dta_emo_wide_mfa %>% filter(social_nonsocial == "nonsocial")
+
+# Extract only the measurement columns (3:1682) for each subset
+mst_social    <- dta_emo_wide_mfa_soc   [ , meas_cols ]
+mst_nonsocial <- dta_emo_wide_mfa_nonsoc[ , meas_cols ]
+
+# Compute how many dimensions are needed to reach ≥50% for each subset
+dims_social_obs   <- run_mfa_count_to_50(mst_social)
+dims_nonsocial_obs<- run_mfa_count_to_50(mst_nonsocial)
+
+# Observed difference
+D_obs <- dims_social_obs - dims_nonsocial_obs
+
+cat("Observed #dims to reach ≥50% inertia:\n",
+    "  Social:    ", dims_social_obs, "\n",
+    "  Non-social:", dims_nonsocial_obs, "\n",
+    "Observed difference (Social – Non-social) = ", D_obs, "\n\n")
+
+# 4. PERMUTATION TEST
+# ----------------------------------------------------------------------------
+set.seed(2025)
+B <- 1000  # number of permutations
+
+# Vector to store differences under the null
+null_diffs <- integer(B)
+
+# Original “social_nonsocial” labels (length = total rows)
+orig_labels <- dta_emo_wide_mfa$social_nonsocial
+
+# Measurement‐only matrix for convenience (all rows × 1680 cols)
+all_meas_mat <- dta_emo_wide_mfa[ , meas_cols ]
+
+# Permutation loop (with progress bar)
+null_diffs <- pbapply::pblapply(seq_len(B), function(b) {
+  # 1) Permute the social/non‐social labels
+  perm_labels <- sample(orig_labels)
+  
+  # 2) Split the measurement matrix according to permuted labels
+  is_soc_perm   <- perm_labels == "social"
+  is_nons_perm  <- perm_labels == "nonsocial"
+  
+  # When permuted labels happen to create an empty group, skip this replicate
+  if (sum(is_soc_perm) == 0 || sum(is_nons_perm) == 0) {
+    return(NA_integer_)
+  }
+  
+  mat_soc_perm  <- all_meas_mat[is_soc_perm,   ]
+  mat_nons_perm <- all_meas_mat[is_nons_perm, ]
+  
+  # 3) Run MFA on each permuted subset and count dims needed for ≥50%
+  dims_soc_b   <- run_mfa_count_to_50(mat_soc_perm)
+  dims_nons_b  <- run_mfa_count_to_50(mat_nons_perm)
+  
+  # 4) Return the difference (Social – Non‐social) for this permutation
+  return(dims_soc_b - dims_nons_b)
+}, cl = 1)  # cl = 1 means sequential; remove cl argument for defaults
+
+# Convert to integer vector, omitting any NA replicates
+null_diffs <- unlist(null_diffs)
+null_diffs <- null_diffs[!is.na(null_diffs)]
+
+# 5. CALCULATE EMPIRICAL P‐VALUE
+#    Two‐sided test: proportion of |D_b| ≥ |D_obs|
+p_emp <- (sum(abs(null_diffs) >= abs(D_obs)) + 1) / (length(null_diffs) + 1)
+
+cat("Permutation test results:\n",
+    "  Number of (valid) permutations  = ", length(null_diffs), "\n",
+    "  Observed difference             = ", D_obs, "\n",
+    "  Proportion |D_b| ≥ |D_obs|      = ", signif(p_emp, 3), "\n\n")
+
+# Permutation test results:
+#    Number of (valid) permutations  =  1000 
+#    Observed difference             =  4 
+#    Proportion |D_b| ≥ |D_obs|      =  0.000999 
+
+# 6. INTERPRETATION MESSAGE
+if (p_emp < 0.05) {
+  cat("Conclusion: The observed difference in the number of dimensions\n",
+      "needed to explain ≥50% inertia between social and non‐social is\n",
+      "statistically significant (p =", signif(p_emp, 3), ").\n",
+      "This suggests that, to reach half of the total variance,\n",
+      "one condition genuinely requires more factors (lower coherence)\n",
+      "than the other.\n")
+} else {
+  cat("Conclusion: The observed difference in the number of dimensions\n",
+      "needed to explain ≥50% inertia between social and non‐social is NOT\n",
+      "statistically significant (p =", signif(p_emp, 3), ").\n",
+      "There is insufficient evidence to claim that one group truly needs\n",
+      "more dimensions to explain the same amount of variance.\n")
+}
+
+
+as.data.frame(null_diffs)%>%
+  ggplot(aes(null_diffs))+
+  geom_density(fill = "gray30")+
+  # geom_histogram(bins = 300)+
+  geom_vline(xintercept = D_obs)+
+  xlim(-3,5)
+
+
+
+```
+
+the eigen value tets needs to. beredone the abstract s4ssn might have an issue
+
+```{r}
+# save.image("s4sndata_select.RData", c(dta_emo,dta_emo_4mfa,dta_emo_face_wide_emo, mod_res,emo_diffs, order_levels, order_levels_hr, order_levels_scr,
+#                                       mod_list_emo_slid,get_beta_se,pool_effect, term_social, omnibus,
+#                                       dta_emo_face_scale ))
+
+save(
+  dta_emo,
+  dta_emo_4mfa,
+  dta_emo_face_wide_emo,
+  mod_res,
+  emo_diffs,
+  order_levels,
+  order_levels_hr,
+  order_levels_scr,
+  mod_list_emo_slid,
+  get_beta_se,
+  pool_effect,
+  term_social,
+  omnibus,
+  dta_emo_face_scale,
+  file = "s4sndata_select.RData"
+)
+# use this and s4sn submission 2025
 
 ```

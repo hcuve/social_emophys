@@ -3424,12 +3424,6 @@ summary(coherence_model)
 
 ```{r}
 
-colnames(newDF)
-
-unique(dta_emo$stim_iaps)
-
-newDF$emotioncategory<- dta_emo$emotioncategory
-colnames(newDF)
 
 
 
@@ -3505,6 +3499,7 @@ mod_res$mfa_result_wide$group$correlation
 
 
 mod_res$mfa_result_wide$ind$within.inertia
+
 dta_emo_wide_mfa$ind_cos2<-mod_res$mfa_result_wide$ind$cos2[,1]
 dta_emo_wide_mfa$ind_in<-mod_res$mfa_result_wide$ind$within.inertia[,1]
 dta_emo_wide_mfa$ind_cos2_2<-mod_res$mfa_result_wide$ind$cos2[,2]
@@ -5224,23 +5219,6 @@ for (d in 1:k) {
 ```
 
 
-d <- 1
-hist(null_eig_perm[, d],
-     breaks = 30,
-     col    = "grey80",
-     main   = paste("Null Distribution: Dim", d, "Eigenvalue"),
-     xlab   = paste("Permuted λ (Dim", d, ")"))
-abline(v = obs_eig_vals[d], col = "red", lwd = 2)
-text(
-  x = obs_eig_vals[d], 
-  y = max(table(cut(null_eig_perm[, d], breaks = 30))) * 0.9,
-  labels = paste0("Obs λ = ", round(obs_eig_vals[d], 3)),
-  pos    = 4, 
-  col    = "red"
-)
-p_emp <- mean(null_eig_perm[, d] >= obs_eig_vals[d])
-mtext(side = 3, text = paste0("Empirical p ≈ ", signif(p_emp, 3)))
-
 
 t tst or chance under null
 ```{r}
@@ -5290,6 +5268,8 @@ print(p_perm_d)
 
 
 d <- 1
+
+
 hist(null_eig_perm[, 3],
      breaks = 30,
      col    = "grey80",
@@ -5481,20 +5461,6 @@ as.data.frame(null_diffs)%>%
 
 
 
-fviz_mfa_var(mod_res$mfa_result_wide)
-
-
-fviz_mfa_var(mod_res$mfa_result_wide,
-             # highlight variables by group (block)
-             habillage = "group",
-             # label only those with cos² > 0.3
-             select.var = list(cos2 = 0.2),
-             # colour‐gradient by cos² (you can drop this if you want pure block colours)
-             # col.var = "cos2",
-             # gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             # repel = TRUE,       # avoid overlaps in texts
-             labelsize = 0) +
-  ggtitle("MFA – Variable Correlation Circle (Dim 1 & Dim 2)")
 ```
 
 
@@ -5699,7 +5665,7 @@ dta_emo_agg_demogs
 dta_emo_wide_mfa<- dta_emo_wide_mfa%>%
   left_join(dta_emo_agg_demogs)
 
-plts$mfa_wide_ind 
+plts$mfa_wide_ind <-
 
 
 ggplot(dta_emo_wide_mfa, aes(x = pc1_mfa, y = pc3_mfa, colour = social_nonsocial,
@@ -5763,7 +5729,7 @@ ggplot(dta_emo_wide_mfa, aes(x = pc1_mfa, y = pc3_mfa, colour = social_nonsocial
   scale_color_brewer(palette = "Dark2")+
     scale_fill_brewer(palette = "Dark2")
 
-plts$mfa_wide
+
 
 plts$mfa_wide_ind+
   p$graphstyle_int+

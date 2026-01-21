@@ -1,0 +1,1685 @@
+---
+title: "social_emophys_facenmfs"
+author: "helio"
+date: "2026-01-13"
+output: html_document
+---
+
+```{r}
+rm(`face_time_z_scored 1`)
+
+dta_face_z_scored <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/s4sn2025plots/face_time_z_scored 1.rds")
+
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_facenmfs.RData")
+
+
+
+```
+
+
+```{r}
+# check the validity. of the data
+require(tidyverse)
+colnames(dta_face_z_scored)
+options(scipen = 999)
+dta_face_z_scored
+dta_face_z_scored<- dta_face_z_scored%>%
+  group_by(participant)%>%
+  mutate(confidence_ppt = mean(confidence, na.rm = T))%>%
+  group_by(filename)%>%
+  mutate(confidence_p_trial = mean(confidence, na.rm = T))%>%
+  ungroup()
+  
+  
+  # ggplot(aes(confidence))+
+  # geom_histogram()
+
+
+dta_face_z_scored_1<- dta_face_z_scored%>%
+  subset(confidence_ppt>0)
+
+length(unique(dta_face_z_scored$participant))
+dta_face_z_scored_1%>%
+  group_by(participant)%>%
+  summarise_if(is.numeric,mean, n.rm = T)%>%
+    ggplot(aes(confidence))+
+  geom_histogram()
+
+dta_face_z_scored
+
+dta_face_z_scored_1%>%
+  mutate
+
+
+# 
+au_cols <- c("au01_r_smt","au02_r_smt","au04_r_smt","au05_r_smt",
+             "au06_r_smt","au07_r_smt","au09_r_smt","au10_r_smt",
+             "au12_r_smt","au14_r_smt","au15_r_smt","au17_r_smt",
+             "au20_r_smt","au23_r_smt","au25_r_smt","au26_r_smt",
+             "au45_r_smt")
+
+# Extract the matrix (still z-scored at this point)
+temp <- as.matrix(dta_face_z_scored_1[ , au_cols])
+
+# Small epsilon to avoid exact zeros if you want (optional)
+eps <- 1e-6
+
+# Per-AU shift: subtract min of each column
+X_shifted <- apply(temp, 2, function(col) {
+  col - min(col) 
+})
+
+
+
+# Put shifted data back in the original data frame if needed
+dta_face_z_shift_1 <- dta_face_z_scored_1
+dta_face_z_shift_1[ , au_cols] <- X_shifted
+  
+range(dta_face_z_shift_1$au09_r_smt)
+range(dta_face_z_shift_1$au01_r_smt)
+
+range(dta_face_z_scored_1$au09_r_smt)
+range(dta_face_z_scored_1$au01_r_smt)
+
+
+dta_face_z_shift_1%>%
+  group_by(participant)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(au09_r_smt))+
+  geom_histogram()
+
+
+dta_face_z_scored_1%>%
+   group_by(participant)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(au09_r_smt))+
+  geom_histogram()
+```
+
+make it positive to satisfy the non-negativity constraint
+```{r}
+
+dta_face_z_shift_1
+
+# to improve computation lets resample
+table(dta_face_z_shift_1$participant)
+
+dta_face_z_shift_1%>%
+  group_by(participant,stim_iaps)%>%
+  mutate(n_count = n())%>%
+    group_by(participant)%>%
+  summarise_at(c("n_count"), mean)
+
+dta_face_z_shift_1%>%
+  group_by(participant,stim_iaps)%>%
+  mutate(n_count = n())%>%
+  summarise_at(c("frame"), max)%>%
+  ggplot(aes(frame))+
+  geom_histogram()
+
+```
+
+
+```{r}
+dta_face_z_shift_1
+saveRDS(dta_face_z_shift_1, "dta_face_z_shift_1.Rds")
+```
+# 108 below have 77 frames in average for some reason same as 205
+
+```{r}
+dta_face_z_shift_2<- dta_face_z_shift_1%>%
+  subset(as.numeric(participant)> 108)%>%
+    subset(participant!= "205")
+
+sort(unique(as.numeric(dta_face_z_shift_2$participant)))
+
+max(dta_face_z_shift_2$frame)
+# now downsampel for computational efficiency
+dta_face_z_shift_2
+
+
+rm(N)
+
+K <- 74
+# indices <- floor(seq(1, N, length.out = K))
+
+dta_face_z_shift_2_subs <-
+
+dta_face_z_shift_2 %>%
+  group_by(participant,filename)%>%
+  arrange(frame,.by_group = TRUE) %>%
+  group_modify(~ {
+    N <- nrow(.x)                         # .x is the data for this group only
+    idx <- floor(seq(1, N, length.out = K))
+    .x[idx, ]                             # return the selected rows
+  }) %>%
+  ungroup()
+unique(dta_face_z_shift_2$stim_iaps)
+
+dta_face_z_shift_2$participant
+
+dta_face_z_shift_2%>%
+  filter(participant == "222",
+         stim_iaps == "4617.jpg")%>%
+  ggplot(aes(frame, au09_r_smt))+
+  geom_line()
+
+
+dta_face_z_shift_2_subs%>%
+  filter(participant == "222",
+         stim_iaps == "4617.jpg")%>%
+  ggplot(aes(frame, au09_r_smt))+
+  geom_line()
+
+colnames(dta_face_z_shift_2_subs)
+
+
+table(dta_face_z_shift_2_subs$participant, dta_face_z_shift_2_subs$stim_iaps)
+
+unique(dta_face_z_shift_2_subs$frame)
+```
+# apply NMF
+install.packages("NMF")
+require(NMF)
+
+
+What do we want to do
+
+1. Some preprocessing fit an NMF
+2. derive temporal features 
+- do some visualisation on specfic features
+
+3. use MFA to group fatues by components, and take the first 3 components
+4. use PCA to run each compoennt separatelly and take the first component
+
+
+```{r}
+# colnames(df_OF_output_AUsW_unblind_posed_binned)
+require(NMF)
+require(tidyverse)
+# install.packages("NMF")
+# install.packages("Biobase")
+# single run and single numeric seed for reproducibility
+
+# run overnight
+res_find_k <- nmf(dta_face_z_shift_2_subs[,7:23], 2:6, 
+                      seed=123456,
+                      nrun = 100,
+                       .options = 'v')
+
+
+NMF::plot(res_find_k)
+  geom_vline(xintercept = 3)
+  NMF::consensusmap(res_find_k)
+  
+
+```
+
+
+```{r}
+unique(dta_face_z_shift_2_subs$participant)
+# actually fit()
+res_k3 <- NMF::nmf(dta_face_z_shift_2_subs[,7:23], r = 3, 
+                  nrun = 50, 
+                  seed=123456,
+                 .options = list( 'v')) 
+
+# some checks
+
+# FactoMineR::PCA(dta_face_z_shift_2_subs[,7:23], k = 3,
+#                                         scale.unit = TRUE,
+#                   graph = TRUE) 
+
+
+# store components
+
+coefmap(res_k3)
+
+
+```
+
+
+```{r}
+basismap(res_k3)
+
+dta_face_z_shift_2_subs$nmf_comp1<- as.data.frame(res_k3@fit@W)[,1]
+dta_face_z_shift_2_subs$nmf_comp2<- as.data.frame(res_k3@fit@W)[,2]
+dta_face_z_shift_2_subs$nmf_comp3<- as.data.frame(res_k3@fit@W)[,3]
+
+# some vis
+# k 1 mouth/smiles
+# k2 2. eyes
+# k3 = mix,mosly eyes
+
+unique(dta_face_z_shift_2_subs$timestamp)
+dta_face_z_shift_2_subs$frame
+
+
+dta_face_z_shift_2_subs<- dta_face_z_shift_2_subs%>%
+  arrange(filename, frame)%>%
+  group_by(filename)%>%
+  mutate(bin_frame = 1:n())
+
+unique(dta_face_z_shift_2_subs$bin_frame)
+```
+
+
+```{r}
+dta_face_z_shift_2_subs%>%
+  group_by(participant, frame,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%
+  ggplot(aes(bin_frame, nmf_comp1, colour = subj_emo_lab_no_amb))+
+  geom_smooth()+
+  facet_grid(~social_nonsocial)
+
+dta_face_z_shift_2_subs%>%
+  group_by(participant, frame,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%
+  ggplot(aes(bin_frame, nmf_comp2, colour = subj_emo_lab_no_amb))+
+  geom_smooth()+
+  facet_grid(~social_nonsocial)
+
+
+dta_face_z_shift_2_subs%>%
+  group_by(participant, frame,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%
+  ggplot(aes(bin_frame, nmf_comp3, colour = subj_emo_lab_no_amb))+
+  geom_smooth()+
+  facet_grid(~social_nonsocial)
+  
+```
+
+
+
+```{r}
+
+dta_face_z_shift_2_subs%>%
+  group_by(participant,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb, nmf_comp1, colour = subj_emo_lab_no_amb))+
+  geom_jitter(width = .1, alpha = .1)+
+ stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)
+
+dta_face_z_shift_2_subs%>%
+  group_by(participant,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb, log1p(nmf_comp2), colour = subj_emo_lab_no_amb))+
+  geom_jitter(width = .1, alpha = .1)+
+   stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)
+
+
+dta_face_z_shift_2_subs%>%
+  group_by(participant,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb, nmf_comp3, colour = subj_emo_lab_no_amb))+
+    geom_jitter(width = .1, alpha = .1)+
+   stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)
+unique(dta_face_z_shift_2_subs$participant)
+# 103, 104, 105, 106, 107, 108, 201, 202, 203, 204, 205
+```
+
+
+```{r}
+mod_res<- list()
+
+mod_res
+require(lmerTest)
+dta_face_z_shift_2_subs_agg <- dta_face_z_shift_2_subs%>%
+  group_by(participant,stim_iaps, subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)
+
+
+dta_face_z_shift_2_subs_agg <- dta_face_z_shift_2_subs%>%
+  group_by(participant,stim_iaps, subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)
+
+dta_face_z_shift_2_subs_agg
+
+mod_res$nmf_comp1 <- lmer(log1p(nmf_comp1+.1) ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_face_z_shift_2_subs_agg)
+
+
+mod_res$nmf_comp2 <- lmer(log1p(nmf_comp2+.1) ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_face_z_shift_2_subs_agg)
+
+
+
+
+mod_res$nmf_comp3 <- lmer(log1p(nmf_comp3+.1)  ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_face_z_shift_2_subs_agg)
+
+
+
+
+mod_res$nmf_comp2.2 <- lmer(nmf_comp2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb +
+                     (1+|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), # social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_face_z_shift_2_subs_agg)
+
+# singular
+# relgrad <- with(mod_res$nmf_comp2.2@optinfo$derivs,solve(Hessian,gradient))
+# max(abs(relgrad))
+
+# check is more maxima moel is needed
+anova(mod_res$nmf_comp2.2,mod_res$nmf_comp2)
+
+anova(mod_res$nmf_comp1)
+anova(mod_res$nmf_comp2)
+anova(mod_res$nmf_comp3)
+
+emmeans::emmeans(mod_res$nmf_comp2, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+emmeans::emmeans(mod_res$nmf_comp2, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "none")
+
+```
+
+
+```{r}
+
+dta_face_z_shift_2_subs_agg <- dta_face_z_shift_2_subs%>%
+  group_by(participant,stim_iaps, subj_emo_lab_no_amb,social_nonsocial)%>%
+  mutate(nmf_comp1_max= max(nmf_comp1),
+         nmf_comp2_max= max(nmf_comp2),
+         nmf_comp3_max= max(nmf_comp3)
+         )%>%
+ summarise_if(is.numeric, max,na.rm = T)
+
+mod_res$nmf_comp1_max <- lmer(log1p(nmf_comp1_max+.1) ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_face_z_shift_2_subs_agg)
+
+
+mod_res$nmf_comp2_max <- lmer(log1p(nmf_comp2_max+.1) ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_face_z_shift_2_subs_agg)
+
+
+
+
+mod_res$nmf_comp3_max <- lmer(log1p(nmf_comp3_max+.1)  ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_face_z_shift_2_subs_agg)
+
+anova(mod_res$nmf_comp1_max)
+anova(mod_res$nmf_comp2_max)
+anova(mod_res$nmf_comp3_max)
+
+
+
+
+emmeans::emmeans(mod_res$nmf_comp2_max, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+emmeans::emmeans(mod_res$nmf_comp2_max, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "none")
+
+```
+
+aggregate features just slight differences 
+
+2. derive temporal features 
+```{r}
+# cmfts
+# pivot longer
+colnames(dta_face_z_shift_2_subs)
+
+dta_face_z_shift_2_subs_long <- dta_face_z_shift_2_subs %>%
+  pivot_longer(
+    cols = nmf_comp1:nmf_comp3,      
+    names_to  = "nmf_component",     
+    values_to = "nmf_value"          
+  )%>%
+  select(participant,
+         timestamp,
+         filename,
+         stim_iaps,
+         frame,
+         bin_frame,
+         social_nonsocial,
+         subj_emo_lab_no_amb,
+         nmf_component,
+         nmf_value)
+
+dta_face_z_shift_2_subs_long
+```
+
+# create unique timeseries IDs
+
+
+```{r}
+
+
+# CREATE a t for frame to avoid number only name columns
+  dta_face_z_shift_2_subs_long
+
+dta_face_z_shift_2_subs_long<-  dta_face_z_shift_2_subs_long%>%
+  arrange(filename,nmf_component,frame)%>%
+  group_by(filename,nmf_component) %>%
+  mutate(bin_frame2 = paste0("t_", paste0(bin_frame)))%>%
+  ungroup()
+ 
+unique(dta_face_z_shift_2_subs_long$bin_frame)
+
+dta_face_z_shift_2_subs_wid<- dta_face_z_shift_2_subs_long%>%
+pivot_wider(
+    id_cols    = c(participant,
+                  filename,
+                  stim_iaps,
+                  nmf_component,
+                  social_nonsocial,
+                  subj_emo_lab_no_amb),
+    names_from  = bin_frame2,
+    values_from = nmf_value
+  )
+
+
+colnames(dta_face_z_shift_2_subs_wid)
+
+dta_face_z_shift_2_subs_wid
+```
+  
+  
+calculate multivariate timeseries features
+
+```{r}
+colnames(dta_face_z_shift_2_subs_wid)
+require(CMFMTS)
+
+?CMFMTS::cmfmts
+dta_face_z_shift_2_subs_wid$filename[300:310]
+dta_cmfsts$filename[300:310]
+
+dta_face_z_shift_2_subs_wid$mean_feat <- rowMeans(dta_face_z_shift_2_subs_wid[,7: 80], na.rm = TRUE)
+dta_face_z_shift_2_subs_wid$max_feat <- apply(dta_face_z_shift_2_subs_wid[, 7:80], 1, max, na.rm = TRUE)
+
+colnames(dta_face_z_shift_2_subs_wid)
+dta_cmfsts<- CMFMTS::cmfmts(dataset = dta_face_z_shift_2_subs_wid[,6:79],
+                               scale = F,
+               na = T 
+               # n_cores = 6
+               )
+
+dta_face_z_shift_2_subs_wid
+
+
+dta_cmfsts<- bind_cols(dta_face_z_shift_2_subs_wid[,1:6], dta_cmfsts[,6:46])
+
+dta_cmfsts$
+
+# drop uninformative timeseries
+colnames(dta_cmfsts)
+
+sd_values_pos <- apply(dta_cmfsts[, 7:47], 
+                   MARGIN = 2, sd, na.rm = T) # 2 chooses columns and 2 chooses rows
+
+
+# Identify the columns with a standard deviation of zero
+zero_sd_cols_pos <- names(which(sd_values_pos == 0))
+
+# [1] "length"          "nperiods"        "seasonal_period" s
+
+# Drop the columns with a standard deviation of zero
+dta_cmfsts2 <- dta_cmfsts%>%select(-zero_sd_cols_pos)
+
+dta_cmfsts2$mean_feat<- dta_face_z_shift_2_subs_wid$mean_feat 
+dta_cmfsts2$max_feat<- dta_face_z_shift_2_subs_wid$max_feat 
+dta_cmfsts2
+
+all_na <- sapply(dta_cmfsts2[, 7:44], function(x) all(is.na(x)))
+all_na_names<- names(all_na)[all_na]
+# "max_kl_shift"  "time_kl_shift"
+dta_cmfsts2 <- dta_cmfsts2%>%select(-all_na_names)
+all_na_names
+
+
+colnames(dta_cmfsts2)
+
+corr_mat <- dta_cmfsts2[,7:44] %>%
+  cor(use = "pairwise.complete.obs", method = "pearson")
+
+dta_cmfsts2$nonlinearity
+# library(ggplot2)
+# library(reshape2)
+
+corr_df <- melt(corr_mat, varnames = c("var1", "var2"), value.name = "cor")
+
+ggplot(corr_df, aes(x = var1, y = var2, fill = cor)) +
+  geom_tile() +
+  scale_fill_gradient2(
+    limits = c(-1, 1),
+    midpoint = 0,
+    name = "r"
+  ) +
+  coord_fixed() +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 7),
+    axis.text.y = element_text(size = 7),
+    axis.title = element_blank(),
+    panel.grid = element_blank()
+  )
+
+
+# therenis evidence that mean and max of component is embeded somehow in the other features, as many if the otehr features correlate to some degree and some stringly with mean and max feature so, a model with mean or max features is probably redundant
+```
+
+
+just soem visualisations
+```{r}
+dta_cmfsts2
+dta_cmfsts2%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial, nmf_component)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb, diff1_acf1, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~nmf_component)
+
+dta_cmfsts2%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial, nmf_component)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb, diff1_acf10, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~nmf_component)
+
+dta_cmfsts2%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial, nmf_component)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb, entropy, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~nmf_component)
+
+# spike is floored
+dta_cmfsts2%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial, nmf_component)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,log1p(time_level_shift+.1), colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~nmf_component)
+
+
+social_nonsocial
+  
+
+```
+
+
+
+```{r}
+dta_cmfsts2
+colnames(dta_cmfsts2)
+
+
+
+
+# 35 featureleft_join(
+dta_cmfsts3_wid<- dta_cmfsts2 %>%  
+  arrange(nmf_component) %>%
+  pivot_wider(
+    id_cols = c(participant,
+                filename,
+                stim_iaps,
+                social_nonsocial,
+                subj_emo_lab_no_amb),
+    names_from  = nmf_component,              # values in this col become suffixes
+    values_from = c(lempel_ziv:max_feat),  # c
+    names_glue = "{nmf_component}_{.value}"   # e.g. lempel_ziv_comp1
+  )
+
+colnames(dta_cmfsts3_wid)
+id_cols <- c("participant",
+             "filename",
+             "stim_iaps",
+             "social_nonsocial",
+             "subj_emo_lab_no_amb")
+
+# get component levels in the order you want
+comp_levels <- sort(unique(dta_cmfsts2$nmf_component))
+# e.g. c("nmf_comp1", "nmf_comp2", "nmf_comp3")
+
+# build column order: comp1_* then comp2_* then comp3_*, etc.
+feature_cols_ordered <- unlist(
+  lapply(comp_levels, function(comp) {
+    prefix <- paste0(comp, "_")
+    grep(paste0("^", prefix), names(dta_cmfsts3_wid), value = TRUE)
+  })
+)
+
+# reorder columns
+dta_cmfsts3_wid <- dta_cmfsts3_wid[, c(id_cols, feature_cols_ordered)]
+
+colnames(dta_cmfsts3_wid)
+```
+first approach MFA with 
+group by AUS
+```{r}
+
+# 35 features left
+colnames(dta_cmfsts3_wid)
+# ?FactoMineR::MFA()
+require(FactoMineR)
+35+35+35
+table(is.na(dta_cmfsts3_wid[, 6:113]))
+
+dta_cmfsts3_wid_complete<- as.data.frame(dta_cmfsts3_wid)
+# table(is.na(dta_cmfsts3_wid$nmf_comp3_max_feat))
+
+# dta_cmfsts3_wid_complete<- as_tibble(dta_cmfsts3_wid_complete)
+
+
+dta_cmfsts3_wid_complete<- dta_cmfsts3_wid_complete %>%
+  mutate(across(6:119, ~ if(is.numeric(.)) replace(., !is.finite(.), NA) else .))
+
+
+dta_cmfsts3_wid_complete2 <- missMDA::imputeMFA(dta_cmfsts3_wid_complete[,6:119],
+                                               ncp=2,
+                                                group=c(38, 38, 38),
+                          type=c("s","s","s"))
+
+# withouth mean and max features
+mod_res$mfa_cmfts_face <- MFA(dta_cmfsts3_wid_complete2$completeObs,
+                              # tab.comp = dta_cmfsts3_wid_complete2$completeObs,
+                          group=c(36, 36, 36),
+                          type=c("s","s","s"),
+                          ncp = 3,
+                          name.group= c("comp1","comp2", "comp3"),
+                          # num.group.sup=c(6),
+                          graph=TRUE)
+
+
+```
+```{r}
+require(factoextra)
+
+fviz_contrib(mod_res$mfa_cmfts_face, "quanti.var", axes = 1, top = 10)
+fviz_contrib(mod_res$mfa_cmfts_face, "quanti.var", axes = 2,top = 10)# 
+fviz_contrib(mod_res$mfa_cmfts_face, "quanti.var", axes = 3,top = 10)
+
+
+fviz_contrib(mod_res$mfa_cmfts_face, "group", axes = 1, top = 10)
+fviz_contrib(mod_res$mfa_cmfts_face, "group", axes = 2,top = 10)# 
+fviz_contrib(mod_res$mfa_cmfts_face, "group", axes = 3,top = 10)
+# factoextra::fviz_mfa_axes(mod_mfa$mfa_wide)
+```
+
+
+```{r}
+dta_cmfsts3_wid$mfa1<- mod_res$mfa_cmfts_face$ind$coord[,1]
+dta_cmfsts3_wid$mfa2<- mod_res$mfa_cmfts_face$ind$coord[,2]
+dta_cmfsts3_wid$mfa3<- mod_res$mfa_cmfts_face$ind$coord[,3]
+
+```
+
+```{r}
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,mfa1, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  # facet_grid(~social_nonsocial)
+
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,mfa2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,mfa3, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+```
+
+
+
+
+
+
+```{r}
+
+
+
+mod_res$mfa1 <- lmer(mfa1 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+mod_res$mfa2 <- lmer(mfa2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+
+
+mod_res$mfa3 <- lmer(mfa3  ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+anova(mod_res$mfa1)
+anova(mod_res$mfa2)
+anova(mod_res$mfa3)
+
+
+emmeans::emmeans(mod_res$mfa1, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$mfa2, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+emmeans::emmeans(mod_res$mfa3, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "none")
+
+emmeans::emmeans(mod_res$mfa2, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$mfa3, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+```
+
+
+
+
+
+```{r}
+
+comp1_idx <- 1:36
+comp2_idx <- 37:72
+comp3_idx <- 73:108
+
+# PCA for each component block (on imputed data)
+dta_cmfsts3_wid_complete2$completeObs
+mod_res$pca_comp1 <- FactoMineR::PCA(dta_cmfsts3_wid_complete2$completeObs[,comp1_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+mod_res$pca_comp2 <- FactoMineR::PCA(dta_cmfsts3_wid_complete2$completeObs[,comp2_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+mod_res$pca_comp3 <- FactoMineR::PCA(dta_cmfsts3_wid_complete2$completeObs[,comp3_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+
+dta_cmfsts3_wid$pc_comp1<- mod_res$pca_comp1$ind$coord[,1]
+dta_cmfsts3_wid$pc_comp2<- mod_res$pca_comp2$ind$coord[,1]
+dta_cmfsts3_wid$pc_comp3<- mod_res$pca_comp3$ind$coord[,1]
+
+```
+
+
+```{r}
+fviz_contrib(mod_res$pca_comp1, "var", axes = 1, top = 5)
+fviz_contrib(mod_res$pca_comp2, "var", axes = 1,top = 5)# 
+fviz_contrib(mod_res$pca_comp3, "var", axes = 1,top = 5)
+```
+
+```{r}
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pc_comp1, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pc_comp2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pc_comp3, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+
+```
+
+```{r}
+
+mod_res$pc_comp1 <- lmer(pc_comp1 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+mod_res$pc_comp2 <- lmer(pc_comp2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+
+
+mod_res$pc_comp3 <- lmer(pc_comp3  ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+anova(mod_res$pc_comp1)
+anova(mod_res$pc_comp2)
+anova(mod_res$pc_comp3)
+
+# singular
+# relgrad <- with(mod_res$nmf_comp2.2@optinfo$derivs,solve(Hessian,gradient))
+# max(abs(relgrad))
+
+# check is more maxima moel is needed
+anova(mod_res$nmf_comp2.2,mod_res$nmf_comp2)
+
+emmeans::emmeans(mod_res$pc_comp1, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$pc_comp2, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+emmeans::emmeans(mod_res$pc_comp3, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "none")
+
+emmeans::emmeans(mod_res$pc_comp2, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$pc_comp3, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+```
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value   Pr(>F)   
+social_nonsocial                       0.067  0.0666     1   85.6  0.0093 0.923499   
+subj_emo_lab_no_amb                  146.598 29.3195     5  390.8  4.0820 0.001266 **
+social_nonsocial:subj_emo_lab_no_amb  40.919  8.1838     5 5000.8  1.1394 0.336999   
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Warning: The working directory was changed to /Users/pw22812 inside a notebook chunk. The working directory will be reset when the chunk is finished running. Use the knitr root.dir option in the setup chunk to change the working directory for notebook chunks.
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value    Pr(>F)    
+social_nonsocial                       9.852  9.8522     1   85.7  1.7662 0.1873802    
+subj_emo_lab_no_amb                   91.065 18.2130     5  601.3  3.2651 0.0064347 ** 
+social_nonsocial:subj_emo_lab_no_amb 124.561 24.9123     5 4991.6  4.4661 0.0004617 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value  Pr(>F)  
+social_nonsocial                       2.436  2.4357     1   88.9  0.3270 0.56885  
+subj_emo_lab_no_amb                  103.004 20.6009     5  430.3  2.7661 0.01792 *
+social_nonsocial:subj_emo_lab_no_amb  44.488  8.8976     5 5032.6  1.1947 0.30899  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+mfa with mean nd max as additional features
+```{r}
+colnames(dta_cmfsts3_wid_complete2$completeObs)
+
+mod_res$mfa_cmfts_face_2 <- MFA(dta_cmfsts3_wid_complete2$completeObs,
+                              # tab.comp = dta_cmfsts3_wid_complete2$completeObs,
+                          group=c(38, 38, 38),
+                          type=c("s","s","s"),
+                          ncp = 3,
+                          name.group= c("comp1","comp2", "comp3"),
+                          # num.group.sup=c(6),
+                          graph=TRUE)
+
+
+```
+
+```{r}
+require(factoextra)
+
+fviz_contrib(mod_res$mfa_cmfts_face_2, "quanti.var", axes = 1, top = 10)
+fviz_contrib(mod_res$mfa_cmfts_face_2, "quanti.var", axes = 2,top = 10)# 
+fviz_contrib(mod_res$mfa_cmfts_face_2, "quanti.var", axes = 3,top = 10)
+
+
+fviz_contrib(mod_res$mfa_cmfts_face_2, "group", axes = 1, top = 10)
+fviz_contrib(mod_res$mfa_cmfts_face_2, "group", axes = 2,top = 10)# 
+fviz_contrib(mod_res$mfa_cmfts_face_2, "group", axes = 3,top = 10)
+```
+interestingy mean and max features arent sper prominent
+```{r}
+
+dta_cmfsts3_wid$mfa1.2<- mod_res$mfa_cmfts_face_2$ind$coord[,1]
+dta_cmfsts3_wid$mfa2.2<- mod_res$mfa_cmfts_face_2$ind$coord[,2]
+dta_cmfsts3_wid$mfa3.2<- mod_res$mfa_cmfts_face_2$ind$coord[,3]
+
+```
+
+```{r}
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,mfa1.2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,mfa2.2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,mfa3.2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+```
+
+largely similar to models withoth max or mean
+
+
+
+
+```{r}
+
+mod_res$mfa1.2 <- lmer(mfa1.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+mod_res$mfa2.2 <- lmer(mfa2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+
+
+mod_res$mfa3.2 <- lmer(mfa3.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+anova(mod_res$mfa1)
+anova(mod_res$mfa2)
+anova(mod_res$mfa3)
+anova(mod_res$mfa1.2)
+anova(mod_res$mfa2.2)
+anova(mod_res$mfa3.2)
+
+```
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value    Pr(>F)    
+social_nonsocial                      0.0010  0.0010     1   86.2  0.0012 0.9724260    
+subj_emo_lab_no_amb                  18.8187  3.7637     5  493.0  4.6987 0.0003345 ***
+social_nonsocial:subj_emo_lab_no_amb  1.9676  0.3935     5 5000.0  0.4913 0.7830340    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Warning: The working directory was changed to /Users/pw22812 inside a notebook chunk. The working directory will be reset when the chunk is finished running. Use the knitr root.dir option in the setup chunk to change the working directory for notebook chunks.
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value   Pr(>F)   
+social_nonsocial                      0.8667 0.86671     1   85.8  1.6260 0.205701   
+subj_emo_lab_no_amb                  10.9154 2.18309     5  677.1  4.0956 0.001137 **
+social_nonsocial:subj_emo_lab_no_amb 10.5539 2.11078     5 4990.8  3.9600 0.001382 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                                     Sum Sq Mean Sq NumDF  DenDF F value  Pr(>F)  
+social_nonsocial                     0.0565 0.05654     1   86.5  0.1072 0.74410  
+subj_emo_lab_no_amb                  3.7689 0.75378     5 5033.8  1.4298 0.20999  
+social_nonsocial:subj_emo_lab_no_amb 5.4531 1.09061     5 5033.8  2.0688 0.06625 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value    Pr(>F)    
+social_nonsocial                      0.0006  0.0006     1   86.2  0.0007 0.9786603    
+subj_emo_lab_no_amb                  19.5350  3.9070     5  496.3  4.8271 0.0002548 ***
+social_nonsocial:subj_emo_lab_no_amb  1.8299  0.3660     5 4999.9  0.4522 0.8119691    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value   Pr(>F)    
+social_nonsocial                      1.0036  1.0036     1   85.7  2.0147 0.159407    
+subj_emo_lab_no_amb                  10.4740  2.0948     5  692.7  4.2052 0.000900 ***
+social_nonsocial:subj_emo_lab_no_amb  9.5727  1.9145     5 4989.4  3.8433 0.001775 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                                     Sum Sq Mean Sq NumDF  DenDF F value  Pr(>F)  
+social_nonsocial                     0.2583 0.25830     1   86.0  0.5567 0.45762  
+subj_emo_lab_no_amb                  2.4916 0.49832     5  368.0  1.0740 0.37432  
+social_nonsocial:subj_emo_lab_no_amb 4.8408 0.96817     5 5007.9  2.0867 0.06403 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+results are essentially thes same?
+
+
+```{r}
+emmeans::emmeans(mod_res$mfa1.2, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$mfa2.2, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+emmeans::emmeans(mod_res$mfa2.2, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+```
+
+$emmeans
+ subj_emo_lab_no_amb  emmean     SE  df asymp.LCL asymp.UCL
+ anger               -0.0421 0.0917 Inf   -0.2217    0.1376
+ disgust              0.1265 0.0802 Inf   -0.0307    0.2837
+ fear                -0.0120 0.0843 Inf   -0.1772    0.1532
+ happy               -0.0392 0.0795 Inf   -0.1950    0.1166
+ neutral             -0.0642 0.0828 Inf   -0.2265    0.0981
+ sad                 -0.0353 0.0826 Inf   -0.1973    0.1267
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+ contrast          estimate     SE  df z.ratio p.value
+ anger - disgust   -0.16857 0.0606 Inf  -2.783  0.0603
+ anger - fear      -0.03005 0.0652 Inf  -0.461  0.9974
+ anger - happy     -0.00287 0.0609 Inf  -0.047  1.0000
+ anger - neutral    0.02213 0.0650 Inf   0.340  0.9994
+ anger - sad       -0.00677 0.0628 Inf  -0.108  1.0000
+ disgust - fear     0.13853 0.0494 Inf   2.804  0.0568
+ disgust - happy    0.16570 0.0416 Inf   3.980  0.0010
+ disgust - neutral  0.19070 0.0475 Inf   4.011  0.0009
+ disgust - sad      0.16180 0.0465 Inf   3.483  0.0066
+ fear - happy       0.02718 0.0485 Inf   0.560  0.9935
+ fear - neutral     0.05218 0.0534 Inf   0.977  0.9253
+ fear - sad         0.02327 0.0529 Inf   0.440  0.9979
+ happy - neutral    0.02500 0.0451 Inf   0.555  0.9938
+ happy - sad       -0.00390 0.0461 Inf  -0.085  1.0000
+ neutral - sad     -0.02890 0.0510 Inf  -0.567  0.9931
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+P value adjustment: tukey method for comparing a family of 6 estimates 
+
+Warning: The working directory was changed to /Users/pw22812 inside a notebook chunk. The working directory will be reset when the chunk is finished running. Use the knitr root.dir option in the setup chunk to change the working directory for notebook chunks.
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'pbkrtest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(pbkrtest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'lmerTest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(lmerTest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+NOTE: Results may be misleading due to involvement in interactions
+$emmeans
+ subj_emo_lab_no_amb   emmean     SE  df asymp.LCL asymp.UCL
+ anger                0.01769 0.0901 Inf   -0.1589     0.194
+ disgust              0.09079 0.0831 Inf   -0.0721     0.254
+ fear                 0.02115 0.0855 Inf   -0.1464     0.189
+ happy               -0.05276 0.0826 Inf   -0.2147     0.109
+ neutral             -0.05588 0.0845 Inf   -0.2214     0.110
+ sad                 -0.00274 0.0846 Inf   -0.1685     0.163
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+ contrast          estimate     SE  df z.ratio p.value
+ anger - disgust   -0.07311 0.0486 Inf  -1.504  0.6617
+ anger - fear      -0.00346 0.0518 Inf  -0.067  1.0000
+ anger - happy      0.07044 0.0494 Inf   1.427  0.7105
+ anger - neutral    0.07357 0.0518 Inf   1.420  0.7151
+ anger - sad        0.02043 0.0500 Inf   0.409  0.9985
+ disgust - fear     0.06964 0.0403 Inf   1.729  0.5126
+ disgust - happy    0.14355 0.0350 Inf   4.103  0.0006
+ disgust - neutral  0.14668 0.0387 Inf   3.787  0.0021
+ disgust - sad      0.09353 0.0381 Inf   2.457  0.1372
+ fear - happy       0.07391 0.0396 Inf   1.867  0.4228
+ fear - neutral     0.07703 0.0424 Inf   1.815  0.4559
+ fear - sad         0.02389 0.0426 Inf   0.561  0.9935
+ happy - neutral    0.00313 0.0360 Inf   0.087  1.0000
+ happy - sad       -0.05002 0.0381 Inf  -1.312  0.7788
+ neutral - sad     -0.05314 0.0411 Inf  -1.293  0.7889
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+P value adjustment: tukey method for comparing a family of 6 estimates 
+
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'pbkrtest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(pbkrtest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'lmerTest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(lmerTest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+$emmeans
+subj_emo_lab_no_amb = anger:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.1714 0.126 Inf   -0.0748    0.4176
+ social           -0.1360 0.127 Inf   -0.3851    0.1130
+
+subj_emo_lab_no_amb = disgust:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.1578 0.117 Inf   -0.0715    0.3870
+ social            0.0238 0.116 Inf   -0.2032    0.2508
+
+subj_emo_lab_no_amb = fear:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.0578 0.120 Inf   -0.1776    0.2932
+ social           -0.0155 0.120 Inf   -0.2500    0.2191
+
+subj_emo_lab_no_amb = happy:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.1032 0.116 Inf   -0.1250    0.3315
+ social           -0.2087 0.115 Inf   -0.4346    0.0172
+
+subj_emo_lab_no_amb = neutral:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.0715 0.120 Inf   -0.1640    0.3070
+ social           -0.1832 0.117 Inf   -0.4133    0.0468
+
+subj_emo_lab_no_amb = sad:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.1351 0.119 Inf   -0.0987    0.3689
+ social           -0.1406 0.118 Inf   -0.3711    0.0899
+
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+subj_emo_lab_no_amb = anger:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.3075 0.177 Inf   1.735  0.0827
+
+subj_emo_lab_no_amb = disgust:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.1340 0.163 Inf   0.822  0.4111
+
+subj_emo_lab_no_amb = fear:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.0733 0.168 Inf   0.436  0.6629
+
+subj_emo_lab_no_amb = happy:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.3120 0.162 Inf   1.921  0.0547
+
+subj_emo_lab_no_amb = neutral:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.2547 0.167 Inf   1.525  0.1273
+
+subj_emo_lab_no_amb = sad:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.2757 0.166 Inf   1.662  0.0965
+
+Degrees-of-freedom method: asymptotic 
+
+overall similar, but mean and max nmf analysis seem to pickup clearer differences?
+
+pca version inclding man and max features
+
+
+```{r}
+length(39:76)
+colnames(dta_cmfsts3_wid_complete2$completeObs)
+comp1_idx <- 1:38
+comp2_idx <- 39:76
+comp3_idx <- 77:114
+
+# PCA for each component block (on imputed data)
+dta_cmfsts3_wid_complete2$completeObs
+```
+
+```{r}
+mod_res$pca_comp1.2 <- FactoMineR::PCA(dta_cmfsts3_wid_complete2$completeObs[,comp1_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+mod_res$pca_comp2.2 <- FactoMineR::PCA(dta_cmfsts3_wid_complete2$completeObs[,comp2_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+mod_res$pca_comp3.2 <- FactoMineR::PCA(dta_cmfsts3_wid_complete2$completeObs[,comp3_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+
+dta_cmfsts3_wid$pc_comp1.2<- mod_res$pca_comp1.2$ind$coord[,1]
+dta_cmfsts3_wid$pc_comp2.2<- mod_res$pca_comp2.2$ind$coord[,1]
+dta_cmfsts3_wid$pc_comp3.2<- mod_res$pca_comp3.2$ind$coord[,1]
+
+```
+
+
+```{r}
+fviz_contrib(mod_res$pca_comp1.2, "var", axes = 1, top = 5)
+fviz_contrib(mod_res$pca_comp2.2, "var", axes = 1,top = 5)# 
+fviz_contrib(mod_res$pca_comp3.2, "var", axes = 1,top = 5)
+```
+
+```{r}
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pc_comp1.2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pc_comp2.2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+dta_cmfsts3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pc_comp3.2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+
+```
+
+
+lmer modles on pca with mean and max features
+```{r}
+
+mod_res$pc_comp1.2.lmer <- lmer(pc_comp1.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+mod_res$pc_comp2.2.lmer <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+
+
+mod_res$pc_comp3.2.lmer <- lmer(pc_comp3.2  ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+
+
+```
+
+```{r}
+
+anova(mod_res$pc_comp1.2.lmer)
+anova(mod_res$pc_comp2.2.lmer)
+anova(mod_res$pc_comp3.2.lmer)
+
+```
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value    Pr(>F)    
+social_nonsocial                       0.021  0.0208     1   85.6  0.0029 0.9571273    
+subj_emo_lab_no_amb                  152.756 30.5512     5  412.7  4.2800 0.0008318 ***
+social_nonsocial:subj_emo_lab_no_amb  43.056  8.6112     5 4999.1  1.2064 0.3033058    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Warning: The working directory was changed to /Users/pw22812 inside a notebook chunk. The working directory will be reset when the chunk is finished running. Use the knitr root.dir option in the setup chunk to change the working directory for notebook chunks.
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value    Pr(>F)    
+social_nonsocial                      12.286  12.286     1   85.6  2.2736 0.1352740    
+subj_emo_lab_no_amb                   96.286  19.257     5  638.3  3.5637 0.0034693 ** 
+social_nonsocial:subj_emo_lab_no_amb 116.717  23.343     5 4989.4  4.3198 0.0006349 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF F value  Pr(>F)  
+social_nonsocial                       2.054  2.0541     1   88.7  0.2504 0.61806  
+subj_emo_lab_no_amb                  107.221 21.4443     5  414.1  2.6136 0.02421 *
+social_nonsocial:subj_emo_lab_no_amb  42.105  8.4210     5 5032.5  1.0263 0.40014 
+
+generally similar to before?
+
+```{r}
+
+emmeans::emmeans(mod_res$pc_comp1, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$pc_comp2, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+emmeans::emmeans(mod_res$pc_comp3, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "none")
+
+emmeans::emmeans(mod_res$pc_comp2, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$pc_comp3, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+```
+
+$emmeans
+ subj_emo_lab_no_amb   emmean    SE  df asymp.LCL asymp.UCL
+ anger               -0.22836 0.346 Inf    -0.907     0.450
+ disgust              0.30314 0.320 Inf    -0.324     0.931
+ fear                -0.14522 0.330 Inf    -0.791     0.501
+ happy                0.00991 0.319 Inf    -0.615     0.635
+ neutral             -0.10057 0.327 Inf    -0.741     0.540
+ sad                 -0.15713 0.326 Inf    -0.795     0.481
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+ contrast          estimate    SE  df z.ratio p.value
+ anger - disgust    -0.5315 0.176 Inf  -3.026  0.0299
+ anger - fear       -0.0831 0.191 Inf  -0.435  0.9980
+ anger - happy      -0.2383 0.175 Inf  -1.361  0.7502
+ anger - neutral    -0.1278 0.190 Inf  -0.671  0.9851
+ anger - sad        -0.0712 0.184 Inf  -0.387  0.9989
+ disgust - fear      0.4484 0.140 Inf   3.193  0.0177
+ disgust - happy     0.2932 0.114 Inf   2.563  0.1066
+ disgust - neutral   0.4037 0.136 Inf   2.972  0.0351
+ disgust - sad       0.4603 0.131 Inf   3.509  0.0060
+ fear - happy       -0.1551 0.138 Inf  -1.126  0.8707
+ fear - neutral     -0.0447 0.157 Inf  -0.285  0.9997
+ fear - sad          0.0119 0.152 Inf   0.078  1.0000
+ happy - neutral     0.1105 0.132 Inf   0.839  0.9603
+ happy - sad         0.1670 0.129 Inf   1.298  0.7866
+ neutral - sad       0.0566 0.147 Inf   0.384  0.9989
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+P value adjustment: tukey method for comparing a family of 6 estimates 
+
+Warning: The working directory was changed to /Users/pw22812 inside a notebook chunk. The working directory will be reset when the chunk is finished running. Use the knitr root.dir option in the setup chunk to change the working directory for notebook chunks.
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'pbkrtest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(pbkrtest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'lmerTest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(lmerTest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+NOTE: Results may be misleading due to involvement in interactions
+$emmeans
+ subj_emo_lab_no_amb  emmean    SE  df asymp.LCL asymp.UCL
+ anger                0.0327 0.304 Inf    -0.563     0.629
+ disgust              0.2772 0.281 Inf    -0.273     0.828
+ fear                 0.0198 0.289 Inf    -0.547     0.586
+ happy               -0.1281 0.279 Inf    -0.676     0.420
+ neutral             -0.1574 0.286 Inf    -0.717     0.403
+ sad                 -0.0217 0.286 Inf    -0.582     0.538
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+ contrast          estimate    SE  df z.ratio p.value
+ anger - disgust    -0.2445 0.161 Inf  -1.518  0.6527
+ anger - fear        0.0130 0.172 Inf   0.075  1.0000
+ anger - happy       0.1608 0.163 Inf   0.987  0.9221
+ anger - neutral     0.1902 0.172 Inf   1.104  0.8800
+ anger - sad         0.0544 0.166 Inf   0.328  0.9995
+ disgust - fear      0.2574 0.133 Inf   1.943  0.3760
+ disgust - happy     0.4053 0.114 Inf   3.570  0.0048
+ disgust - neutral   0.4346 0.127 Inf   3.409  0.0085
+ disgust - sad       0.2989 0.125 Inf   2.392  0.1589
+ fear - happy        0.1478 0.130 Inf   1.136  0.8665
+ fear - neutral      0.1772 0.141 Inf   1.254  0.8097
+ fear - sad          0.0415 0.141 Inf   0.294  0.9997
+ happy - neutral     0.0293 0.120 Inf   0.245  0.9999
+ happy - sad        -0.1064 0.125 Inf  -0.854  0.9572
+ neutral - sad      -0.1357 0.136 Inf  -0.999  0.9185
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+P value adjustment: tukey method for comparing a family of 6 estimates 
+
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'pbkrtest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(pbkrtest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'lmerTest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(lmerTest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+NOTE: Results may be misleading due to involvement in interactions
+$emmeans
+ subj_emo_lab_no_amb  emmean    SE  df asymp.LCL asymp.UCL
+ anger               -0.0327 0.200 Inf   -0.4247    0.3592
+ disgust             -0.2318 0.148 Inf   -0.5222    0.0586
+ fear                -0.0862 0.168 Inf   -0.4154    0.2430
+ happy                0.1039 0.145 Inf   -0.1804    0.3881
+ neutral              0.2377 0.162 Inf   -0.0792    0.5547
+ sad                  0.0323 0.160 Inf   -0.2813    0.3459
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+ contrast          estimate    SE  df z.ratio p.value
+ anger - disgust     0.1990 0.180 Inf   1.103  0.2701
+ anger - fear        0.0535 0.196 Inf   0.273  0.7845
+ anger - happy      -0.1366 0.180 Inf  -0.757  0.4488
+ anger - neutral    -0.2705 0.194 Inf  -1.392  0.1640
+ anger - sad        -0.0651 0.188 Inf  -0.345  0.7298
+ disgust - fear     -0.1456 0.145 Inf  -1.001  0.3168
+ disgust - happy    -0.3357 0.120 Inf  -2.796  0.0052
+ disgust - neutral  -0.4695 0.140 Inf  -3.357  0.0008
+ disgust - sad      -0.2641 0.136 Inf  -1.939  0.0525
+ fear - happy       -0.1901 0.143 Inf  -1.332  0.1827
+ fear - neutral     -0.3239 0.160 Inf  -2.029  0.0425
+ fear - sad         -0.1185 0.157 Inf  -0.756  0.4498
+ happy - neutral    -0.1338 0.134 Inf  -0.996  0.3191
+ happy - sad         0.0716 0.134 Inf   0.533  0.5939
+ neutral - sad       0.2054 0.151 Inf   1.359  0.1740
+
+Results are averaged over the levels of: social_nonsocial 
+Degrees-of-freedom method: asymptotic 
+
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'pbkrtest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(pbkrtest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'lmerTest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(lmerTest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+$emmeans
+subj_emo_lab_no_amb = anger:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.4170 0.425 Inf    -0.416     1.250
+ social           -0.3516 0.429 Inf    -1.193     0.490
+
+subj_emo_lab_no_amb = disgust:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.4563 0.396 Inf    -0.320     1.233
+ social            0.0981 0.392 Inf    -0.671     0.867
+
+subj_emo_lab_no_amb = fear:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.1524 0.407 Inf    -0.645     0.949
+ social           -0.1129 0.405 Inf    -0.907     0.681
+
+subj_emo_lab_no_amb = happy:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.4046 0.394 Inf    -0.369     1.178
+ social           -0.6608 0.390 Inf    -1.426     0.104
+
+subj_emo_lab_no_amb = neutral:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.3138 0.407 Inf    -0.484     1.111
+ social           -0.6287 0.398 Inf    -1.408     0.151
+
+subj_emo_lab_no_amb = sad:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.4353 0.404 Inf    -0.356     1.227
+ social           -0.4787 0.398 Inf    -1.259     0.302
+
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+subj_emo_lab_no_amb = anger:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.769 0.600 Inf   1.281  0.2001
+
+subj_emo_lab_no_amb = disgust:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.358 0.553 Inf   0.648  0.5172
+
+subj_emo_lab_no_amb = fear:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.265 0.570 Inf   0.466  0.6415
+
+subj_emo_lab_no_amb = happy:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    1.065 0.551 Inf   1.933  0.0532
+
+subj_emo_lab_no_amb = neutral:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.943 0.566 Inf   1.664  0.0961
+
+subj_emo_lab_no_amb = sad:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social    0.914 0.563 Inf   1.625  0.1042
+
+Degrees-of-freedom method: asymptotic 
+
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'pbkrtest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(pbkrtest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+Note: D.f. calculations have been disabled because the number of observations exceeds 3000.
+To enable adjustments, add the argument 'lmerTest.limit = 5100' (or larger)
+[or, globally, 'set emm_options(lmerTest.limit = 5100)' or larger];
+but be warned that this may result in large computation time and memory use.
+$emmeans
+subj_emo_lab_no_amb = anger:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial        -0.4257 0.272 Inf    -0.959     0.107
+ social            0.3603 0.287 Inf    -0.203     0.924
+
+subj_emo_lab_no_amb = disgust:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial        -0.2465 0.206 Inf    -0.651     0.158
+ social           -0.2170 0.205 Inf    -0.619     0.185
+
+subj_emo_lab_no_amb = fear:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial        -0.0544 0.232 Inf    -0.510     0.401
+ social           -0.1180 0.236 Inf    -0.581     0.345
+
+subj_emo_lab_no_amb = happy:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.0844 0.202 Inf    -0.312     0.481
+ social            0.1233 0.201 Inf    -0.271     0.518
+
+subj_emo_lab_no_amb = neutral:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial         0.2488 0.233 Inf    -0.209     0.706
+ social            0.2266 0.220 Inf    -0.204     0.657
+
+subj_emo_lab_no_amb = sad:
+ social_nonsocial  emmean    SE  df asymp.LCL asymp.UCL
+ nonsocial        -0.0177 0.225 Inf    -0.459     0.424
+ social            0.0824 0.220 Inf    -0.349     0.514
+
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+$contrasts
+subj_emo_lab_no_amb = anger:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social  -0.7860 0.391 Inf  -2.008  0.0446
+
+subj_emo_lab_no_amb = disgust:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social  -0.0295 0.286 Inf  -0.103  0.9177
+
+subj_emo_lab_no_amb = fear:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.0637 0.327 Inf   0.195  0.8455
+
+subj_emo_lab_no_amb = happy:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social  -0.0389 0.281 Inf  -0.139  0.8898
+
+subj_emo_lab_no_amb = neutral:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social   0.0222 0.318 Inf   0.070  0.9443
+
+subj_emo_lab_no_amb = sad:
+ contrast           estimate    SE  df z.ratio p.value
+ nonsocial - social  -0.1001 0.309 Inf  -0.323  0.7463
+
+Degrees-of-freedom method: asymptotic 
+
+
+NEXT do a model where we include the 77 sample people
+put on a separate script
+
+```{r}
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_facenmfs.RData")
+```
+
