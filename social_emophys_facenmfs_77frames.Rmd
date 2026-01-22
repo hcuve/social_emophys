@@ -694,6 +694,9 @@ dta_face_z_shift_3_wid
 colnames(dta_cmfsts)
 dta_cmfsts
 
+range(dta_cmfsts$diff1x_pacf5, na.rm = T)
+range(scale(dta_cmfsts$diff1x_pacf5), na.rm = T)
+
 ```
 
 
@@ -1251,6 +1254,8 @@ saveRDS(dta_cmfsts3_wid, "dta_pca1_3_face_92.rds")
 can I get a single PCA
  for face
  
+ n
+ 
 ```{r}
 dta_cmfsts3_wid_complete2$completeObs
 
@@ -1287,3 +1292,5 @@ dta_cmfsts3_wid_complete2_compl%>%
   stat_summary(geom = "pointrange")
 
 ```
+
+

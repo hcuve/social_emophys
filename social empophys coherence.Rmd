@@ -14,21 +14,7 @@ consider reducing dimensionality of subjective ratings into one compoentn as wel
 just subjective, scr, hr, and face
 
 ```{r}
-newDF <- dta_emo[,c("val_slider_response","int_slider_response","happy_slide_response","sad_slide_response","fear_slide_response","disgust_slide_response","anger_slide_response","hr_mean_diff","log_cda_phasic_max","mean_fix_dur","mean_sac_amp","au14_dimpler","au12_lip_corner_pull","au_04_brow_lower","au26_jaw_drop","au01_inner_brow_raise","au02_outer_brow_raise","au05_eye_lid_raise","au06_cheek_raise","au07_eye_lid_tighten","au09_nose_wrinkle","au10_upper_lip_raise","au15_lip_corner_depress","au20_lip_stretch","au17_chin_raise","au23_lip_tighten","au25_lips_apart","au45_eye_blink","social_nonsocial","participant","stim_iaps")]
-colnames(newDF)
 
-
-  newDF$emotioncategory<- dta_emo$emotioncategory
-newDF$subj_emo_lab_no_amb<- dta_emo$subj_emo_lab_no_amb
-
-
-
-dta_emo_wide_mfa
-
-table(is.na(dta_emo_wide_mfa))
-
-colnames(dta_emo_wide_mfa)
-colnames(dta_emo)
 
 dta_pca1_3_face_92 <- readRDS("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/dta_pca1_3_face_92.rds")
 
@@ -55,6 +41,16 @@ dta_mfa_part3<- dta_mfa_part2[,c(10:15,1:9,130:132, 16:129)]
 
 colnames(dta_mfa_part3)
 dta_mfa_part4<- dta_mfa_part3[,1:18]
+
+colnames(dta_emo)
+
+dta_emo
+dta_emo_dmg<- dta_emo%>%
+  group_by(participant,diagnosis,asd)%>%
+  summarise_at(c("tas20_total","dass21_total","dass21_dep", "dass21_anx","dass21_total","obs_slider_response","belief_slider_response","aq28_scale_sum_cont"),
+               mean, na.rm = T)
+
+dta_emo_dmg
 ```
 
 first MFA
@@ -103,7 +99,7 @@ mod_res$mfa_result_wide_new <- MFA(dta_mfa_part4_wide_complete,
                           name.group= c("subj_aff","phys_hr","phys_scr","face"),
                           # num.group.sup=c(6),#position of group above
                           graph=TRUE)
-
+dta_mfa_part4_wide_complete
 
 mod_res$mfa_result_wide_new$global.pca$var
 
@@ -133,20 +129,22 @@ dta_mfa_part4_wide$mfa_pc2_contrib<- mod_res$mfa_result_wide_new$ind$contrib[,2]
 dta_mfa_part4_wide$mfa_pc3_contrib<- mod_res$mfa_result_wide_new$ind$contrib[,3]
 # dta_mfa_part4_wide$ma_pc4<- mod_res$mfa_result_wide_new$ind$coord[,4]
 
+mod_res$mfa_result_wide_new$quanti.var$coord
 ```
 
 
 ```{r}
 
 dta_mfa_part4_wide%>%
-  mutate(social_nonsocial = ifelse(partic >199, "social", "nonsocial"))%>%
-  group_by(particpant, social,nonsocial)%>%
-  summairse_if(is.numeric, mean, na.rm = T)%>%
-   
+  # mutate(social_nonsocial = ifelse(partic >199, "social", "nonsocial"))%>%
+  # group_by(particpant, social,nonsocial)%>%
+  # summairse_if(is.numeric, mean, na.rm = T)%>%
+   # subset(participant!= 105)%>%#doesnt change significance
   ggplot(aes(social_nonsocial, mfa_pc1,colour = social_nonsocial))+
   geom_jitter(alpha = .2, width = .1)+
   stat_summary(geom = "pointrange",position = position_dodge(1))+
-   ggpubr::stat_compare_means()
+   ggpubr::stat_compare_means(method = "t.test")
+  # geom_text(aes(label = participant))
 
 dta_mfa_part4_wide%>%
    
@@ -163,7 +161,7 @@ dta_mfa_part4_wide%>%
 
   geom_jitter(alpha = .2, width = .1)+
   stat_summary(geom = "pointrange",position = position_dodge(1))+
-   ggpubr::stat_compare_means()
+   ggpubr::stat_compare_means(".test")
 
 
 
@@ -196,8 +194,6 @@ dta_mfa_part4_wide%>%
   stat_summary(geom = "pointrange",position = position_dodge(1))+
    ggpubr::stat_compare_means()
 
-
-
 dta_mfa_part4_wide%>%
    
   ggplot(aes(social_nonsocial, (mfa_pc1_contrib+mfa_pc2_contrib+mfa_pc3_contrib),colour = social_nonsocial))+
@@ -206,10 +202,286 @@ dta_mfa_part4_wide%>%
   stat_summary(geom = "pointrange",position = position_dodge(1))+
    ggpubr::stat_compare_means()+
   geom_text(aes(label = participant))
+
 ```
 
 
-PCA verison with equal weight to grouos
+VISUALISE THE DIMENSIONS
+```{R}
+
+dta_mfa_part4_wide%>%
+   # subset(participant!= 105)%>%
+
+ggplot( aes(x = mfa_pc1, y = mfa_pc2, colour = social_nonsocial,
+                             shape = social_nonsocial)) +
+  # 1) Draw a 95% ellipse around each group’s points
+  stat_ellipse(
+    aes(fill = social_nonsocial),
+    type   = "norm",
+    level  = 0.95,
+    geom   = "polygon",
+    alpha  = 0.1,
+    colour = NA
+  ) +
+  # 2) Plot the points themselves
+  geom_point(
+    alpha = 0.7,
+    size  = 2
+  ) +
+  # 3) Zero lines for reference
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+
+  scale_colour_brewer(palette = "Set1", name = "Group") +
+  scale_fill_brewer(palette = "Set1", guide = "none") +
+  # 6) Labels and theme tweaks
+  labs(
+    x     = "PC1 (MFA)",
+    y     = "PC2 (MFA)",
+    title = "MFA: Individuals on PC1 vs PC2, by Social vs Non-Social"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position   = "top",
+    legend.title = element_blank(),
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(colour = "grey90", size = 0.2),
+    strip.background  = element_rect(fill = "grey95", colour = NA),
+    strip.text        = element_text(face = "bold")
+  )+
+   # ggside::geom_ysidedensity(aes(y =pc2_mfa, fill = social_nonsocial, alpha = .0001),orientation = "y")+
+  
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  scale_color_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")
+```
+
+
+
+```{r}
+
+coords_mat <- mod_res$mfa_result_wide_new$quanti.var$coord[, 1:2]  # 
+
+mod_res$mfa_result_wide_new$global.pca$var$coord[,1]
+
+ggplot()+
+  geom_point(aes(mod_res$mfa_result_wide_new$quanti.var$coord[, 1],mod_res$mfa_result_wide_new$global.pca$var$coord[,1] ))
+unique(df_plot$Variable)
+df_plot$stim_iaps<- str_remove(df_plot$Variable, "val_slider_response_")
+
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "int_slider_response_")
+# df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "happy_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "happy_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "sad_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "fear_slide_response_")
+
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "disgust_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "anger_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "hr_mean_diff_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "log_cda_iscr_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "pc_comp1.2_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "pc_comp2.2_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "pc_comp3.2_")
+
+unique(df_plot$stim_iaps)
+```
+
+```{r}
+ #Build a data.frame that also stores “which block” each variable belongs to
+var_names   <- rownames(coords_mat)        
+
+
+block_groups <- c(420, 60, 60, 180)
+block_names  <- c("subj_aff","phys_hr","phys_scr","face")
+
+
+block_labels <- rep(block_names, times = block_groups) 
+
+df_plot <- data.frame(
+  Variable = var_names,
+  Block    = block_labels,
+  Dim1     = coords_mat[, 1],
+  Dim2     = coords_mat[, 2],
+  row.names = NULL,
+  stringsAsFactors = FALSE
+)
+
+
+# Load ggplot2 (if not already)
+library(ggplot2)
+
+mod_res$mfa_result_wide_new$quanti.var$cos2[, 1:2]
+
+
+df_plot$dim_1_cos<- mod_res$mfa_result_wide_new$quanti.var$cos2[, 1]
+df_plot$dim_2_cos<- mod_res$mfa_result_wide_new$quanti.var$cos2[, 2]
+
+df_plot$dim_1_cont<- mod_res$mfa_result_wide_new$quanti.var$contrib[, 1]
+df_plot$dim_2_cont<- mod_res$mfa_result_wide_new$quanti.var$contrib[, 2]
+
+
+df_plot <- df_plot %>% 
+  # (no scaling of Dim1/Dim2 here) 
+  mutate(
+    cos12_total    = dim_1_cos + dim_2_cos,
+    
+    # optionally cap or filter out very low cos² if you only want well-represented vars:
+    cos12_total2   = if_else(cos12_total < 0.05, NA_real_, cos12_total)
+  )
+
+
+plts<- list()
+
+
+
+
+df_plot%>%
+  group_by(Block)%>%
+  mutate(Dim1_z = scale(Dim1),
+         Dim2_z =scale(Dim2))%>%
+  # subset(!is.na(cos12_total2))%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot( aes(x = Dim1, y = Dim2)) +
+
+geom_point(
+  aes(
+    colour = Block,
+    shape  = Block,
+    size   = dim_1_cos
+  ),
+  alpha = 0.3
+) +
+  # geom_line(aes(group = stim_iaps), colour = "grey60", alpha = 0.7) + 
+  # 3) shared axes
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # coord_fixed(
+
+  scale_colour_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")+
+  # scale_colour_viridis_c(option = "inferno")+
+ 
+  # scale_size_continuous(
+  #   range = c(1, 6),
+  #   name  = "Total cos² (Dim1+2)"
+  # ) +
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  )+ 
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE)+
+  # )+ 
+  labs(
+    x     = "MFA PC1",
+    y     = "MFA PC2",
+    title = "Shared axes: size = quality of rep."
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )+
+  guides(size = FALSE)
+```
+
+```{r}
+mod_res$mfa_result_wide_new$group$contrib
+mod_res$mfa_result_wide_new$group$coord
+
+mod_res$mfa_result_wide_new$quanti.var$contrib[, 1]
+mod_res$mfa_result_wide_new$quanti.var$coord[, 1]
+range(mod_res$mfa_result_wide_new$quanti.var$contrib[, 1])
+range(mod_res$mfa_result_wide_new$quanti.var$contrib[, 2])
+df_plot%>%
+  group_by(Block)%>%
+  mutate(Dim1_z_cont= scale(log1p(dim_1_cont+.1)),
+         Dim2_z_cont =scale(log1p(dim_2_cont+.1)))%>%
+  # subset(!is.na(cos12_total2))%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot( aes(x = log1p(dim_1_cont+.01), y = log1p(dim_2_cont+.01))) +
+
+geom_point(
+  aes(
+    colour = Block,
+    shape  = Block,
+    size   = dim_1_cos
+  ),
+  alpha = 0.3
+) +
+  # geom_line(aes(group = stim_iaps), colour = "grey60", alpha = 0.7) + 
+  # 3) shared axes
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # coord_fixed(
+
+  scale_colour_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")+
+  # scale_colour_viridis_c(option = "inferno")+
+ 
+  # scale_size_continuous(
+  #   range = c(1, 6),
+  #   name  = "Total cos² (Dim1+2)"
+  # ) +
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  )+ 
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE)+
+  # )+ 
+  labs(
+    x     = "MFA PC1",
+    y     = "MFA PC2",
+    title = "Shared axes: size = quality of rep."
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )+
+  guides(size = FALSE)
+
+
+```
+
+PCA version with equal weight to grouos
 Weighted PCA
 Give each block equal weight manually:
 ```{r}
@@ -235,10 +507,14 @@ fviz_contrib(mod_res$pca_res, "var", axes = 3,top = 10)
 
 ```
 
+
+
+
+
 Randomly permute the rows of the dataset within each group (preserving group structure), recompute MFA, and record the eigenvalues. If the observed eigenvalue for dimension 1 exceeds the distribution of permuted eigenvalues, it is unlikely to arise by chance.
 
 library(FactoMineR)
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 mod_res$mfa_result_wide_new <- MFA(dta_mfa_part4_wide_complete,
                          group=c(420, 60, 60, 180),
@@ -268,6 +544,8 @@ for (b in 1:B) {
 p_value <- mean(sim >= obs)
 
 p_value
+
+# too consevative as it just shuffles blocks, but structure also comes from variables
 ```
 Test gaps between dimension instead
 <!-- Sometimes it’s nicer to use a ratio instead of a raw difference, because overall scale of eigenvalues can shift under permutations. -->
@@ -277,8 +555,9 @@ Row-within-block null: “blocks have structure, but no cross-block alignment”
 Goal: preserve within-block variable structure, break alignment across blocks.
 
 Here we shuffle rows separately within each block of columns.
-conservative becaue it ignores the variable influence on global dimensions
+note its conservative because it ignores the variable influence on global dimensions
 
+too conservative don't report this
 ```{r}
 eig_obs <- mod_res$mfa_result_wide_new$eig[, 1]
 
@@ -321,6 +600,8 @@ for (b in 1:B) {
 
 p_ratio1 <- mean(ratio1_sim >= ratio1_obs)
 p_ratio1
+
+# same as before too cosnervative
 ```
 Column-wise null: “no structure at all” (everything is independent)
 
@@ -328,17 +609,21 @@ Goal: test whether there is any real multivariate structure (sanity check).
 
 Here we shuffle rows independently within each column, then compare the λ₁/λ₂ ratio.
 
+this is the permutation test
 ```{r}
 set.seed(123)
 # 
 # eig_obs  <- mfa_res$eig[, 1]
 # ratio1_obs <- eig_obs[1] / eig_obs[2]
 
-B <- 500
+B <- 1000
 ratio1_sim_indep <- numeric(B)
 
+colnames(dta_mfa_part4_wide_complete)
+# rm(eig_b)
+
 for (b in 1:B) {
-  dta_perm <- dta_mfa_part4_wide_complete
+  dta_perm <- dta_mfa_part4_wide_complete[,1:720]
   
   # shuffle each column independently
   for (j in seq_len(ncol(dta_perm))) {
@@ -356,16 +641,24 @@ for (b in 1:B) {
   ratio1_sim_indep[b] <- eig_b[1] / eig_b[2]
 }
 
+# eig_b is just the klast iteration not simulated
 range(ratio1_sim_indep)
 ratio1_obs 
+
+
+p_eig1 <- mean(sim_eig1 >= eig_obs[1])
 p_ratio1_indep <- mean(ratio1_sim_indep >= ratio1_obs)
-# p_ratio1_indep = 0
+# p_ratio1_indep = 0p_eig1 = 0
+range(sim_eig1)
+
+
 
 
 ```
 
+pca sanity check (not for reporting)
 ```{r}
-eig_obs <- pca_res$eig[, 1]      # eigenvalues
+eig_obs <-mod_res$pca_res$eig[, 1]      # eigenvalues
 ratio_obs <- eig_obs[1] / eig_obs[2]   # optional λ1/λ2 ratio
 
 
@@ -375,8 +668,9 @@ B <- 500
 sim_eig1  <- numeric(B)
 sim_ratio <- numeric(B)
 
+dta_mfa_part4_wide_complete_z
 for (b in 1:B) {
-  X_perm <- X
+  X_perm <- dta_mfa_part4_wide_complete_z
   
   # shuffle each column independently
   for (j in seq_len(ncol(X_perm))) {
@@ -390,7 +684,15 @@ for (b in 1:B) {
   sim_ratio[b] <- eig_b[1] / eig_b[2]
 }
 
+p_eig1 <- mean(sim_eig1 >= eig_obs[1])
+
+p_ratio <- mean(sim_ratio >= ratio_obs)
+
+p_eig1
+p_ratio
+# consistent with MFA
 ```
+
 loadings
 Compare to a “no structure at all” null (column-wise shuffle)
 
@@ -443,6 +745,7 @@ p_mean_sq
 p_prop_large
 
 # both alright
+# 0
 ```
 
 Compare to a “no cross-block alignment” null (row-per-block shuffle)
@@ -450,9 +753,9 @@ Compare to a “no cross-block alignment” null (row-per-block shuffle)
 This one keeps within-block structure as signal and only kills cross-block alignment:
 
 i.e. Are the loadings on Dim 1 stronger than I’d expect if blocks had structure but were unrelated”
-a bii more conservative because it ignores that structure comes mostly from the variables, the block stuff is for normlaisation
+a bit more conservative because it ignores that structure comes mostly from the variables, the block stuff is for normalisation
 
-
+not for reporting
 ```{r}
 
 # observed stats again
@@ -503,8 +806,16 @@ p_mean_sq_block
 p_prop_large_block
 
 ```
+1] 0.516
+[1] 0.288
+
+as discussed above this is conservative
 
 
+
+#############
+Stability
+#############
 This checks stability of loadings and factor scores.
 
 Idea:
@@ -512,7 +823,7 @@ Resample rows with replacement, rerun MFA, and assess:
 	•	correlation between bootstrapped and original axes
 	•	confidence intervals for contributions or loadings
 
-bootMFA (from ExPosition) do this directly 9but its deprecated;
+bootMFA (from ExPosition) do this directly but exposition its deprecated;
 
 so I will do manual bootstrapping:
 
@@ -534,29 +845,633 @@ for (b in 1:B) {
 
 mean_abs_corr <- mean(abs(corrs))
 
-mean_abs_corr
+mean_abs_corr #0.8157963
+
+
+ggplot()+
+  geom_histogram(aes(x = corrs[,1]))+
+  # geom_histogram()+
+    geom_vline(xintercept =  mean_abs_corr)
+
+# CIs?
+
+
+ sample(nrow(dta_mfa_part4_wide_complete), replace=TRUE)
 ```
 
 
+CIs in case we need them at some point
+library(FactoMineR)
+```{r}
+n       <- nrow(dta_mfa_part4_wide_complete)
+B_boot  <- 500
 
+# original MFA
+mfa_orig      <- mod_res$mfa_result_wide_new
+loadings_orig <- mfa_orig$quanti.var$coord[, 1]
+eig_orig      <- mfa_orig$eig[, 1]
+gap1_orig     <- eig_orig[1] - eig_orig[2]
+ratio1_orig   <- eig_orig[1] / eig_orig[2]
+
+# storage
 loadings_boot <- matrix(NA, nrow = length(loadings_orig), ncol = B_boot)
+eig1_boot     <- numeric(B_boot)
+eig2_boot     <- numeric(B_boot)
+gap1_boot     <- numeric(B_boot)
+ratio1_boot   <- numeric(B_boot)
+
+set.seed(123)
 
 for (b in 1:B_boot) {
-  idx <- sample(1:n, size = n, replace = TRUE)
+  idx <- sample.int(n, size = n, replace = TRUE)
   dta_boot <- dta_mfa_part4_wide_complete[idx, ]
 
   mfa_b <- MFA(dta_boot,
-               group = c(420, 60, 60, 180),
-               type  = c("s", "s", "s", "s"),
+               group      = c(420, 60, 60, 180),
+               type       = c("s", "s", "s", "s"),
                name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
-               graph = FALSE)
+               ncp        = 2,     # we only need first 2 dims for gaps
+               graph      = FALSE)
 
-  load_b <- mfa_b$quanti.var$coord[, 1]
-  # align sign using a global correlation with original loadings
+  ## eigenvalues + gap/ratio
+  eig_b         <- mfa_b$eig[, 1]
+  eig1_boot[b]  <- eig_b[1]
+  eig2_boot[b]  <- eig_b[2]
+  gap1_boot[b]  <- eig_b[1] - eig_b[2]
+  ratio1_boot[b] <- eig_b[1] / eig_b[2]
+
+  ## loadings on Dim 1 with sign alignment
+  load_b    <- mfa_b$quanti.var$coord[, 1]
   sign_flip <- sign(sum(load_b * loadings_orig, na.rm = TRUE))
   loadings_boot[, b] <- load_b * sign_flip
 }
 
-# e.g. 95% bootstrap interval for each variable’s loading
+## 95% bootstrap CIs for loadings
 load_ci_low  <- apply(loadings_boot, 1, quantile, probs = 0.025, na.rm = TRUE)
 load_ci_high <- apply(loadings_boot, 1, quantile, probs = 0.975, na.rm = TRUE)
+
+## 95% CIs for eigenvalue 1, and gap/ratio
+eig1_ci    <- quantile(eig1_boot,  probs = c(0.025, 0.975), na.rm = TRUE)
+gap1_ci    <- quantile(gap1_boot,  probs = c(0.025, 0.975), na.rm = TRUE)
+ratio1_ci  <- quantile(ratio1_boot, probs = c(0.025, 0.975), na.rm = TRUE)
+
+eig_orig[1]
+ratio1_orig
+eig1_ci
+# gap1_ci
+ratio1_ci
+```
+
+
+
+<!-- so in summary the diemnsions are valid -->
+social vs non social
+
+
+```{r}
+
+library(FactoMineR)
+dta_mfa_part4_wide_complete$social_nonsocial <- dta_mfa_part4_wide$social_nonsocial
+# ---- run MFA once ----
+idx_grp <- which(names(dta_mfa_part4_wide_complete) == "social_nonsocial")
+X       <- dta_mfa_part4_wide_complete[, -idx_grp]
+grp     <- dta_mfa_part4_wide_complete[[idx_grp]]
+
+mfa_res <- MFA(X,
+               group      = c(420, 60, 60, 180),
+               type       = c("s","s","s","s"),
+               name.group = c("subj_aff","phys_hr","phys_scr","face"),
+               graph      = FALSE)
+
+
+
+# ---- extract quantities ----
+coord1 <- mod_res$mfa_result_wide_new$ind$coord[, 1]      # Dim 1 scores
+contrib1 <- mod_res$mfa_result_wide_new$ind$contrib[, 1]  # Dim 1 contributions
+
+# ---- observed statistics ----
+# mean difference in scores
+
+# note permutation tests  require an explicit absolute value for two-sided logic, whereas the standard t-test already comes with that logic built in.
+T_coord_obs <- abs(mean(coord1[grp == "social"]) - 
+                   mean(coord1[grp == "nonsocial"]))
+
+# median difference in contributions (more robust)
+T_contrib_obs <- abs(median(contrib1[grp == "social"]) - 
+                     median(contrib1[grp == "nonsocial"]))
+
+# ---- permutation test (integrated) ----
+set.seed(1)
+
+B <- 5000
+T_coord_sim   <- numeric(B)
+T_contrib_sim <- numeric(B)
+
+for (b in 1:B) {
+  grp_perm <- sample(grp)
+
+  # recompute both statistics under permuted labels not removed abs in coord
+  T_coord_sim[b] <- abs(mean(coord1[grp_perm == "social"]) -
+                        mean(coord1[grp_perm == "nonsocial"]))
+
+  T_contrib_sim[b] <- abs(median(contrib1[grp_perm == "social"]) -
+                          median(contrib1[grp_perm == "nonsocial"]))
+}
+
+# ---- p-values (two-sided via permutation) ----
+p_coord   <- mean(T_coord_sim   >= T_coord_obs)
+p_contrib <- mean(T_contrib_sim >= T_contrib_obs)
+
+list(
+  p_value_coord   = p_coord,
+  p_value_contrib = p_contrib
+)
+
+# $p_value_coord
+# [1] 0.0006
+# 
+# $p_value_contrib
+# [1] 0.421
+
+t.test(coord1 ~ grp)
+
+t.test(dta_mfa_part4_wide$mfa_pc1_contrib ~ dta_mfa_part4_wide$social_nonsocial)
+```
+
+Welch Two Sample t-test
+
+data:  coord1 by grp
+t = 3.638, df = 84.185, p-value = 0.0004727
+alternative hypothesis: true difference in means between group nonsocial and group social is not equal to 0
+95 percent confidence interval:
+ 0.3975154 1.3560049
+sample estimates:
+mean in group nonsocial    mean in group social 
+              0.4188965              -0.4578636 
+              
+we see differences in dimensions but not in other metrics, contrib, cons, etc
+
+
+
+note  shuffling the columns address  structure not group differences. the later needs shufflig labels
+
+USING EIGENVUALUES REQUIRES REFIITING
+
+```{r}
+
+
+## -----------------------------
+## 1. Prepare data and grouping
+## -----------------------------
+idx_grp <- which(names(dta_mfa_part4_wide_complete) == "social_nonsocial")
+
+# all MFA variables (no group column)
+X   <- dta_mfa_part4_wide_complete[, -idx_grp]
+
+# grouping factor: "social" / "nonsocial"
+grp <- dta_mfa_part4_wide_complete[[idx_grp]]
+
+## --------------------------------------
+## 2. Helper: % variance on first dim
+## --------------------------------------
+get_dim1_pct <- function(X_sub) {
+  mfa_res <- MFA(
+    X_sub,
+    group      = c(420, 60, 60, 180),
+    type       = c("s", "s", "s", "s"),
+    name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
+    graph      = FALSE
+  )
+  # column 2 in $eig is % of inertia in FactoMineR
+  mfa_res$eig[1, 2]
+}
+
+## --------------------------------------
+## 3. Observed difference (social vs nonsocial)
+## --------------------------------------
+dim1_soc_obs <- get_dim1_pct(X[grp == "social", ])
+dim1_non_obs <- get_dim1_pct(X[grp == "nonsocial", ])
+
+diff_obs <- abs(dim1_soc_obs - dim1_non_obs)
+
+dim1_soc_obs
+dim1_non_obs
+diff_obs
+
+## --------------------------------------
+## 4. Permutation test: shuffle labels, refit MFA
+## --------------------------------------
+set.seed(1)
+B <- 500
+
+diff_sim <- numeric(B)
+
+for (b in seq_len(B)) {
+  # permute social / nonsocial labels
+  grp_perm <- sample(grp)
+
+  # permuted groups
+  X_soc_b <- X[grp_perm == "social", , drop = FALSE]
+  X_non_b <- X[grp_perm == "nonsocial", , drop = FALSE]
+
+  # refit MFA in each permuted group
+  dim1_soc_b <- get_dim1_pct(X_soc_b)
+  dim1_non_b <- get_dim1_pct(X_non_b)
+
+  # store absolute difference
+  diff_sim[b] <- abs(dim1_soc_b - dim1_non_b)
+}
+
+## --------------------------------------
+## 5. Permutation p-value
+## --------------------------------------
+p_perm <- mean(diff_sim >= diff_obs)
+
+result_mfa_perm <- list(
+  dim1_social_obs     = dim1_soc_obs,
+  dim1_nonsocial_obs  = dim1_non_obs,
+  diff_obs            = diff_obs,
+  p_value_perm        = p_perm,
+  diff_sim_range      = range(diff_sim)
+)
+
+result_mfa_perm
+
+# SO THE ABSOLUTE EIGEN VALUE DOESNt DIFFER
+# perhaps the best way to capture coherence is to see how much of all variables and groups from MFA is acounted by dimension 1, rather than looking at absolute eigenvalues
+```
+
+$dim1_social_obs
+[1] 10.01993
+
+$dim1_nonsocial_obs
+[1] 8.194522
+
+$diff_obs
+[1] 1.825403
+
+$p_value_perm
+[1] 0.212
+
+$diff_sim_range
+[1] 0.0001709709 4.0902212746
+
+lets try co conceptualise coherebnce as the degree to which most variables and blocks allign with the dominant dimenhsion, dim 1
+```{r}
+ mod_res$mfa_result_wide_new$quanti.var
+ mod_res$mfa_result_wide_new$group$
+
+
+```
+
+
+```{r}
+get_coherence <- function(X_sub) {
+  mfa_res <- MFA(
+    X_sub,
+    group      = c(420, 60, 60, 180),
+    type       = c("s", "s", "s", "s"),
+    name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
+    graph      = FALSE
+  )
+  
+  # variable-level alignment with Dim 1
+  cos2_dim1 <- mfa_res$quanti.var$cos2[, 1]
+  coh_var   <- mean(cos2_dim1, na.rm = TRUE)  # overall variable–Dim1 coherence
+  
+  # block-level info (not collapsed, but useful for interpretation)
+  block_contrib_dim1 <- mfa_res$group$contrib[, 1]
+  
+  list(
+    coherence_var_dim1   = coh_var,             # main scalar index (0–1)
+    block_contrib_dim1   = block_contrib_dim1, # per-block contributions
+    dim1_pct_inertia     = mfa_res$eig[1, 2]   # % total inertia on Dim 1 (for context)
+  )
+}
+
+# observed
+idx_grp <- which(names(dta_mfa_part4_wide_complete) == "social_nonsocial")
+X   <- dta_mfa_part4_wide_complete[, -idx_grp]
+grp <- dta_mfa_part4_wide_complete[[idx_grp]]  # factor: social / nonsocial
+
+# coherence for each group
+coh_soc <- get_coherence(X[grp == "social", ]) 
+coh_non <- get_coherence(X[grp == "nonsocial", ])
+
+coh_soc$coherence_var_dim1
+coh_non$coherence_var_dim1
+
+coh_diff_obs <- abs(coh_soc$coherence_var_dim1 - coh_non$coherence_var_dim1)
+coh_diff_obs
+
+# permutation test
+set.seed(1)
+B <- 500
+coh_diff_sim <- numeric(B)
+
+for (b in seq_len(B)) {
+  grp_perm <- sample(grp)  # permute social / nonsocial labels
+  
+  coh_soc_b <- get_coherence(X[grp_perm == "social", ])
+  coh_non_b <- get_coherence(X[grp_perm == "nonsocial", ])
+  
+  coh_diff_sim[b] <- abs(coh_soc_b$coherence_var_dim1 - coh_non_b$coherence_var_dim1)
+}
+
+p_coh <- mean(coh_diff_sim >= coh_diff_obs)
+
+result_coherence <- list(
+  social_coherence_var_dim1    = coh_soc$coherence_var_dim1,
+  nonsocial_coherence_var_dim1 = coh_non$coherence_var_dim1,
+  diff_obs                     = coh_diff_obs,
+  p_value_perm                 = p_coh,
+  sim_diff_range               = range(coh_diff_sim),
+  social_block_contrib_dim1    = coh_soc$block_contrib_dim1,
+  nonsocial_block_contrib_dim1 = coh_non$block_contrib_dim1,
+  social_dim1_pct_inertia      = coh_soc$dim1_pct_inertia,
+  nonsocial_dim1_pct_inertia   = coh_non$dim1_pct_inertia
+)
+
+result_coherence
+
+```
+
+
+also no differences, so we don't have structural differences in the degree to which responses are more or less captured by cohrence dimension between social and non social, just that they differ in their location in this dimension (work put the interpretation of locations)
+
+Long format sanity check below, where number of observations will be greater than variables
+- we get the same as above, so it's unlikely that our findings above are driven by instability arising from number of varuables > then subjects.
+
+
+```{r}
+
+ dta_mfa_part4
+colnames(dta_mfa_part4)
+
+
+
+dta_mfa_part4_imptd <- missMDA::imputeMFA(dta_mfa_part4[,7:18],
+                                               ncp=2,
+                                                group=c(7, 1, 1, 3),
+                          type=c("s","s","s", "s"))
+
+
+dta_mfa_part4_imptd_cmplt<- dta_mfa_part4_imptd$completeObs
+
+
+# just the hr, scr, subje, face components
+mod_res$mfa_result_long_new <- MFA(dta_mfa_part4_imptd_cmplt,
+                         group=c(7, 1, 1, 3),
+                         type=c("s","s","s", "s"),
+                          name.group= c("subj_aff","phys_hr","phys_scr","face"),
+                          # num.group.sup=c(6),#position of group above
+                          graph=TRUE)
+
+
+
+
+fviz_contrib(mod_res$mfa_result_long_new, "quanti.var", axes = 1, top = 10)
+fviz_contrib(mod_res$mfa_result_long_new, "quanti.var", axes = 2,top = 10)# 
+fviz_contrib(mod_res$mfa_result_long_new, "quanti.var", axes = 3,top = 10)
+
+
+fviz_contrib(mod_res$mfa_result_long_new, "group", axes = 1, top = 10)
+fviz_contrib(mod_res$mfa_result_long_new, "group", axes = 2,top = 10)# 
+fviz_contrib(mod_res$mfa_result_long_new, "group", axes = 3,top = 10)
+
+```
+
+
+
+```{r}
+dta_mfa_part4$mfa_pc1<- mod_res$mfa_result_long_new$ind$coord[,1]
+dta_mfa_part4$mfa_pc2<- mod_res$mfa_result_long_new$ind$coord[,2]
+dta_mfa_part4$mfa_pc3<- mod_res$mfa_result_long_new$ind$coord[,3]
+
+dta_mfa_part4$mfa_pc1_contrib<- mod_res$mfa_result_long_new$ind$contrib[,1]
+dta_mfa_part4$mfa_pc2_contrib<- mod_res$mfa_result_long_new$ind$contrib[,2]
+dta_mfa_part4$mfa_pc3_contrib<- mod_res$mfa_result_long_new$ind$contrib[,3]
+# dta_mfa_part4_wide$ma_pc4<- mod_res$mfa_result_wide_new$ind$coord[,4]
+
+
+dta_mfa_part4$mfa_pc1_cos2 <- mod_res$mfa_result_long_new$ind$cos2[,1]
+
+mod_res$mfa_pc1_lmer <- lmer(mfa_pc1 ~ 1+ social_nonsocial +  
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+
+mod_res$mfa_pc1_contrib <- lmer(mfa_pc1_contrib ~ 1+ social_nonsocial +  
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+
+mod_res$mfa_pc1_cos2 <- lmer(mfa_pc1_cos2 ~ 1+ social_nonsocial +  
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+anova(mod_res$mfa_pc1_lmer)
+anova(mod_res$mfa_pc1_contrib)
+
+anova(mod_res$mfa_pc1_cos2)
+```
+
+
+```{r}
+
+dta_mfa_part4%>%
+  group_by(participant)%>%
+  mutate(mfa_pc1 = scale(mfa_pc1))%>%
+  group_by(participant, social_nonsocial)%>%
+ 
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+   
+  ggplot(aes(social_nonsocial, mfa_pc1,colour = social_nonsocial))+
+  geom_jitter(alpha = .2, width = .1)+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+   ggpubr::stat_compare_means()
+
+
+```
+
+dta_mfa_part4%>%
+     group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc2,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, width = .1)+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+   ggpubr::stat_compare_means()
+
+
+```{r}
+
+
+dta_mfa_part4%>%
+     group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc3,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, width = .1)+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+   ggpubr::stat_compare_means()
+
+```
+
+```{r}
+
+dta_mfa_part4%>%
+  # subset(participant!= 105)%>%
+  # subset(participant!= 104)%>%
+ 
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+   
+  ggplot(aes(social_nonsocial, mfa_pc1_contrib,colour = social_nonsocial))+
+  geom_jitter(alpha = .2, width = .1)+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+   ggpubr::stat_compare_means()+
+  geom_text(aes(label = participant))
+
+dta_mfa_part4%>%
+     group_by(participant,social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc2_contrib,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, width = .1)+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+   ggpubr::stat_compare_means()
+
+
+dta_mfa_part4%>%
+     group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, mfa_pc3_contrib,colour = social_nonsocial))+
+
+  geom_jitter(alpha = .2, width = .1)+
+  stat_summary(geom = "pointrange",position = position_dodge(1))+
+   ggpubr::stat_compare_means()
+```
+
+
+
+```{r}
+
+var_names2   <- rownames(mod_res$mfa_result_long_new$quanti.var$coord[,1:2])        
+
+
+block_groups2 <- c(7, 1, 1, 3)
+block_names2  <- c("subj_aff","phys_hr","phys_scr","face")
+
+
+block_labels2 <- rep(block_names2, times = block_groups2) 
+
+df_plot2 <- data.frame(
+  Variable = var_names2,
+  Block    = block_labels2,
+  Dim1     = mod_res$mfa_result_long_new$quanti.var$coord[,1],
+  Dim2     = mod_res$mfa_result_long_new$quanti.var$coord[,2],
+  row.names = NULL,
+  stringsAsFactors = FALSE
+)
+df_plot2
+
+# Load ggplot2 (if not already)
+library(ggplot2)
+
+
+
+df_plot2$dim_1_cos<- mod_res$mfa_result_long_new$quanti.var$cos2[, 1]
+df_plot2$dim_2_cos<- mod_res$mfa_result_long_new$quanti.var$cos2[, 2]
+
+df_plot2$dim_1_cont<- mod_res$mfa_result_long_new$quanti.var$contrib[, 1]
+df_plot2$dim_2_cont<- mod_res$mfa_result_long_new$quanti.var$contrib[, 2]
+
+
+df_plot2 <- df_plot2 %>% 
+  # (no scaling of Dim1/Dim2 here) 
+  mutate(
+    cos12_total    = dim_1_cos + dim_2_cos,
+    
+    # optionally cap or filter out very low cos² if you only want well-represented vars:
+    cos12_total2   = if_else(cos12_total < 0.05, NA_real_, cos12_total)
+  )
+
+
+plts<- list()
+
+
+
+
+df_plot2%>%
+  # group_by(Block)%>%
+  # mutate(Dim1_z = scale(Dim1),
+  #        Dim2_z =scale(Dim2))%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot( aes(x = Dim1, y = Dim2)) +
+
+geom_point(
+  aes(
+    colour = Block,
+    shape  = Block,
+    size   = cos12_total
+  ),
+  alpha = 0.3
+) +
+  # 3) shared axes
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # coord_fixed(
+
+  scale_colour_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")+
+  # scale_colour_viridis_c(option = "inferno")+
+ 
+  scale_size_continuous(
+    range = c(1, 6),
+    name  = "Total cos² (Dim1+2)"
+  ) +
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  )+ 
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE)+
+  # )+ 
+  labs(
+    x     = "MFA PC1",
+    y     = "MFA PC2",
+    title = "Shared axes: size = quality of rep."
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )+
+  guides(size = FALSE)
+
+```
+
+note social vs non social differences will allways liely disapear when mfa is fittes separtelly per person, due to normalisatio of between subject differences
+
+
+```{r}
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/s4sndata_select.RData")
+
+```

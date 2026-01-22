@@ -631,6 +631,8 @@ social_nonsocial
 
 ```{r}
 dta_cmfsts2
+
+
 colnames(dta_cmfsts2)
 
 

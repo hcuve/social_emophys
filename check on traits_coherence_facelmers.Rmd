@@ -1,0 +1,814 @@
+---
+title: "Untitled"
+author: "helio"
+date: "2026-01-22"
+output: html_document
+---
+
+
+```{r}
+```{r}
+dta_mfa_part4_wide<- dta_mfa_part4_wide%>%
+  left_join(dta_emo_dmg)
+
+dta_mfa_part4_wide
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(tas20_total<80)%>%
+  ggplot(aes(tas20_total, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+# northing in tas and pcs coord
+
+# now tas and contrib
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(tas20_total, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(tas20_total<80)%>%
+  ggplot(aes(tas20_total, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+  # tas effect on PC 3 
+```
+
+
+only tas effect on PC3
+
+now aq
+
+```{r}
+
+
+# dta_mfa_part4_wide<- dta_mfa_part4_wide%>%
+#   left_join(dta_emo_dmg [,c("participant", "aq28_scale_sum_cont")])
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(aq28_scale_sum_cont<80)%>%
+  ggplot(aes(aq28_scale_sum_cont, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+# northing in aq and pcs coord
+
+# now aq and contrib
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(aq28_scale_sum_cont, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(aq28_scale_sum_cont<80)%>%
+  ggplot(aes(aq28_scale_sum_cont, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+ 
+```
+nothing in aq
+
+
+dass dep
+```{r}
+# dta_mfa_part4_wide
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(dass21_dep<80)%>%
+  ggplot(aes(dass21_dep, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+# northing in tas and pcs coord
+
+# now tas and contrib
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_dep, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(dass21_dep<80)%>%
+  ggplot(aes(dass21_dep, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+
+```
+
+dass depression has an efect in PC contrinbution (coherence)
+
+
+anx
+```{r}
+
+# dta_mfa_part4_wide
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(dass21_anx<80)%>%
+  ggplot(aes(dass21_anx, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+# northing in tas and pcs coord
+
+# now tas and contrib
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_anx, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(dass21_anx<80)%>%
+  ggplot(aes(dass21_anx, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+
+```
+
+some trends nothingnof note
+
+
+```{r}
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, mfa_pc1))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, mfa_pc2))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(dass21_total<80)%>%
+  ggplot(aes(dass21_total, mfa_pc3))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+# northing in tas and pcs coord
+
+# now tas and contrib
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, log1p(mfa_pc1_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, log1p(mfa_pc2_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4_wide%>%
+  ggplot(aes(dass21_total, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()
+  
+
+dta_mfa_part4_wide%>%
+  # subset(dass21_total<80)%>%
+  ggplot(aes(dass21_total, log1p(mfa_pc3_contrib+.01)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+```
+
+
+```{r}
+dta_mfa_part4<- dta_mfa_part4%>%
+  left_join(dta_emo_dmg)
+ 
+dta_mfa_part
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp1.2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp1.2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp2.2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp2.2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp3.2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp3.2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+  
+# contrib
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp1.2^2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp1.2^2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp2.2^2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp2.2^2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp3.2^2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()
+
+
+
+dta_mfa_part4%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(tas20_total, pc_comp3.2^2))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  # geom_jitter(width = .1, alpha = .2)+
+  # stat_summary(geom = "pointrange")+
+  ggpubr::stat_cor()+
+  facet_grid(~social_nonsocial)
+
+```
+
+
+```{r}
+# variables  mixed models
+dta_mfa_part4$tas20_total_z<- scale(dta_mfa_part4$tas20_total)[,1]
+mod_res$pc_comp1.2.lmer_tas <- lmer(pc_comp1.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*tas20_total_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$pc_comp2.2.lmer_tas <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*tas20_total_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$pc_comp3.2.lmer_tas <- lmer(pc_comp3.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*tas20_total_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+anova(mod_res$pc_comp1.2.lmer_tas)
+anova(mod_res$pc_comp2.2.lmer_tas)
+anova(mod_res$pc_comp3.2.lmer_tas)
+```
+<!-- Nothing here --> for tas
+
+
+```{r}
+dta_mfa_part4$aq28_scale_sum_cont_z<- scale(dta_mfa_part4$aq28_scale_sum_cont)[,1]
+                                            
+mod_res$pc_comp1.2.lmer_aq <- lmer(pc_comp1.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*aq28_scale_sum_cont_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$pc_comp2.2.lmer_aq <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*aq28_scale_sum_cont_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$pc_comp3.2.lmer_aq <- lmer(pc_comp3.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*aq28_scale_sum_cont_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+anova(mod_res$pc_comp1.2.lmer_aq)
+anova(mod_res$pc_comp2.2.lmer_aq)
+anova(mod_res$pc_comp3.2.lmer_aq)
+
+
+```
+nothing here
+
+
+```{r}
+
+# dta_mfa_part4$dass21_dep_z<- scale(dta_mfa_part4$dass21_dep)[,1]
+
+mod_res$pc_comp1.2.lmer_das <- lmer(pc_comp1.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*dass21_total_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$pc_comp2.2.lmer_das <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*dass21_total_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$pc_comp3.2.lmer_das <- lmer(pc_comp3.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*dass21_total_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+anova(mod_res$pc_comp1.2.lmer_das)
+anova(mod_res$pc_comp2.2.lmer_das)
+anova(mod_res$pc_comp3.2.lmer_das)
+
+
+mod_res$pc_comp1.2.lmer_das_dep <- lmer(pc_comp1.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*dass21_dep_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$pc_comp2.2.lmer_das_dep <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*dass21_dep_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$pc_comp3.2.lmer_das_dep <- lmer(pc_comp3.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb*dass21_dep_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+anova(mod_res$pc_comp1.2.lmer_das_dep)
+anova(mod_res$pc_comp2.2.lmer_das_dep)
+anova(mod_res$pc_comp3.2.lmer_das_dep)
+
+
+```
+
+nothingof note
+
+```{r}
+
+dta_mfa_part4
+mod_res$hr_mean_diff_tas_lmer <- lmer(hr_mean_diff ~ 1+ social_nonsocial * subj_emo_lab_no_amb*tas20_total_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$hr_mean_diff_aq_lmer <- lmer(hr_mean_diff ~ 1+ social_nonsocial * subj_emo_lab_no_amb*aq28_scale_sum_cont_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+
+mod_res$logscr_mean_diff_tas_lmer <- lmer(log_cda_iscr ~ 1+ social_nonsocial * subj_emo_lab_no_amb*tas20_total_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+mod_res$logscr_mean_diff_aq_lmer <- lmer(log_cda_iscr ~ 1+ social_nonsocial * subj_emo_lab_no_amb*aq28_scale_sum_cont_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+
+
+anova(mod_res$hr_mean_diff_tas_lmer)
+anova(mod_res$hr_mean_diff_aq_lmer)
+anova(mod_res$logscr_mean_diff_tas_lmer)
+anova(mod_res$logscr_mean_diff_aq_lmer)
+```
