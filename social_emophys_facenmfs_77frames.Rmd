@@ -93,10 +93,10 @@ require(tidyverse)
 # single run and single numeric seed for reproducibility
 
 # run overnight
-res_find_k <- nmf(dta_face_z_shift_3[,7:23], 2:6, 
-                      seed=123456,
-                      nrun = 100,
-                       .options = 'v')
+# res_find_k <- nmf(dta_face_z_shift_3[,7:23], 2:6, 
+#                       seed=123456,
+#                       nrun = 100,
+#                        .options = 'v')
 
 
 NMF::plot(res_find_k)
@@ -637,7 +637,7 @@ dta_face_z_shift_3_long
 
 # CREATE a t for frame to avoid number only name columns
 dta_face_z_shift_3_long
-
+colnames(dta_face_z_shift_3_long)
 dta_face_z_shift_3_long<-  dta_face_z_shift_3_long%>%
   arrange(filename,nmf_component,frame)%>%
   group_by(filename,nmf_component) %>%
@@ -1027,18 +1027,19 @@ similar to data withoith 77 frame folks
 
 ```{r}
 
-emmeans::emmeans(mod_res$pc_comp1, pairwise ~ subj_emo_lab_no_amb, 
+emmeans::emmeans(mod_res$pc_comp1.2.lmer, pairwise ~ subj_emo_lab_no_amb, 
                  adjust = "tukey")
-emmeans::emmeans(mod_res$pc_comp2, pairwise ~ subj_emo_lab_no_amb, 
+
+emmeans::emmeans(mod_res$pc_comp2.2.lmer, pairwise ~ subj_emo_lab_no_amb, 
                  adjust = "tukey")
 
 
-emmeans::emmeans(mod_res$pc_comp3, pairwise ~ subj_emo_lab_no_amb, 
-                 adjust = "none")
-
-emmeans::emmeans(mod_res$pc_comp2, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+emmeans::emmeans(mod_res$pc_comp3.2.lmer, pairwise ~ subj_emo_lab_no_amb, 
                  adjust = "tukey")
-emmeans::emmeans(mod_res$pc_comp3, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+
+emmeans::emmeans(mod_res$pc_comp2.2.lmer, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$pc_comp2.2.lmer, pairwise ~ subj_emo_lab_no_amb|social_nonsocial, 
                  adjust = "tukey")
 ```
 
@@ -1294,3 +1295,508 @@ dta_cmfsts3_wid_complete2_compl%>%
 ```
 
 
+technical check
+use the to derive features directly then average features per NMF group
+
+```{r}
+# (dta_face_z_shift_3[,7:23], r = 3, 
+ 
+ colnames(dta_face_z_shift_3)
+
+dta_face_z_shift_3_long_aus <- dta_face_z_shift_3 %>%
+  pivot_longer(
+    cols = au01_r_smt:au45_r_smt,      
+    names_to  = "au_code",     
+    values_to = "au_value"          
+  )%>%
+  select(participant,
+         timestamp,
+         filename,
+         stim_iaps,
+         frame,
+         bin_frame,
+         social_nonsocial,
+         subj_emo_lab_no_amb,
+         au_code,
+         au_value)
+
+dta_face_z_shift_3_long_aus
+```
+
+# create unique timeseries IDs
+
+
+```{r}
+
+
+# CREATE a t for frame to avoid number only name columns
+dta_face_z_shift_3_long_aus
+
+dta_face_z_shift_3_long_aus<-  dta_face_z_shift_3_long_aus%>%
+  arrange(filename,au_code,au_value)%>%
+  group_by(filename,au_code) %>%
+  mutate(bin_frame2 = paste0("t_", paste0(bin_frame)))%>%
+  ungroup()
+ 
+unique(dta_face_z_shift_3_long_aus$bin_frame)
+
+dta_face_z_shift_3_wid_aus<- dta_face_z_shift_3_long_aus%>%
+pivot_wider(
+    id_cols    = c(participant,
+                  filename,
+                  stim_iaps,
+                  au_code,
+                  social_nonsocial,
+                  subj_emo_lab_no_amb),
+    names_from  = bin_frame2,
+    values_from = au_value
+  )
+
+
+colnames(dta_face_z_shift_3_wid)
+
+dta_face_z_shift_3_wid_aus
+```
+  
+  
+calculate multivariate timeseries features
+
+```{r}
+
+require(CMFMTS)
+
+# ?CMFMTS::cmfmts
+
+dta_face_z_shift_3_wid_aus$filename[300:310]
+
+
+df <- dta_face_z_shift_3_wid_aus  # rename as needed
+
+# find columns that match "t_<number>"
+t_cols <- grep("^t_\\d+$", names(df), value = TRUE)
+
+# extract numbers after "t_"
+t_nums <- as.numeric(sub("t_", "", t_cols))
+
+# order t_cols by those numbers
+t_cols_sorted <- t_cols[order(t_nums)]
+
+# now rebuild data with sorted t_ columns
+other_cols <- setdiff(names(df), t_cols)
+
+dta_face_z_shift_3_wid_aus <- dta_face_z_shift_3_wid_aus[, c(other_cols, t_cols_sorted)]
+dta_face_z_shift_3_wid_aus$mean_feat <-NULL
+
+dta_face_z_shift_3_wid_aus$max_feat<- NULL 
+colnames(dta_face_z_shift_3_wid_aus)
+dta_face_z_shift_3_wid_aus$mean_feat <- rowMeans(dta_face_z_shift_3_wid_aus[,7: 80], na.rm = TRUE)
+dta_face_z_shift_3_wid_aus$max_feat <- apply(dta_face_z_shift_3_wid_aus[, 7:80], 1, max, na.rm = TRUE)
+
+
+dta_face_z_shift_3_wid_aus
+colnames(dta_face_z_shift_3_wid_aus)
+table(is.na(dta_face_z_shift_3_wid_aus[,7:80]))
+
+dta_cmfsts_aus<- CMFMTS::cmfmts(dataset = dta_face_z_shift_3_wid_aus[,7:80]+.01,
+                               scale = F,
+               na = T ,
+               n_cores = 8
+               )
+
+
+
+dta_cmfsts_aus
+```
+```{r}
+dta_cmfsts_aus<- bind_cols(dta_face_z_shift_3_wid_aus[,1:6], dta_cmfsts_aus)
+
+
+
+# drop uninformative timeseries
+colnames(dta_cmfsts_aus)
+
+sd_values_pos <- apply(dta_cmfsts_aus[, 7:47], 
+                   MARGIN = 2, sd, na.rm = T) # 2 chooses columns and 2 chooses rows
+
+
+# Identify the columns with a standard deviation of zero
+zero_sd_cols_pos <- names(which(sd_values_pos == 0))
+zero_sd_cols_pos
+
+# [1] "length"          "nperiods"        "seasonal_period" s
+
+# Drop the columns with a standard deviation of zero
+dta_cmfsts_aus2 <- dta_cmfsts_aus%>%select(-zero_sd_cols_pos)
+dta_cmfsts_aus
+dta_cmfsts_aus2$mean_feat<- dta_face_z_shift_3_wid_aus$mean_feat 
+dta_cmfsts_aus2$max_feat<- dta_face_z_shift_3_wid_aus$max_feat 
+
+# dta_cmfsts2
+
+colnames(dta_cmfsts_aus2)
+all_na <- sapply(dta_cmfsts_aus2[, 7:44], function(x) all(is.na(x)))
+all_na_names<- names(all_na)[all_na]
+all_na_names
+# "max_kl_shift"  "time_kl_shift"
+dta_cmfsts_aus2 <- dta_cmfsts_aus2%>%select(-all_na_names)
+
+
+```
+
+
+
+CONTINUE HERE
+
+
+```{r}
+colnames(dta_cmfsts_aus2)
+```
+```{r}
+
+corr_mat2 <- dta_cmfsts_aus2[,7:44] %>%
+  cor(use = "pairwise.complete.obs", method = "pearson")
+
+
+# library(ggplot2)
+library(reshape2)
+
+corr_df_2 <- melt(corr_mat2, varnames = c("var1", "var2"), value.name = "cor")
+
+ggplot(corr_df_2, aes(x = var1, y = var2, fill = cor)) +
+  geom_tile() +
+  scale_fill_gradient2(
+    limits = c(-1, 1),
+    midpoint = 0,
+    name = "r"
+  ) +
+  coord_fixed() +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 7),
+    axis.text.y = element_text(size = 7),
+    axis.title = element_blank(),
+    panel.grid = element_blank()
+  )
+  
+```
+
+
+  
+AVERAGE FEATURES PER AU GROUP BASED ON NMF
+
+```{r}
+
+coefmap( res_k3)
+dta_cmfsts_aus2
+options()
+res_k3@fit@H
+```
+```{r}
+# lookup table as a named vector
+au_to_component <- c(
+  "au04_r_smt" = 2,
+  "au07_r_smt" = 2,
+  "au14_r_smt" = 1,
+   "au10_r_smt" = 1,
+  "au12_r_smt" = 1,
+  "au06_r_smt" = 1,
+  "au23_r_smt" = 3,
+  "au09_r_smt" = 3,
+  "au45_r_smt" = 3,
+  "au20_r_smt" = 3,
+  "au05_r_smt" = 3,
+  "au02_r_smt" = 3,
+  "au01_r_smt" = 3,
+  "au17_r_smt" = 3,
+  "au15_r_smt" = 3,
+  "au25_r_smt" = 3,
+  "au26_r_smt" = 3
+)
+
+dta_cmfsts_aus2$nmf_component <- ifelse(
+  dta_cmfsts_aus2$au_code %in% names(au_to_component),
+  au_to_component[dta_cmfsts_aus2$au_code],
+  NA
+)
+
+unique(dta_cmfsts_aus2$nmf_component)
+
+table(is.na(dta_cmfsts_aus2$nmf_component))
+dta_cmfsts_aus2$nmf_component<- au_to_component(dta_cmfsts_aus2$au_code)
+
+dta_cmfsts_aus2
+
+dta_cmfsts_aus3<- dta_cmfsts_aus2%>%
+  group_by(participant, filename,stim_iaps,social_nonsocial,subj_emo_lab_no_amb,nmf_component)%>%
+  summarise_if(is.numeric, mean, na.rm = T)
+
+
+dta_cmfsts_aus3
+colnames(dta_cmfsts_aus3)
+
+
+```
+
+
+
+# now visualise some examples
+
+```{r}
+dta_cmfsts_aus3%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(subj_emo_lab_no_amb,log1p(time_level_shift+.1), colour = social_nonsocial))+
+   geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+
+
+dta_cmfsts_aus3%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(subj_emo_lab_no_amb,log1p(max_feat+.1), colour = social_nonsocial))+
+   geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+
+
+dta_cmfsts_aus3%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot(aes(subj_emo_lab_no_amb,log1p(curvature+.1), colour = social_nonsocial))+
+   geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+
+
+```
+# dcast compponents
+# pca on each compoennt
+
+
+  THEN PCA
+```{r}
+
+colnames(dta_cmfsts_aus3)
+
+dta_cmfsts_aus3$nmf_component_au<- if_else(dta_cmfsts_aus3$nmf_component ==1, "comp1",
+                                        if_else(dta_cmfsts_aus3$nmf_component ==2, "comp2",  
+                                           if_else(dta_cmfsts_aus3$nmf_component ==3, "comp3",NA)))
+
+unique(dta_cmfsts_aus3$nmf_component_au)
+dta_cmfsts_aus3$nmf_component<- NULL
+
+dta_cmfsts_aus3_wid<- dta_cmfsts_aus3 %>%  
+  arrange(nmf_component_au) %>%
+  pivot_wider(
+    id_cols = c(participant,
+                filename,
+                stim_iaps,
+                social_nonsocial,
+                subj_emo_lab_no_amb),
+    names_from  = nmf_component_au,              # values in this col become suffixes
+    values_from = c(lempel_ziv:max_feat),  # c
+    names_glue = "{nmf_component_au}_{.value}"   # e.g. lempel_ziv_comp1
+  )
+
+colnames(dta_cmfsts_aus3_wid)
+
+id_cols <- c("participant",
+             "filename",
+             "stim_iaps",
+             "social_nonsocial",
+             "subj_emo_lab_no_amb")
+
+# get component levels in the order you want
+comp_levels_au <- sort(unique(dta_cmfsts_aus3$nmf_component_au))
+# e.g. c("nmf_comp1", "nmf_comp2", "nmf_comp3")
+
+# build column order: comp1_* then comp2_* then comp3_*, etc.
+feature_cols_ordered_au <- unlist(
+  lapply(comp_levels_au, function(comp) {
+    prefix <- paste0(comp, "_")
+    grep(paste0("^", prefix), names(dta_cmfsts_aus3_wid), value = TRUE)
+  })
+)
+
+
+
+# reorder columns
+dta_cmfsts_aus3_wid <- dta_cmfsts_aus3_wid[, c(id_cols, feature_cols_ordered_au)]
+
+colnames(dta_cmfsts_aus3_wid)
+```
+
+
+
+pca models
+inlcude min max as additionak features
+```{r}
+
+colnames(dta_cmfsts_aus3_wid)
+# ?FactoMineR::MFA()
+require(FactoMineR)
+
+
+
+dta_cmfsts_aus3_wid_complete<- as.data.frame(dta_cmfsts_aus3_wid)
+colnames(dta_cmfsts_aus3_wid_complete)
+
+
+
+
+dta_cmfsts_aus3_wid_complete<- dta_cmfsts_aus3_wid_complete %>%
+  mutate(across(6:119, ~ if(is.numeric(.)) replace(., !is.finite(.), NA) else .))
+
+
+dta_cmfsts_aus3_wid_complete2 <- missMDA::imputeMFA(dta_cmfsts_aus3_wid_complete[,6:119],
+                                               ncp=2,
+                                                group=c(38, 38, 38),
+                          type=c("s","s","s"))
+
+
+
+
+```
+
+
+
+pca version inclding man and max features
+
+
+```{r}
+length(39:76)
+colnames(dta_cmfsts_aus3_wid_complete2$completeObs)
+comp1_idx <- 1:38
+comp2_idx <- 39:76
+comp3_idx <- 77:114
+
+# PCA for each component block (on imputed data)
+dta_cmfsts_aus3_wid_complete2$completeObs
+```
+
+
+```{r}
+mod_res$pca_comp1_au <- FactoMineR::PCA(dta_cmfsts_aus3_wid_complete2$completeObs[,comp1_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+mod_res$pca_comp2_au <- FactoMineR::PCA(dta_cmfsts_aus3_wid_complete2$completeObs[,comp2_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+mod_res$pca_comp3_au <- FactoMineR::PCA(dta_cmfsts_aus3_wid_complete2$completeObs[,comp3_idx],
+  scale.unit = TRUE,
+  ncp        = 1,
+  graph      = TRUE
+)
+
+
+dta_cmfsts_aus3_wid$pca_comp1_au<- mod_res$pca_comp1_au$ind$coord[,1]
+dta_cmfsts_aus3_wid$pca_comp2_au<- mod_res$pca_comp2_au$ind$coord[,1]
+dta_cmfsts_aus3_wid$pca_comp3_au<- mod_res$pca_comp3_au$ind$coord[,1]
+
+```
+
+
+```{r}
+# require(factoextra)
+fviz_contrib(mod_res$pca_comp1.2, "var", axes = 1, top = 5)
+fviz_contrib(mod_res$pca_comp2.2, "var", axes = 1,top = 5)# 
+fviz_contrib(mod_res$pca_comp3.2, "var", axes = 1,top = 5)
+
+fviz_contrib(mod_res$pca_comp1_au, "var", axes = 1, top = 5)
+fviz_contrib(mod_res$pca_comp2_au, "var", axes = 1,top = 5)# 
+fviz_contrib(mod_res$pca_comp3_au, "var", axes = 1,top = 5)
+```
+
+```{r}
+dta_cmfsts_aus3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pca_comp1_au, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+
+dta_cmfsts_aus3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pca_comp2_au, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+  # facet_grid(~social_nonsocial)
+dta_cmfsts_aus3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pca_comp3_au, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+
+```
+
+looks similar to daat w/ the 77 frames folks 
+lmer models on pca with mean and max features
+```{r}
+
+mod_res$pca_comp1_au_lmer <- lmer(pca_comp1_au ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts_aus3_wid)
+
+
+mod_res$pca_comp2_au_lmer <- lmer(pca_comp2_au ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts_aus3_wid)
+
+
+
+
+mod_res$pca_comp3_au_lmer <- lmer(pca_comp3_au  ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts_aus3_wid)
+
+
+
+```
+
+```{r}
+
+anova(mod_res$pca_comp1_au_lmer)
+anova(mod_res$pca_comp2_au_lmer)
+anova(mod_res$pca_comp3_au_lmer)
+
+
+```
+
+
+
+```{r}
+
+emmeans::emmeans(mod_res$pca_comp1_au_lmer, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+emmeans::emmeans(mod_res$pca_comp2_au_lmer, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+emmeans::emmeans(mod_res$pca_comp3_au_lmer, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+emmeans::emmeans(mod_res$pca_comp2_au_lmer, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "none")
+
+
+emmeans::emmeans(mod_res$pca_comp2_au_lmer, pairwise ~ subj_emo_lab_no_amb|social_nonsocial, 
+                 adjust = "tukey")
+
+
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_facenmfs_77frames.RData")
+
+```
