@@ -1,0 +1,408 @@
+---
+title: "subjective affect vis"
+author: "helio"
+date: "2026-02-19"
+output: html_document
+---
+
+starting point: jays subjective plots
+
+associated data: load("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Mixed_models_output_JD.RData")
+associated scripts: Mixed_models_Analysis_JD.Rmd
+
+```{r plot}
+#combined plots 
+#raw data points per ppt
+valence_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial, subj_emo_lab_no_amb) %>%
+   summarise(
+    mean = mean(val_slider_response, na.rm = TRUE),
+    sd   = sd(val_slider_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop"
+  )
+
+#summary stats 
+valence_agg_means2 <- subjective_data %>%
+  group_by(social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(
+    mean = mean(val_slider_response, na.rm = TRUE),
+    sd   = sd(val_slider_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+
+valence_df2   <- as.data.frame(valence_emm2)   %>% mutate(model = "Valence")
+intensity_df2 <- as.data.frame(intensity_emm2) %>% mutate(model = "Intensity")
+
+social_x_valence <- ggplot(valence_agg_means, aes(x = social_nonsocial, y = mean, colour = social_nonsocial, shape = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 2, alpha = 0.15) +
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  # summary mean points
+  geom_point(data = valence_agg_means2, aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial),
+             size = 2, inherit.aes = FALSE) +
+  # summary error bars
+  geom_errorbar(data = valence_agg_means2, aes(x = social_nonsocial, y = mean, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial,shape = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ subj_emo_lab_no_amb, nrow = 1) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Valence (Mean)", colour = "") +
+  theme_classic(base_size = 14) +
+ p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+  
+  
+
+social_x_valence
+
+
+
+```
+
+ggsave(filename = "valence.tiff", plot = social_x_valence, width = 7, height = 7, dpi = 300, compression = "lzw", bg = "white")
+```{r}
+
+intensity_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(mean = mean(int_slider_response, na.rm = TRUE), .groups = "drop")
+
+
+#summary stats 
+intensity_agg_means2 <- subjective_data %>%
+  group_by(social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(
+    mean = mean(int_slider_response, na.rm = TRUE),
+    sd   = sd(int_slider_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+
+social_x_intensity <- ggplot(intensity_agg_means, aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 2, alpha = 0.15) +
+  # summary mean points
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_point(data = intensity_agg_means2, aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial),
+             size = 2, inherit.aes = FALSE) +
+  # summary error bars
+  geom_errorbar(data = intensity_agg_means2, aes(x = social_nonsocial, y = mean, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ subj_emo_lab_no_amb, nrow = 1) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Intensity (Mean)", colour = "") +
+  theme_classic(base_size = 14) +
+ p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+social_x_intensity
+
+ggsave(filename = "intensity_model.tiff", plot = social_x_intensity, width = 7, height = 7,dpi = 300,compression = "lzw", bg = "white")
+
+```
+
+
+```{r plot emotion ratings x social/nonsocial}
+# happy_emm <- emmeans(subjratings_x_social_subjemotion$Happy, ~ social_nonsocial)
+# happy_df   <- as.data.frame(happy_emm)   %>% mutate(model = "Happy")
+# 
+# sad_emm <- emmeans(subjratings_x_social_subjemotion$Sad, ~ social_nonsocial) 
+# sad_df   <- as.data.frame(sad_emm)   %>% mutate(model = "Sad")
+# 
+# anger_emm<- emmeans(subjratings_x_social_subjemotion$Anger, ~ social_nonsocial) 
+# anger_df   <- as.data.frame(anger_emm)   %>% mutate(model = "Angry")
+# 
+# disgust_emm<- emmeans(subjratings_x_social_subjemotion$Disgust, ~ social_nonsocial) 
+# disgust_df   <- as.data.frame(disgust_emm)   %>% mutate(model = "Disgust")
+# 
+# fear_emm<- emmeans(subjratings_x_social_subjemotion$Fear, ~ social_nonsocial) 
+# fear_df   <- as.data.frame(fear_emm)   %>% mutate(model = "Fear")
+
+
+happy_agg_means <- subjective_data %>%
+  group_by(participant, social_nonsocial) %>%   
+  summarise(
+    mean = mean(happy_slide_response),
+    .groups = "drop"
+  )
+
+#summary stats 
+happy_summary <- subjective_data %>%
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(happy_slide_response, na.rm = TRUE),
+    sd   = sd(happy_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+sad_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial) %>%   
+  summarise(mean = mean(sad_slide_response, , na.rm = TRUE), .groups = "drop")
+
+sad_summary <- subjective_data %>%
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(sad_slide_response, na.rm = TRUE),
+    sd   = sd(sad_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+anger_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial) %>%   
+  summarise(mean = mean(anger_slide_response, , na.rm = TRUE), .groups = "drop")
+
+anger_summary <- subjective_data %>%
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(anger_slide_response, na.rm = TRUE),
+    sd   = sd(anger_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+disgust_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial) %>%   
+  summarise(mean = mean(disgust_slide_response, , na.rm = TRUE), .groups = "drop")
+
+disgust_summary <- subjective_data %>%
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(disgust_slide_response, na.rm = TRUE),
+    sd   = sd(disgust_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+fear_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial) %>%   
+  summarise(mean = mean(fear_slide_response, , na.rm = TRUE), .groups = "drop")
+
+fear_summary <- subjective_data %>%  
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(fear_slide_response, na.rm = TRUE),
+    sd   = sd(fear_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+
+```
+
+
+```{r}
+#plot separately
+plot_happy <- ggplot(happy_agg_means %>% mutate(emotion = "Happy"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 2, alpha = 0.15) +
+    geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  # condition means
+  geom_point(data = happy_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial),
+             size = 2, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = happy_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (Mean)") +
+  theme_classic(base_size = 14) +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+plot_happy
+
+
+plot_sad <- ggplot(sad_agg_means %>% mutate(emotion = "Sad"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 2, alpha = 0.15) +
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  # condition means
+  geom_point(data = sad_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial),
+             size = 2, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = sad_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (emm)") +
+  theme_classic(base_size = 14) +
+  
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+  
+  
+
+plot_sad
+
+plot_angry <- ggplot(anger_agg_means %>% mutate(emotion = "Angry"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 2, alpha = 0.15) +
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  # condition means
+  geom_point(data = anger_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial),
+             size = 2, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = anger_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (Mean)") +
+  theme_classic(base_size = 14) +
+   p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+plot_angry
+
+plot_disgust <- ggplot(disgust_agg_means %>% mutate(emotion = "Disgust"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 2, alpha = 0.15) +
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  # condition means
+  geom_point(data = disgust_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial),
+             size = 2, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = disgust_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (emm)") +
+  theme_classic(base_size = 14) +
+   p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+plot_disgust
+
+plot_fear <- ggplot(fear_agg_means %>% mutate(emotion = "Fear"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 2, alpha = 0.15) +
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  # condition means
+  geom_point(data = fear_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial,shape = social_nonsocial),
+             size = 2, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = fear_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (Mean)") +
+  theme_classic(base_size = 14) +
+   p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+plot_fear
+
+
+```
+
+library(patchwork)
+
+```{r}
+plot_angry <- plot_angry + labs(x = "")
+plot_disgust <- plot_disgust + labs(x = "", y= "")
+plot_fear <- plot_fear + labs(x = "Condition", y= "") # Keep label in middle
+plot_happy <- plot_happy + labs(x = "", y= "")
+plot_sad <- plot_sad + labs(x = "", y= "")
+```
+
+
+# The combined emotion plot gets one tag
+
+```{r}
+emotion_x_social <- (plot_angry + plot_disgust + plot_fear + 
+                     plot_happy + plot_sad +
+                     plot_layout(nrow = 1, guides = "collect"))
+
+
+
+#ggsave(filename = "social_x_emotions.tiff",
+    #plot = emotion_x_social, width = 15, height = 4,dpi = 300, compression = "lzw", bg = "white")
+
+emotion_x_social
+(social_x_valence | social_x_intensity) +  plot_layout(nrow = 1, guides = "collect")
+
+subj_ratings_plot <- (social_x_valence | social_x_intensity) / emotion_x_social+
+  plot_layout(heights = c(1.5, 0.5))+plot_annotation(tag_levels = "A")
+
+subj_ratings_plot 
+
+plts$subj_affect<-subj_ratings_plot
+
+
+ggsave(filename = "plts_subj_affect.png",
+    plot = plts$subj_affect, width = 14, height = 10,dpi = 300, 
+    device = "png",units = "in",
+    bg = "white")
+
+
+ggsave(filename = "plts_subj_affect.tiff",
+    plot = plts$subj_affect, width = 14, height = 10,dpi = 300, compression = "lzw", 
+    device = "tiff",
+    bg = "white")
+```
+
+save
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Mixed_models_output_JD.RData")

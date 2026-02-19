@@ -1,0 +1,2340 @@
+---
+title: "Emotion Physio Mixed Models"
+author: "Jay Davies"
+date: "2025-09-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Mixed Models Analysis
+
+Research Questions
+RQ1. Does social context have a differential impact on affective modalities?
+
+Variables: 
+Subjective responses (valence, intensity and emotion sliders)
+Autonomic responses (galvanic skin response and cardiac activity)
+Behavioural responses (Eye tracking and facial movements)
+
+```{r load libraries, results='hide', message=FALSE, warning=FALSE}
+require(tidyverse)
+require(readr)
+require(lmerTest)
+require(jtools)
+require(merTools)
+require(dplyr)
+require(broom.mixed)
+require(purrr)
+require(ggplot2)
+require(forcats)
+library(emmeans)
+require(cowplot)
+options(scipen=999)
+```
+
+## Subjective and autonomic mixed models--------------------------------------------------------
+```{r load data}
+## Read in the data (we are working with 'dta_original_trial_exclusions')
+## participants 101, 102, 201, 202, 203 and 204 excluded entirely due to missing face data
+## Note here that we will first run models on all available data. Later on, we will create sub-sets for each signal
+
+load("/Users/jaydavies/Library/CloudStorage/OneDrive-UniversityofBristol/Desktop/Jay_AffexLab/EmotionPhysio/Mixed Models Analysis/Helio_data.RData")
+
+full_dta <- dta_original_trial_exclusions
+colnames(full_dta)
+```
+
+```{r derive emotion ratings, warning=FALSE}
+
+#Prepare subjective emotion columns derived from emotion ratings
+  
+## 1.Define which columns contain emotion slider ratings
+emotion_cols <- c(
+  "happy_slide_response",
+  "sad_slide_response",
+  "fear_slide_response",
+  "disgust_slide_response",
+  "anger_slide_response"
+)
+
+## 2. For each trial, create a single subjective emotion label based on the slider values
+full_dta <- full_dta %>%
+  rowwise() %>%
+  mutate(
+    # Handle where all emotion sliders are NA (e.g., rest trials)
+    subj_emotion_label = if (all(is.na(c_across(all_of(emotion_cols))))) {
+      NA_character_
+    } else {
+      max_score <- max(c_across(all_of(emotion_cols)), na.rm = TRUE)
+      n_tied <- sum(c_across(all_of(emotion_cols)) == max_score, na.rm = TRUE)
+      
+      case_when(
+        max_score < 4.5 ~ "neutral",
+        n_tied > 1 ~ "ambiguous",
+        TRUE ~ {
+          best_idx <- which.max(c_across(all_of(emotion_cols)))
+          sub("_slide_response$", "", emotion_cols[best_idx])
+        }
+      )
+    }
+  ) %>%
+  ungroup()
+ 
+unique(full_dta$subj_emotion_label)
+  
+
+## 3. Compute an aggregated label for each image (across participants)
+agg_labels <- full_dta %>%
+  group_by(stim_iaps) %>%
+  summarise(
+    across(all_of(emotion_cols), ~ mean(.x, na.rm = TRUE)),
+    .groups = "drop"
+  ) %>%
+  rowwise() %>%
+  mutate(
+    subj_emo_label_agg = if (all(is.na(c_across(all_of(emotion_cols))))) {
+      NA_character_
+    } else {
+      max_avg <- max(c_across(all_of(emotion_cols)), na.rm = TRUE)
+      n_tied <- sum(c_across(all_of(emotion_cols)) == max_avg, na.rm = TRUE)
+      
+      subj_emo_label_agg= case_when(
+        max_avg < 4            ~ "neutral",
+        n_tied  >  1           ~ "tie",
+        TRUE                   ~ {
+          best_idx <- which.max(c_across(all_of(emotion_cols)))
+          sub("_slide_response$", "", emotion_cols[best_idx])
+        }
+      )
+    }
+  ) %>%
+  ungroup()%>%
+  dplyr::select(stim_iaps, subj_emo_label_agg)#emotion_cols
+
+unique(agg_labels$subj_emo_label_agg)
+
+# join data together
+full_dta <- full_dta %>%
+  left_join(agg_labels, by = "stim_iaps")
+
+
+## 4. Visualise the distributions
+full_dta %>%
+  pivot_longer(
+    cols      = emotion_cols,
+    names_to  = "emotion",
+    values_to = "emo_slider"
+  ) %>%
+  ggplot(aes(emo_slider, colour = emotion)) +
+  geom_histogram() +
+  facet_grid(subj_emo_label_agg ~ emotion) +  # or subj_emo_label_agg
+  geom_vline(xintercept = 4.5)
+
+
+unique(full_dta$subj_emotion_label)
+full_dta$subj_emo_lab_no_amb<- if_else(full_dta$subj_emotion_label == "ambiguous", full_dta$subj_emo_label_agg, full_dta$subj_emotion_label)
+
+unique(full_dta$subj_emo_lab_no_amb)
+table(full_dta$emotioncategory)
+table(full_dta$subj_emo_lab_no_amb)
+table(full_dta$subj_emo_label_agg)
+
+```
+
+```{r raw data, message=FALSE, warning=FALSE, echo=FALSE}
+# plot some raw data
+# colorblind-friendly palette:
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",  "#0072B2", "#CC79A7")
+
+valence_social <- 
+  full_dta%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, val_slider_response, color = social_nonsocial))+
+    labs(
+    x = "Manipulation",
+    y = "Valence Ratings (mean)",
+    color = "",
+  )+
+  ylim(0,7)+
+  scale_colour_manual(values=cbbPalette)+
+  theme_cowplot()+
+  ggtitle("Social effects on Subjective Ratings") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(legend.position = "none")+
+  stat_summary(geom = "pointrange")
+
+
+intensity_social<-
+  full_dta%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, int_slider_response, color = social_nonsocial))+
+  labs(
+    x = "Manipulation",
+    y = "Intensity Ratings (mean)",
+    color = "",
+  )+
+  ylim(0,7)+
+  scale_colour_manual(values=cbbPalette)+
+  theme_cowplot()+
+  theme(legend.position = "none")+
+  stat_summary(geom = "pointrange")
+
+val_int_social_plot <- plot_grid(valence_social, intensity_social, ncol = 1)
+#ggsave('val_int_social_plot.tiff', plot = val_int_social_plot,bg="white")
+
+val_int_social_plot
+
+valence_emotion <-
+  full_dta%>%
+  group_by(participant,subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(subj_emo_lab_no_amb, val_slider_response, color = subj_emo_lab_no_amb))+
+  labs(
+    x = "Emotion",
+    y = "Valence Ratings (mean)",
+    color = "",
+  )+
+  ylim(0,7)+
+  scale_colour_manual(values=cbbPalette)+
+  theme_cowplot()+
+  ggtitle("Emotion effects on Subjective Ratings") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  stat_summary(geom = "pointrange")
+
+intensity_emotion<-
+  full_dta%>%
+  group_by(participant,subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(subj_emo_lab_no_amb, int_slider_response, color = subj_emo_lab_no_amb))+
+  labs(
+    x = "Emotion",
+    y = "Intensity Ratings (mean)",
+    color = "",
+  )+
+  ylim(0,7)+
+  scale_colour_manual(values=cbbPalette)+
+  theme_cowplot()+
+  stat_summary(geom = "pointrange")
+
+val_int_emotion_plot <- plot_grid(valence_emotion, intensity_emotion, ncol = 1)
+#ggsave('val_int_emotion_plot.tiff', plot = val_int_emotion_plot,bg="white")
+val_int_emotion_plot
+
+
+hr_social <-
+  full_dta%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(social_nonsocial, hr_mean_diff, colour = social_nonsocial))+
+  labs(
+    x = "Manipulation",
+    y = "Heart Rate (mean difference)",
+    color = "",
+  )+
+  scale_colour_manual(values=cbbPalette)+
+  theme_cowplot()+
+  ggtitle("Social Manipulation x Autonomic Responses") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  stat_summary(geom = "pointrange")
+
+ibi_social <- full_dta%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(social_nonsocial, ibi_mean_diff, colour = social_nonsocial))+
+  labs(
+    x = "Manipulation",
+    y = "Interbeat Interval (mean difference)",
+    color = "",
+  )+
+  theme_cowplot()+
+  scale_colour_manual(values=cbbPalette)+
+  stat_summary(geom = "pointrange")
+
+scr_social <- full_dta%>%
+  group_by(participant, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(social_nonsocial, log_cda_phasic_max, colour = social_nonsocial))+
+  labs(
+    x = "Manipulation",
+    y = "Skin Conductance (CDA)",
+    color = "",
+  )+
+  theme_cowplot()+
+  scale_colour_manual(values=cbbPalette)+
+  stat_summary(geom = "pointrange")
+
+social_autonomic_plots <- plot_grid(hr_social, ibi_social, scr_social, ncol = 1)
+#ggsave('social_autonomic_plots.tiff', plot = social_autonomic_plots,bg="white")
+
+social_autonomic_plots
+
+hr_emotion<-
+  full_dta%>%
+  group_by(participant, subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(subj_emo_lab_no_amb, hr_mean_diff, colour = subj_emo_lab_no_amb))+
+  labs(
+    x = "",
+    y = "Heart Rate (mean difference)",
+    color = "",
+  )+
+  theme_cowplot()+
+  scale_colour_manual(values=cbbPalette)+
+  stat_summary(geom = "pointrange")+
+  ggtitle("Emotion x Autonomic Responses") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ibi_emotion <- 
+  full_dta%>%
+  group_by(participant, subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(subj_emo_lab_no_amb, ibi_mean_diff, color = subj_emo_lab_no_amb))+
+  labs(
+    x = "",
+    y = "Interbeat Interval (mean difference)",
+    color = "",
+  )+
+  theme_cowplot()+
+  scale_colour_manual(values=cbbPalette)+
+  stat_summary(geom = "pointrange")
+
+scr_emotion <- 
+  full_dta%>%
+  group_by(participant, subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  ggplot(aes(subj_emo_lab_no_amb, log_cda_phasic_max, color = subj_emo_lab_no_amb))+
+  labs(
+    x = "Emotion",
+    y = "Skin Conductance (CDA)",
+    color = "",
+  )+ 
+  theme_cowplot()+
+  scale_colour_manual(values=cbbPalette)+
+  stat_summary(geom = "pointrange")
+
+emotion_autonomic_plots <- plot_grid(hr_emotion, ibi_emotion,scr_emotion, ncol = 1)
+#ggsave('emotion_autonomic_plots.tiff', plot = emotion_autonomic_plots,bg="white")
+
+emotion_autonomic_plots
+
+
+```
+
+```{r create subjective ratings subset}
+# 1. Create data subset of the subjective ratings (valence, intensity, emotion ratings) 
+subjective_data<-subset(full_dta, select= c(1:55, 133:135))
+```
+
+```{r effects of objective emotion category and social manipulation on subjective ratings}
+
+# Subjective ratings: 
+#   "val_slider_response" - Valence
+#   "int_slider_response" - Intensity
+#   "happy_slide_response" - Happy
+#   "sad_slide_response" - Sad
+#   "fear_slide_response" - Fear
+#   "disgust_slide_response" - Disgust
+#   "anger_slide_response" - Anger
+
+# set sum contrasts
+# what does this do? avoids comparing effects to a 'baseline' variable and instead tests whether any levels differ from the grand mean 
+options(contrasts =c("contr.sum", "contr.sum"))
+
+# # set neutral as the reference level  
+#options(contrasts = c("contr.treatment", "contr.poly"))
+#subjective_data$emotioncategory <- relevel(subjective_data$emotioncategory, ref = "neutral")
+
+# Subjective rating models:
+subjratings_x_social_objemotion<- list()
+
+# Valence
+subjratings_x_social_objemotion$Valence<-lmer(val_slider_response ~ 1+ social_nonsocial * emotioncategory + 
+                     (1|participant) + 
+                     (1|stim_iaps), 
+                   REML = FALSE,
+                   data = subjective_data)
+
+# Intensity
+subjratings_x_social_objemotion$Intensity<- lmer(int_slider_response ~ 1+ social_nonsocial * emotioncategory + 
+                           (1|participant) + 
+                           (1|stim_iaps), 
+                         REML = FALSE,
+                         data = subjective_data)
+subjratings_x_social_objemotion$Intensity
+library(lmerTest)
+anova(subjratings_x_social_objemotion$Valence, type = 3)
+anova(subjratings_x_social_objemotion$Intensity, type = 3)
+
+# run a post hoc for the intensity model
+
+intensity_emm <- emmeans(subjratings_x_social_objemotion$Intensity, ~ social_nonsocial + emotioncategory, infer = c(TRUE, TRUE))
+valence_emm <- emmeans(subjratings_x_social_objemotion$Valence,~ social_nonsocial + emotioncategory,  infer = c(TRUE, TRUE))
+
+valence_df   <- as.data.frame(valence_emm)   %>% mutate(model = "Valence")
+intensity_df <- as.data.frame(intensity_emm) %>% mutate(model = "Intensity")
+
+
+posthoc_social <- pairs(intensity_emm, by = "emotioncategory", adjust = "tukey")
+posthoc_emotion <- pairs(intensity_emm, by = "social_nonsocial", adjust = "tukey")
+
+# #plot social manipulation only - 
+
+subjratings_x_social_objemotion_df <- map_dfr(subjratings_x_social_objemotion, tidy, effects = "fixed", conf.int = TRUE, .id = "model")
+# Filter
+social_effects1 <- subjratings_x_social_objemotion_df %>%
+  filter(term == "social_nonsocial1" | term == "social_nonsocial") %>%
+  mutate(term = "Social vs Non-Social")  # optional cleaner label
+
+plot1<-
+  ggplot(social_effects1, aes(x = estimate, y = model)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_text(aes(label = paste0("p = ", signif(p.value, 2))),
+            hjust = -0.1, vjust = 1.2, size = 3.5) +
+  labs(x = "Estimate (95% CI)", y = "Model",
+       title = "Social vs Non-Social Effect on Subjective Ratings") +
+  theme_minimal(base_size = 14)
+
+#ggsave('subjratings_x_social_objemo.tiff', plot = plot1,bg="white")
+plot1
+
+# we want all 6 emotion category predictors in our plot, so we need to extra them using emmeans
+# valence_emm<- emmeans(subjratings_x_social_objemotion$Valence, ~ emotioncategory)
+# intensity_emm<- emmeans(subjratings_x_social_objemotion$Intensity, ~ emotioncategory)
+
+valence_emm <- emmeans(subjratings_x_social_objemotion$Valence, ~ emotioncategory, infer = c(TRUE, TRUE))
+intensity_emm <- emmeans(subjratings_x_social_objemotion$Intensity, ~ emotioncategory, infer = c(TRUE, TRUE))
+
+emmeans_df <- bind_rows(
+  as.data.frame(valence_emm) %>% mutate(model = "Valence"),
+  as.data.frame(intensity_emm) %>% mutate(model = "Intensity")
+)
+
+plot2 <- ggplot(emmeans_df, aes(x = emmean, y = fct_rev(model), color = emotioncategory)) +
+  geom_point(position = position_dodge(width = 0.7), size = 3) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL),
+                 position = position_dodge(width = 0.7), height = 0.2) +
+  geom_text(aes(label = ifelse(p.value < 0.001, "p < .001",
+                             paste0("p = ", signif(p.value, 2)))),
+          position = position_dodge(width = 0.7),
+          hjust = -0.2, vjust = -0.5, size = 3.5)+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  # Add horizontal separator line
+  geom_hline(yintercept = 1.5, linetype = "solid", color = "black", linewidth = 0.5) +
+  labs(x = "Estimate (95% CI)", y = "Model",
+       title = "Objective Emotion Category Effects",
+       color = "Emotion") +
+  theme_minimal(base_size = 14)
+#ggsave('subjratings_x_objemotion.tiff', plot = plot2, bg = "white")
+
+plot1
+plot2
+```
+
+
+```{r effects of subjective emotion ratings and social manip on subjective ratings}
+options(contrasts =c("contr.sum", "contr.sum"))
+
+# Subjective rating models:
+subjratings_x_social_subjemotion<- list()
+
+# Valence
+subjratings_x_social_subjemotion$Valence<-lmer(val_slider_response ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                (1|participant) + 
+                                                (1|stim_iaps), 
+                                              REML = FALSE,
+                                              data = subjective_data)
+
+# Intensity
+subjratings_x_social_subjemotion$Intensity<- lmer(int_slider_response ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = subjective_data)
+
+anova(subjratings_x_social_subjemotion$Valence, type = 3)
+anova(subjratings_x_social_subjemotion$Intensity, type = 3)
+
+```
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF  F value              Pr(>F)    
+social_nonsocial                        0.01    0.01     1  102.5   0.0064              0.9362    
+subj_emo_lab_no_amb                  1974.60  394.92     5 5439.0 244.9644 <0.0000000000000002 ***
+social_nonsocial:subj_emo_lab_no_amb    8.71    1.74     5 5435.7   1.0810              0.3686    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                                      Sum Sq Mean Sq NumDF  DenDF  F value               Pr(>F)    
+social_nonsocial                        5.28    5.28     1   94.2   1.4586              0.23018    
+subj_emo_lab_no_amb                  2825.28  565.06     5 5274.8 155.9683 < 0.0000000000000002 ***
+social_nonsocial:subj_emo_lab_no_amb   67.16   13.43     5 5402.5   3.7074              0.00237 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+breakdown the interaction effect above
+
+```{r posthoc for intensity x subjective ratings, message = FALSE}
+valence_emm2 <- emmeans(subjratings_x_social_subjemotion$Valence, ~ social_nonsocial + subj_emo_lab_no_amb)
+valence_posthoc <-pairs(valence_emm2, adjust = "tukey")
+valence_posthoc
+
+intensity_emm2 <- emmeans(subjratings_x_social_subjemotion$Intensity, ~ social_nonsocial + subj_emo_lab_no_amb, infer = c(TRUE, TRUE))
+intensity_posthoc <- pairs(intensity_emm2, adjust = "tukey")
+intensity_posthoc
+
+
+intensity_emm3 <- emmeans(subjratings_x_social_subjemotion$Intensity, pairwise~  social_nonsocial| subj_emo_lab_no_amb)
+intensity_emm3
+intensity_interaction <- pairs(intensity_emm3, adjust = "tukey")
+intensity_interaction
+```
+ contrast                              estimate    SE  df z.ratio p.value
+ nonsocial anger - social anger          0.1865 0.292 Inf   0.639  1.0000
+ nonsocial anger - nonsocial disgust     0.3801 0.175 Inf   2.173  0.5691
+ nonsocial anger - social disgust        0.5714 0.268 Inf   2.133  0.5989
+ nonsocial anger - nonsocial fear        0.3461 0.181 Inf   1.911  0.7524
+ nonsocial anger - social fear           0.6855 0.275 Inf   2.489  0.3465
+ nonsocial anger - nonsocial happy       1.3075 0.183 Inf   7.129  <.0001
+ nonsocial anger - social happy          1.9140 0.273 Inf   7.006  <.0001
+ nonsocial anger - nonsocial neutral     3.0017 0.188 Inf  15.942  <.0001
+ nonsocial anger - social neutral        3.2565 0.272 Inf  11.994  <.0001
+ nonsocial anger - nonsocial sad         0.6106 0.176 Inf   3.467  0.0264
+ nonsocial anger - social sad            0.5461 0.268 Inf   2.040  0.6656
+ social anger - nonsocial disgust        0.1936 0.278 Inf   0.697  0.9999
+ social anger - social disgust           0.3850 0.194 Inf   1.982  0.7057
+ social anger - nonsocial fear           0.1596 0.283 Inf   0.564  1.0000
+ social anger - social fear              0.4991 0.206 Inf   2.426  0.3878
+ social anger - nonsocial happy          1.1210 0.285 Inf   3.935  0.0047
+ social anger - social happy             1.7275 0.204 Inf   8.470  <.0001
+ social anger - nonsocial neutral        2.8152 0.285 Inf   9.861  <.0001
+ social anger - social neutral           3.0700 0.202 Inf  15.204  <.0001
+ social anger - nonsocial sad            0.4241 0.279 Inf   1.520  0.9355
+ social anger - social sad               0.3597 0.195 Inf   1.847  0.7918
+ nonsocial disgust - social disgust      0.1913 0.227 Inf   0.842  0.9995
+ nonsocial disgust - nonsocial fear     -0.0340 0.151 Inf  -0.225  1.0000
+ nonsocial disgust - social fear         0.3054 0.256 Inf   1.191  0.9897
+ nonsocial disgust - nonsocial happy     0.9274 0.148 Inf   6.284  <.0001
+ nonsocial disgust - social happy        1.5339 0.250 Inf   6.124  <.0001
+ nonsocial disgust - nonsocial neutral   2.6216 0.152 Inf  17.216  <.0001
+ nonsocial disgust - social neutral      2.8763 0.250 Inf  11.499  <.0001
+ nonsocial disgust - nonsocial sad       0.2304 0.145 Inf   1.594  0.9119
+ nonsocial disgust - social sad          0.1660 0.248 Inf   0.669  1.0000
+ social disgust - nonsocial fear        -0.2253 0.253 Inf  -0.890  0.9992
+ social disgust - social fear            0.1141 0.162 Inf   0.705  0.9999
+ social disgust - nonsocial happy        0.7361 0.251 Inf   2.932  0.1296
+ social disgust - social happy           1.3426 0.153 Inf   8.796  <.0001
+ social disgust - nonsocial neutral      2.4303 0.253 Inf   9.589  <.0001
+ social disgust - social neutral         2.6850 0.153 Inf  17.508  <.0001
+ social disgust - nonsocial sad          0.0391 0.249 Inf   0.157  1.0000
+ social disgust - social sad            -0.0253 0.149 Inf  -0.169  1.0000
+ nonsocial fear - social fear            0.3394 0.251 Inf   1.352  0.9721
+ nonsocial fear - nonsocial happy        0.9614 0.149 Inf   6.451  <.0001
+ nonsocial fear - social happy           1.5679 0.251 Inf   6.235  <.0001
+ nonsocial fear - nonsocial neutral      2.6556 0.155 Inf  17.174  <.0001
+ nonsocial fear - social neutral         2.9104 0.250 Inf  11.652  <.0001
+ nonsocial fear - nonsocial sad          0.2645 0.154 Inf   1.715  0.8619
+ nonsocial fear - social sad             0.2000 0.254 Inf   0.788  0.9998
+ social fear - nonsocial happy           0.6220 0.255 Inf   2.437  0.3806
+ social fear - social happy              1.2285 0.159 Inf   7.723  <.0001
+ social fear - nonsocial neutral         2.3162 0.257 Inf   9.025  <.0001
+ social fear - social neutral            2.5709 0.160 Inf  16.063  <.0001
+ social fear - nonsocial sad            -0.0750 0.258 Inf  -0.291  1.0000
+ social fear - social sad               -0.1394 0.164 Inf  -0.851  0.9995
+ nonsocial happy - social happy          0.6065 0.224 Inf   2.705  0.2237
+ nonsocial happy - nonsocial neutral     1.6942 0.135 Inf  12.532  <.0001
+ nonsocial happy - social neutral        1.9489 0.239 Inf   8.171  <.0001
+ nonsocial happy - nonsocial sad        -0.6969 0.152 Inf  -4.575  0.0003
+ nonsocial happy - social sad           -0.7614 0.253 Inf  -3.012  0.1050
+ social happy - nonsocial neutral        1.0877 0.242 Inf   4.489  0.0004
+ social happy - social neutral           1.3424 0.134 Inf  10.027  <.0001
+ social happy - nonsocial sad           -1.3035 0.253 Inf  -5.145  <.0001
+ social happy - social sad              -1.3679 0.156 Inf  -8.785  <.0001
+ nonsocial neutral - social neutral      0.2548 0.245 Inf   1.038  0.9968
+ nonsocial neutral - nonsocial sad      -2.3911 0.156 Inf -15.312  <.0001
+ nonsocial neutral - social sad         -2.4556 0.255 Inf  -9.642  <.0001
+ social neutral - nonsocial sad         -2.6459 0.252 Inf -10.488  <.0001
+ social neutral - social sad            -2.7103 0.155 Inf -17.519  <.0001
+ nonsocial sad - social sad             -0.0644 0.240 Inf  -0.268  1.0000
+
+Degrees-of-freedom method: asymptotic 
+P value adjustment: tukey method for comparing a family of 12 estimates 
+
+```{r plot}
+#combined plots 
+#raw data points per ppt
+valence_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial, subj_emo_lab_no_amb) %>%
+   summarise(
+    mean = mean(val_slider_response, na.rm = TRUE),
+    sd   = sd(val_slider_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop"
+  )
+
+#summary stats 
+valence_agg_means2 <- subjective_data %>%
+  group_by(social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(
+    mean = mean(val_slider_response, na.rm = TRUE),
+    sd   = sd(val_slider_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+
+valence_df2   <- as.data.frame(valence_emm2)   %>% mutate(model = "Valence")
+intensity_df2 <- as.data.frame(intensity_emm2) %>% mutate(model = "Intensity")
+
+social_x_valence <- ggplot(valence_agg_means, aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 0.8, alpha = 0.15) +
+  # summary mean points
+  geom_point(data = valence_agg_means2, aes(x = social_nonsocial, y = mean, colour = social_nonsocial),
+             size = 1.5, inherit.aes = FALSE) +
+  # summary error bars
+  geom_errorbar(data = valence_agg_means2, aes(x = social_nonsocial, y = mean, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ subj_emo_lab_no_amb, nrow = 1) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Valence (Mean)", colour = "") +
+  theme_classic(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size =14 ),
+    axis.title.x = element_text(face = "bold", size = 14),
+    axis.title.y = element_text(face = "bold", size = 14),
+    axis.text.y = element_text(size =14),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+social_x_valence
+
+ggsave(filename = "valence.tiff", plot = social_x_valence, width = 7, height = 7, dpi = 300, compression = "lzw", bg = "white")
+
+intensity_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(mean = mean(int_slider_response, na.rm = TRUE), .groups = "drop")
+
+
+#summary stats 
+intensity_agg_means2 <- subjective_data %>%
+  group_by(social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(
+    mean = mean(int_slider_response, na.rm = TRUE),
+    sd   = sd(int_slider_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+
+social_x_intensity <- ggplot(intensity_agg_means, aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 0.8, alpha = 0.15) +
+  # summary mean points
+  geom_point(data = intensity_agg_means2, aes(x = social_nonsocial, y = mean, colour = social_nonsocial),
+             size = 1.5, inherit.aes = FALSE) +
+  # summary error bars
+  geom_errorbar(data = intensity_agg_means2, aes(x = social_nonsocial, y = mean, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ subj_emo_lab_no_amb, nrow = 1) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Intensity (Mean)", colour = "") +
+  theme_classic(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size =14 ),
+    axis.title.x = element_text(face = "bold", size = 14),
+    axis.title.y = element_text(face = "bold", size = 14),
+    axis.text.y = element_text(size =14),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+social_x_intensity
+
+ggsave(filename = "intensity_model.tiff", plot = social_x_intensity, width = 7, height = 7,dpi = 300,compression = "lzw", bg = "white")
+
+```
+Linear mixed-effects models were fitted to examine the effects of social context (social vs. nonsocial) and emotion category on subjective ratings of valence and intensity.
+
+For valence ratings, there was no significant main effect of social context, F(1, 102.5) = 0.01, p = .936, and no significant interaction between social context and emotion category, F(5, 5436) = 1.08, p = .369. Yet, valence ratings were significantly impacted by the type of emotion presented (F(5, 5439) = 244.96, p < .001).Post-hoc comparisons of estimated marginal means (Tukey-adjusted) showed that valence ratings differed reliably between most emotions. Happy and neutral stimuli received the highest valence ratings overall, while anger, fear, sad and disgust were rated lower in valence (see Figure X)
+
+For intensity ratings, there was no main effect of social context, (F(1, 94.2 = 1.46, p = .23). As for valence, intensity ratings were significantly impacted by the emotion presented (F(5, 5274.8) = 155.968, p < .001). Importantly, the interaction between social context and emotion category was significant, F(5, 5369) = 3.92, p = .001, indicating that the influence of social context on intensity ratings differed across emotions. Post-hoc comparisons (tukey adjusted) revealed that that neutral images were consistently rated lower in intensity than all other emotions across both social and nonsocial contexts (p < .001). Anger, disgust, and fear were rated as the most intense, with no reliable modulation by social context. The interaction was driven by differences in happy and sad ratings: happy stimuli were rated as more intense in social compared to nonsocial contexts, whereas sad stimuli were rated as less intense in social compared to nonsocial contexts.
+
+```{r social context effects on emotion ratings}
+subjratings_x_social_subjemotion$Happy<- lmer(happy_slide_response ~ 1+ social_nonsocial + 
+                          (1|participant) + 
+                          (1|stim_iaps), 
+                        REML = FALSE,
+                        data = subjective_data)
+
+subjratings_x_social_subjemotion$Sad<- lmer(sad_slide_response ~ 1+ social_nonsocial  + 
+                          (1|participant) + 
+                          (1|stim_iaps), 
+                        REML = FALSE,
+                        data = subjective_data)
+
+subjratings_x_social_subjemotion$Fear<- lmer(fear_slide_response ~ 1+ social_nonsocial  + 
+                           (1|participant) + 
+                           (1|stim_iaps), 
+                         REML = FALSE,
+                         data = subjective_data)
+
+subjratings_x_social_subjemotion$Disgust<- lmer(disgust_slide_response ~ 1+ social_nonsocial  + 
+                           (1|participant) + 
+                           (1|stim_iaps), 
+                         REML = FALSE,
+                         data = subjective_data)
+
+subjratings_x_social_subjemotion$Anger<- lmer(anger_slide_response ~ 1+ social_nonsocial +
+                          (1|participant) + 
+                          (1|stim_iaps), 
+                        REML = FALSE,
+                        data = subjective_data)
+
+anova(subjratings_x_social_subjemotion$Happy, type = 3)
+anova(subjratings_x_social_subjemotion$Sad, type = 3)
+anova(subjratings_x_social_subjemotion$Fear, type = 3)
+anova(subjratings_x_social_subjemotion$Disgust, type = 3)
+anova(subjratings_x_social_subjemotion$Anger, type = 3)
+```
+
+Type III Analysis of Variance Table with Satterthwaite's method
+                 Sum Sq Mean Sq NumDF  DenDF F value Pr(>F)
+social_nonsocial 3.3658  3.3658     1 91.113  1.3004 0.2571
+Type III Analysis of Variance Table with Satterthwaite's method
+                 Sum Sq Mean Sq NumDF  DenDF F value  Pr(>F)  
+social_nonsocial 12.163  12.163     1 91.238  3.1779 0.07797 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                 Sum Sq Mean Sq NumDF  DenDF F value  Pr(>F)  
+social_nonsocial  12.11   12.11     1 91.404  2.7905 0.09825 .
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+Type III Analysis of Variance Table with Satterthwaite's method
+                 Sum Sq Mean Sq NumDF  DenDF F value Pr(>F)
+social_nonsocial 7.6614  7.6614     1 91.142  1.8902 0.1725
+Type III Analysis of Variance Table with Satterthwaite's method
+                 Sum Sq Mean Sq NumDF  DenDF F value Pr(>F)
+social_nonsocial 9.8804  9.8804     1 91.373  2.2542 0.1367
+
+
+Linear mixed-effects models were also fitted to examine the effects of social context on emotion ratings. 
+
+Social context had no significant on how participants rated images for happy (F(1, 91.1) = 1.30, p = 0.25), sad (F(1, 91.2 ) = 3.18, p =.08.), fear (F(1, 91.4 ) = 2.79, p = .09), disgust (F(1, 91.1) = 1.89, p = .17) or anger (F(1, 91.4) = 2.25, p = .14) emotions. Note that for these models, emotion category was not included as a predictor as using the presented emotion to predict corresponding emotion ratings offers little explanatory value (i.e., images from the “happy” category are expected to elicit higher happy ratings by design). Instead, these analyses were interested solely in whether social context modulated participants’ subjective emotional responses.
+
+```{r plot emotion ratings x social/nonsocial}
+# happy_emm <- emmeans(subjratings_x_social_subjemotion$Happy, ~ social_nonsocial)
+# happy_df   <- as.data.frame(happy_emm)   %>% mutate(model = "Happy")
+# 
+# sad_emm <- emmeans(subjratings_x_social_subjemotion$Sad, ~ social_nonsocial) 
+# sad_df   <- as.data.frame(sad_emm)   %>% mutate(model = "Sad")
+# 
+# anger_emm<- emmeans(subjratings_x_social_subjemotion$Anger, ~ social_nonsocial) 
+# anger_df   <- as.data.frame(anger_emm)   %>% mutate(model = "Angry")
+# 
+# disgust_emm<- emmeans(subjratings_x_social_subjemotion$Disgust, ~ social_nonsocial) 
+# disgust_df   <- as.data.frame(disgust_emm)   %>% mutate(model = "Disgust")
+# 
+# fear_emm<- emmeans(subjratings_x_social_subjemotion$Fear, ~ social_nonsocial) 
+# fear_df   <- as.data.frame(fear_emm)   %>% mutate(model = "Fear")
+
+
+happy_agg_means <- subjective_data %>%
+  group_by(participant, social_nonsocial) %>%   
+  summarise(
+    mean = mean(happy_slide_response),
+    .groups = "drop"
+  )
+
+#summary stats 
+happy_summary <- subjective_data %>%
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(happy_slide_response, na.rm = TRUE),
+    sd   = sd(happy_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+sad_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial) %>%   
+  summarise(mean = mean(sad_slide_response, , na.rm = TRUE), .groups = "drop")
+
+sad_summary <- subjective_data %>%
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(sad_slide_response, na.rm = TRUE),
+    sd   = sd(sad_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+anger_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial) %>%   
+  summarise(mean = mean(anger_slide_response, , na.rm = TRUE), .groups = "drop")
+
+anger_summary <- subjective_data %>%
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(anger_slide_response, na.rm = TRUE),
+    sd   = sd(anger_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+disgust_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial) %>%   
+  summarise(mean = mean(disgust_slide_response, , na.rm = TRUE), .groups = "drop")
+
+disgust_summary <- subjective_data %>%
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(disgust_slide_response, na.rm = TRUE),
+    sd   = sd(disgust_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+fear_agg_means <- subjective_data %>%
+  group_by(participant,social_nonsocial) %>%   
+  summarise(mean = mean(fear_slide_response, , na.rm = TRUE), .groups = "drop")
+
+fear_summary <- subjective_data %>%  
+  group_by(social_nonsocial) %>%
+  summarise(
+    mean = mean(fear_slide_response, na.rm = TRUE),
+    sd   = sd(fear_slide_response, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+#plot separately
+plot_happy <- ggplot(happy_agg_means %>% mutate(emotion = "Happy"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 0.8, alpha = 0.15) +
+  # condition means
+  geom_point(data = happy_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial),
+             size = 1.5, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = happy_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (Mean)") +
+  theme_classic(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    legend.position = "none",
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "white", colour = "black")
+  )
+
+plot_happy
+
+
+plot_sad <- ggplot(sad_agg_means %>% mutate(emotion = "Sad"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 0.8, alpha = 0.15) +
+  # condition means
+  geom_point(data = sad_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial),
+             size = 1.5, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = sad_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (emm)") +
+  theme_classic(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    legend.position = "none",
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "white", colour = "black")
+  )
+
+plot_sad
+
+plot_angry <- ggplot(anger_agg_means %>% mutate(emotion = "Angry"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 0.8, alpha = 0.15) +
+  # condition means
+  geom_point(data = anger_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial),
+             size = 1.5, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = anger_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (Mean)") +
+  theme_classic(base_size = 14) +
+  theme(
+    axis.title.y = element_text(face = "bold", size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    legend.position = "none",
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "white", colour = "black")
+  )
+
+plot_angry
+
+plot_disgust <- ggplot(disgust_agg_means %>% mutate(emotion = "Disgust"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 0.8, alpha = 0.15) +
+  # condition means
+  geom_point(data = disgust_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial),
+             size = 1.5, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = disgust_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (emm)") +
+  theme_classic(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    legend.position = "none",
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "white", colour = "black")
+  )
+
+plot_disgust
+
+plot_fear <- ggplot(fear_agg_means %>% mutate(emotion = "Fear"),
+                     aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  # raw participant means (jittered)
+  geom_jitter(width = 0.15, size = 0.8, alpha = 0.15) +
+  # condition means
+  geom_point(data = fear_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial),
+             size = 1.5, inherit.aes = FALSE) +
+  # 95% CI error bars
+  geom_errorbar(data = fear_summary,
+                aes(x = social_nonsocial, ymin = ci_lower, ymax = ci_upper, colour = social_nonsocial),
+                width = 0.15, size = 1, inherit.aes = FALSE) +
+  facet_wrap(~ emotion) +
+  coord_cartesian(ylim = c(0, 10)) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Condition", y = "Rating (Mean)") +
+  theme_classic(base_size = 14) +
+  theme(
+    axis.title.x = element_text(face = "bold", size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    legend.position = "none",
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "white", colour = "black")
+  )
+
+plot_fear
+
+library(patchwork)
+
+plot_angry <- plot_angry + labs(x = "")
+plot_disgust <- plot_disgust + labs(x = "", y= "")
+plot_fear <- plot_fear + labs(x = "Condition", y= "") # Keep label in middle
+plot_happy <- plot_happy + labs(x = "", y= "")
+plot_sad <- plot_sad + labs(x = "", y= "")
+
+
+# The combined emotion plot gets one tag
+plot_angry+geom_boxplot(alpha = .01, colour = "black", notch = TRUE) 
+
+emotion_x_social <- (plot_angry + plot_disgust + plot_fear + 
+                     plot_happy + plot_sad +
+                     plot_layout(nrow = 1, guides = "collect"))
+
+
+
+#ggsave(filename = "social_x_emotions.tiff",
+    #plot = emotion_x_social, width = 15, height = 4,dpi = 300, compression = "lzw", bg = "white")
+
+emotion_x_social
+```
+
+```{r plot all subj ratings}
+
+subj_ratings_plot <- (social_x_valence | social_x_intensity) / emotion_x_social+
+  plot_layout(heights = c(1.5, 0.5))
+subj_ratings_plot
+ggsave(filename = "subjective_ratings.tiff",
+    plot = subj_ratings_plot, width = 17, height = 15,dpi = 300, compression = "lzw", bg = "white")
+```
+
+```{r pool emotion ratings}
+# Overall effect of social manip on pooled emotion ratings 
+# Pooling + Z-test (Equations 1–2)
+pool_effect <- function(betas, ses) {
+  beta_pool <- sqrt(sum(betas^2))
+  se_pool   <- sqrt(sum(ses^2))
+  Z_stat    <- beta_pool / se_pool
+  p_value   <- 2 * pnorm(-abs(Z_stat))
+  c(beta = beta_pool, se = se_pool, Z = Z_stat, p = p_value)
+}
+
+subjratings_x_social_subjemotion_df <- map_dfr(subjratings_x_social_subjemotion, tidy, effects = "fixed", conf.int = TRUE, .id = "model")
+
+# Pool social manipulation effect
+social_pool_subjratings <- subjratings_x_social_subjemotion_df %>%
+  filter(term == "social_nonsocial1") %>%
+  # keep only rows where model is not valence or intensity
+  filter(!model %in% c("Valence", "Intensity")) %>%
+  # turn into data frame for plotting
+  summarise(pooled = list(pool_effect(estimate, std.error))) %>%  
+  unnest_wider(pooled) %>%  
+  mutate(effect = "Social vs Non-Social")
+require(cowplot)
+
+social_pool_subjratings<-
+  ggplot(social_pool_subjratings, aes(x = beta, y = effect)) +
+  geom_point(size = 4) +
+  geom_errorbarh(aes(xmin = beta - se, xmax = beta + se), height = 0.2) +
+  geom_text(aes(label = ifelse(p < 0.001, "p < .001",
+                             paste0("p = ", signif(p, 2)))),
+          position = position_dodge(width = 0.7),
+          hjust = -0.2, vjust = -0.5, size = 3.5)+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(x = "Pooled Beta (±SE)", y = "",) +
+  theme_minimal(base_size = 14)+
+  ggtitle("Fixed effect of Social Manipulation on Emotion Ratings (pooled)") +
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme_cowplot()
+
+social_pool_subjratings
+#ggsave('pooled_subjratings_x_social.tiff',dpi = 300,plot = social_pool_subjratings, bg="white")
+
+```  
+
+Estimates from each of the emotion slider models were also pooled to account for that fact that some emotions have opposite scoring directions (e.g., higher happy ratings indicate positive affect, whereas higher sad ratings indicate negative affect). Pooling across emotions therefore removes the influence of valence direction and allows for Pooling across emotions removes the influence of valence direction and allows for a general assessment of the effect of social manipulation on subjective emotional responses. Pooled ratings confirmed no effect of social manipulation on emotion ratings (beta = 0.42, p = .12)
+
+```{r plot main effects, message = FALSE}
+
+# # Filter
+# social_effects2 <- subjratings_x_social_subjemotion_df %>%
+#   filter(term == "social_nonsocial1" | term == "social_nonsocial") %>%
+#   mutate(term = "Social vs Non-Social")  # optional cleaner label
+# 
+# plot3<-
+#   ggplot(social_effects2, aes(x = estimate, y = model)) +
+#   geom_point(size = 3) +
+#   geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2) +
+#   geom_vline(xintercept = 0, linetype = "dashed") +  
+#   labs(x = "Estimate (95% CI)", y = "Model", 
+#        title = "Fixed effects of Social Manipulation on Subjective Ratings")+
+#       theme_minimal(base_size = 14)
+# #ggsave('subjratings_x_social_subjemo.tiff', plot = plot3, bg="white")
+# plot3
+# 
+# 
+# emotion_effectstest <- subjratings_x_social_subjemotion_df %>%
+#   filter(term %in% c("subj_emo_lab_no_amb1",
+#                      "subj_emo_lab_no_amb2",
+#                      "subj_emo_lab_no_amb3",
+#                      "subj_emo_lab_no_amb4",
+#                      "subj_emo_lab_no_amb5")) %>%
+# 
+#   # Clean up term names for plotting
+#   mutate(term = gsub("subj_emo_lab_no_amb", "", term))
+# 
+# # we want all 6 emotion category predictors in our plot, so we need to extra them using emmeans
+# valence_emm2<- emmeans(subjratings_x_social_subjemotion$Valence, ~ subj_emo_lab_no_amb, infer = c(TRUE, TRUE))
+# intensity_emm2<- emmeans(subjratings_x_social_subjemotion$Intensity, ~ subj_emo_lab_no_amb, infer = c(TRUE, TRUE))
+# 
+# emmeans_df2 <- bind_rows(
+#   as.data.frame(valence_emm2) %>% mutate(model = "Valence"),
+#   as.data.frame(intensity_emm2) %>% mutate(model = "Intensity")
+# )
+# 
+# 
+# # extract grand mean for plotting
+# grand_means <- emmeans_df2 %>%
+#   group_by(model) %>%
+#   summarise(grand_mean = mean(emmean, na.rm = TRUE)) %>%
+#   mutate(ymin = as.numeric(factor(model)) - 0.5,  # vertical start of segment
+#          ymax = as.numeric(factor(model)) + 0.5)
+# 
+# plot4 <- ggplot(emmeans_df2, aes(x = emmean, y = model, color = subj_emo_lab_no_amb)) +
+#   geom_point(position = position_dodge(width = 0.7), size = 3) +
+#   geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL),
+#                  position = position_dodge(width = 0.7), height = 0.2) +
+#   geom_vline(xintercept = 0, linetype = "dashed") +
+#   xlim(0, 8)+
+#   geom_segment(data = grand_means, 
+#                aes(x = grand_mean, xend = grand_mean, y = ymin, yend = ymax),
+#                color = "black", linetype = "dotted", size = 0.8) +
+#   # Add horizontal separator line
+#   geom_hline(yintercept = 1.5, linetype = "solid", color = "black", linewidth = 0.5) +
+#   labs(x = "Estimated Marginal Mean (95% CI)", y = "Model",
+#        title = "Estimated Marginal Means of Subjective Ratings by Emotion",
+#        color = "Emotion") +
+#   scale_colour_manual(values=cbbPalette)+
+#   theme_minimal(base_size = 14)+
+#   theme(plot.title = element_text(hjust = 0.5))
+# 
+# #ggsave('subjratings_x_subjemotion.tiff', plot = plot4, bg = "white")
+# plot4
+
+```
+
+```{r create physio signal subsets}
+#Ruth's exclusions:
+# b) Create columns flagging whether trials fall outside the thresholds
+# dta_original_trial_exclusions <- dta_original_trial_exclusions%>%
+#   group_by(participant)%>%
+#   mutate(face_exclusion = if_else(success >= "0.8" & confidence >= "0.8", "TRUE", "FALSE"),
+#          gaze_exclusion = if_else(gaze_valid_prop >= "0.8", "TRUE", "FALSE"),
+#          hr_range_exclusion = if_else(hr_mean_bpm>=30 & hr_mean_bpm<201, "TRUE", "FALSE"),
+#          z_hr_mean = scale(hr_mean_bpm)[, 1],
+#          hr_z_exclusion = abs(z_hr_mean) <= 3,
+#          z_log_cda_scr = scale(log_cda_scr)[, 1],
+#          scr_z_exclusion = abs(z_log_cda_scr) <= 3
+#   )%>%
+#   select(-c(z_hr_mean, z_log_cda_scr))%>%
+#   ungroup()%>%
+#   relocate(128:132, .after = 2)
+
+full_dta %>% count(face_exclusion)# TRUE = 5488, FALSE = 32
+full_dta %>% count(gaze_exclusion)# TRUE = 5233, FALSE = 252, NA = 35
+full_dta %>% count(hr_range_exclusion)# TRUE = 5507, NA = 13
+full_dta %>% count(hr_z_exclusion)# TRUE = 5474, FALSE = 33, NA = 13
+full_dta %>% count(scr_z_exclusion)# TRUE = 5454, FALSE = 66
+
+
+# see where the overlaps are
+chk_exclusions <- full_dta%>%
+  count(face_exclusion, gaze_exclusion, hr_range_exclusion, hr_z_exclusion, scr_z_exclusion) # 5108 all TRUE
+
+# create subsets for each signal
+signals <- list(
+  hr   = list(signal_col = "hr_mean_diff", excl_col = "hr_range_exclusion"),
+  ibi   = list(signal_col = "ibi_mean_diff", excl_col = "hr_range_exclusion"),
+  scr  = list(signal_col = "log_cda_phasic_max", excl_col = "scr_z_exclusion"),
+  fix = list(signal_col = "mean_fix_dur_stim_aoi", excl_col = "gaze_exclusion"),
+  saccade = list(signal_col = "mean_sac_amp_stim_aoi", excl_col = "gaze_exclusion"),
+  entropy = list(signal_col ="mean_stat_entropy_maxnorm", excl_col = "gaze_exclusion"),
+  inner_brow_raise = list(signal_col ="au01_inner_brow_raise", excl_col = "face_exclusion"),
+  outer_brow_raise = list(signal_col ="au02_outer_brow_raise", excl_col = "face_exclusion"),
+  brow_lower = list(signal_col ="au_04_brow_lower", excl_col = "face_exclusion"),
+  lid_raise = list(signal_col ="au05_eye_lid_raise", excl_col = "face_exclusion"),                                     
+  cheek_raise = list(signal_col ="au06_cheek_raise", excl_col = "face_exclusion"),
+  lid_tighten = list(signal_col ="au07_eye_lid_tighten", excl_col = "face_exclusion"),
+  nose_wrinkle = list(signal_col ="au09_nose_wrinkle", excl_col = "face_exclusion"),
+  upper_lip_raise = list(signal_col ="au10_upper_lip_raise", excl_col = "face_exclusion"),
+  lip_pull = list(signal_col ="au12_lip_corner_pull", excl_col = "face_exclusion"),
+  dimpler = list(signal_col ="au14_dimpler", excl_col = "face_exclusion"),
+  lip_corner_depress = list(signal_col ="au15_lip_corner_depress", excl_col = "face_exclusion"),
+  chin_raise = list(signal_col ="au17_chin_raise", excl_col = "face_exclusion"),
+  lip_stretch = list(signal_col ="au20_lip_stretch", excl_col = "face_exclusion"),
+  lip_tighten = list(signal_col ="au23_lip_tighten", excl_col = "face_exclusion"),
+  lips_apart = list(signal_col ="au25_lips_apart", excl_col = "face_exclusion"),
+  jaw_drop = list(signal_col ="au26_jaw_drop", excl_col = "face_exclusion"),
+  eye_blink = list(signal_col ="au45_eye_blink", excl_col = "face_exclusion"))
+
+
+# Define which columns to keep for each signal or group
+# Corrected column indices for each signal
+signal_keep_cols <- list(
+  hr = c(1,2,8:19,42:65,133:135),       
+  ibi = c(1,2,8:19,42:65,133:135),  
+  scr = c(1,2,8:19,42, 45,55,121:135),
+  fix = c(1,2,8:19,42,45,55,66:99,133:135),
+  saccade = c(1,2,8:19,42,45,55, 66:99,133:135),
+  entropy = c(1,2,8:19,42,45,55, 66:99,133:135),
+  inner_brow_raise = c(1,2,8:42, 45,55,100:120,133:135),
+  outer_brow_raise = c(1,2,8:42, 45,55,100:120,133:135),
+  brow_lower =  c(1,2,8:42, 45,55,100:120,133:135),
+  lid_raise =  c(1,2,8:2, 45,55,100:120,133:135),
+  cheek_raise =  c(1,2,8:2, 45,55,100:120,133:135),
+  lid_tighten =  c(1,2,8:42, 45,55,100:120,133:135),
+  nose_wrinkle =  c(1,2,8:42, 45,55,100:120,133:135),
+  upper_lip_raise =  c(1,2,8:42, 45,55,100:120,133:135),
+  lip_pull =  c(1,2,8:42, 45,55,100:120,133:135),
+  dimpler =  c(1,2,8:42, 45,55,100:120,133:135),
+  lip_corner_depress = c(1,2,8:12, 45,55,100:120,133:135),
+  chin_raise =  c(1,2,8:42, 45,55,100:120,133:135),
+  lip_stretch =  c(1,2,8:42, 45,55,100:120,133:135),
+  lip_tighten =  c(1,2,8:42, 45,55,100:120,133:135),
+  lips_apart =  c(1,2,8:42, 45,55,100:120,133:135),
+  jaw_drop =  c(1,2,8:42,42, 45,55,100:120,133:135),
+  eye_blink =  c(1,2,8:42, 45,55,100:120,133:135)
+)
+
+# Create subsets for each signal
+signal_subsets <- lapply(names(signals), function(sig) {
+  
+  signal_col <- signals[[sig]]$signal_col
+  excl_col   <- signals[[sig]]$excl_col
+  
+  # Get column names to keep for this signal
+  cols_to_keep <- names(full_dta)[signal_keep_cols[[sig]]]
+  
+  full_dta %>%
+    # Filter rows where exclusion column is TRUE
+    filter(!!sym(excl_col) == TRUE) %>%
+    # Select the signal column + chosen columns
+    dplyr::select(all_of(cols_to_keep), !!sym(signal_col))
+})
+
+# Name the list elements
+names(signal_subsets) <- names(signals)
+
+heart_data <- signal_subsets$hr
+skin_data <- signal_subsets$scr
+eye_data <- signal_subsets$saccade
+face_data <- signal_subsets$inner_brow_raise
+```
+
+```{r aggregate some means for later plotting}
+library(dplyr)
+
+hr_agg_means <- heart_data %>%
+  group_by(participant, social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(mean = mean(hr_mean_diff, na.rm = TRUE),.groups = "drop")
+
+ibi_agg_means <- heart_data %>%
+  group_by(participant,social_nonsocial,subj_emo_lab_no_amb) %>%
+  summarise(mean = mean(ibi_mean_diff, na.rm = TRUE),.groups = "drop")
+
+scr_agg_means <- skin_data %>%
+  group_by(participant, social_nonsocial,subj_emo_lab_no_amb) %>%
+  summarise( mean = mean(log_cda_phasic_max, na.rm = TRUE),.groups = "drop")
+```
+
+```{r autonomic models}
+# # set neutral as the reference level again 
+# options(contrasts = c("contr.treatment", "contr.poly"))
+# heart_data$emotioncategory <- factor(heart_data$emotioncategory, 
+#                                   levels = c("neutral", "anger", "disgust", "fear", "happy", "sad"))
+
+options(contrasts =c("contr.sum", "contr.sum"))
+
+autonomic_results<- list()
+autonomic_results$Heart_Rate<-lmer(hr_mean_diff ~ 1+ social_nonsocial* subj_emo_lab_no_amb +#* int_slider_response +
+                                                (1|participant) + 
+                                                (1|stim_iaps), 
+                                              REML = FALSE,
+                                              data = heart_data)
+
+# ibi 
+autonomic_results$Interbeat_Interval<-lmer(ibi_mean_diff ~ 1+ social_nonsocial * subj_emo_lab_no_amb +#* #int_slider_response+
+                                                (1|participant) + 
+                                                (1|stim_iaps), 
+                                              REML = FALSE,
+                                              data = heart_data)
+
+# options(contrasts = c("contr.treatment", "contr.poly"))
+# skin_data$emotioncategory <- factor(skin_data$emotioncategory, 
+#                                   levels = c("neutral", "anger", "disgust", "fear", "happy", "sad"))
+# skin conductance 
+skin_data$
+autonomic_results$skin_conductance<-lmer(log_cda_phasic_max ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                (1|participant) + 
+                                                (1|stim_iaps), 
+                                              REML = FALSE,
+                                              data = skin_data)
+anova(autonomic_results$skin_conductance)
+# thuis is the sxr metric
+autonomic_results$skin_conductance_iscr<-lmer(log_cda_scr ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                (1|participant) + 
+                                                (1|stim_iaps), 
+                                              REML = FALSE,
+                                              data = skin_data)
+
+anova(autonomic_results$skin_conductance_iscr)
+message("ANOVA: Heart rate")
+anova(autonomic_results$Heart_Rate, type = 3)
+message("ANOVA: Interbeat Interval")
+anova(autonomic_results$Interbeat_Interval, type = 3)
+message("ANOVA: Skin conductance")
+anova(autonomic_results$skin_conductance, type = 3)
+```
+
+```{r posthocs, message = FALSE, warning = FALSE}
+heartrate_emm1 <- emmeans(autonomic_results$Heart_Rate, ~ social_nonsocial)
+heartrate_emm1
+pairs(heartrate_emm1)   # gives nonsocial vs social difference
+
+heartrate_emm2 <- emmeans(autonomic_results$Heart_Rate, ~ subj_emo_lab_no_amb)
+heartrate_emm2
+pairs(heartrate_emm2, adjust = "tukey")   # gives nonsocial vs social difference
+
+ibi_emm1 <-emmeans(autonomic_results$Interbeat_Interval, ~ social_nonsocial)
+ibi_emm1
+pairs(ibi_emm1)
+
+ibi_emm2 <-emmeans(autonomic_results$Interbeat_Interval, ~ subj_emo_lab_no_amb)
+ibi_emm2
+pairs(ibi_emm2, adjust = "tukey")
+```
+
+```{r plot social effects on autonomic signals, message = FALSE}
+autonomic_results_df <- map_dfr(autonomic_results, tidy, effects = "fixed", conf.int = TRUE, .id = "model")
+
+# # Filter
+social_effects3 <- autonomic_results_df %>%
+   filter(term == "social_nonsocial1" | term == "social_nonsocial") %>%
+   mutate(term = "Social vs Non-Social")  # optional cleaner label
+
+# this is plotting the results directly from the mixed models
+plot5<-
+  ggplot(social_effects3, aes(x = estimate, y = model)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed") +  
+  labs(x = "Estimate (95% CI)", y = "Model", 
+       title = "Fixed Effects of Social Manipulation on Autonomic Responses")+
+      theme_minimal(base_size = 14)+
+      theme(plot.title = element_text(size = 14))
+
+#ggsave('autonomic_x_social.tiff', plot = plot5, bg="white")
+plot5
+
+#plot social effects - these ones are slightly more in depth and show the effect of social and non social 
+hr_social_emm <- emmeans(autonomic_results$Heart_Rate, ~ social_nonsocial + subj_emo_lab_no_amb)
+ibi_social_emm<- emmeans(autonomic_results$Interbeat_Interval, ~ social_nonsocial + subj_emo_lab_no_amb)
+scr_social_emm<- emmeans(autonomic_results$skin_conductance, ~ social_nonsocial + subj_emo_lab_no_amb)
+emmeans(autonomic_results$skin_conductance, pairwise~ social_nonsocial | subj_emo_lab_no_amb)
+hr_social_emmean <- as.data.frame(hr_social_emm) %>% mutate(model = "Heart_Rate")
+ibi_social_emmean <- as.data.frame(ibi_social_emm) %>% mutate(model = "Interbeat_Interval")
+scr_social_emmean <- as.data.frame(scr_social_emm) %>% mutate(model = "Skin Conductance")
+
+# extract grand mean for plotting
+hr_social_grand_mean <- mean(hr_social_emmean$emmean)
+ibi_social_grand_mean <- mean(ibi_social_emmean$emmean)
+scr_social_grand_mean <- mean(scr_social_emmean$emmean)
+
+```
+
+```{r combined plots}
+
+hr_summary <- heart_data %>%
+  group_by(subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(
+    mean = mean(hr_mean_diff, na.rm = TRUE),
+    sd   = sd(hr_mean_diff, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+social_x_hr <- ggplot(
+  hr_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  ## raw participant means (background)
+  geom_jitter(
+    data = hr_agg_means,
+    aes(x = social_nonsocial, y = mean, colour = social_nonsocial), width = 0.15, size = 0.8, alpha = 0.15) +
+  ## model estimated means
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  ## model CI
+  geom_errorbar(
+    aes(ymin = ci_lower, ymax = ci_upper),
+    width = 0.15, size = 1, position = position_dodge(width = 0.4)) +
+  facet_grid(~ subj_emo_lab_no_amb) +
+  labs(x = "Condition", y = expression(bold("Heart Rate Mean "*Delta*"")), colour = "") +
+  coord_cartesian(ylim = c(-10, 10))+
+  scale_colour_brewer(palette = "Dark2") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.text.y = element_text(size = 14),
+    axis.title.y = element_text(size = 14, face = "bold"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+ggsave(filename = "heart_rate.tiff", plot = social_x_hr, width =7, height = 7, dpi = 300, compression = "lzw", bg = "white")
+
+
+ibi_summary <- heart_data %>%
+  group_by(subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(
+    mean = mean(ibi_mean_diff, na.rm = TRUE),
+    sd   = sd(ibi_mean_diff, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+social_x_ibi <- ggplot(
+  ibi_summary, aes(x = social_nonsocial, y = mean, colour = social_nonsocial)) +
+  ## raw participant means (background)
+  geom_jitter(
+    data = ibi_agg_means, 
+    aes(x = social_nonsocial, y = mean, colour = social_nonsocial),width = 0.15, size = 0.8, alpha = 0.15) +
+ ## model estimated means
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  ## model CI
+  geom_errorbar(
+    aes(ymin = ci_lower, ymax = ci_upper), width = 0.15, size = 1, position = position_dodge(width = 0.4)) +
+  facet_grid(~ subj_emo_lab_no_amb) +
+  labs(x = "Condition", y = expression(bold("Interbeat Interval Mean "*Delta* "")), colour = "") +
+  scale_colour_brewer(palette = "Dark2") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.text.y = element_text(size = 14),
+    axis.title.y = element_text(size = 14, face = "bold"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+ggsave(filename = "ibi_model.tiff", plot = social_x_ibi, width =7, height = 7, dpi = 300, compression = "lzw", bg = "white")
+
+
+scr_summary <- skin_data %>%
+  group_by(subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(
+    mean = mean(log_cda_phasic_max, na.rm = TRUE),
+    sd   = sd(log_cda_phasic_max, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+social_x_scr 
+
+ggplot(scr_summary, aes( x = social_nonsocial,y = mean, colour = social_nonsocial)) +
+  ## raw participant means (background)
+  geom_jitter(data = scr_agg_means, 
+              aes(x = social_nonsocial, y = mean, colour = social_nonsocial),width = 0.15, size = 0.8, alpha = 0.15) +
+  ## model estimated means
+  # geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  ## model CI
+  geom_errorbar(aes( ymin = ci_lower, ymax = ci_upper), width = 0.15, size = 1, position = position_dodge(width = 0.4))+
+  facet_grid(~ subj_emo_lab_no_amb) +
+  labs(x = "Condition", y = expression(bold("Skin Conductance")), colour = "") +
+  scale_colour_brewer(palette = "Dark2") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.text.y = element_text(size = 14),
+    axis.title.y = element_text(size = 14, face = "bold"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top")
+
+#ggsave(filename = "scr_model.tiff", plot = social_x_scr, width =7, height = 7, dpi = 300, compression = "lzw",bg = "white")
+
+social_x_hr
+social_x_ibi
+social_x_scr
+
+autonomic_plots <- social_x_hr + social_x_scr
+ggsave(filename = "autonomic_plots.tiff", plot = autonomic_plots, width =12, height = 6, dpi = 300, compression = "lzw",bg = "white")
+
+```
+
+
+Heart Rate. A linear mixed model revealed a significant main effect of social context on heart rate, F(1, 96.8) = 8.49, p = .004, such that heart rate was lower in the social (M = -2.05, SE = .28) compared to the nonsocial condition (M = -.97, SE= .26). There was also a significant main effect of emotion rating (F(5, 714.0) = 2.28, p = .045). Although post-hoc comparisons of estimated marginal means (with Tukey correction) did not reveal significant pairwise differences between emotions, the 95% CI bars around the estimated marginal means suggest that heart rate responses varied across emotions relative to the grand mean, with some emotions eliciting slightly stronger (e.g. happy or netural) or weaker heart rate response (e.g., anger fear; Figure X). In line with this, the interaction between social context and emotion category was not significant (F(5, 5424.9) = 0.78, p = .56).
+
+The model results for Interbeat Interval (IBI) complement these heart rate findings: IBI was significantly longer in the social condition (M = .02, SE = .003) compared to the non-social condition (M = .01, SE = .003;F(1, 96.5) = 4.44, p = .038). As with heart rate, although there was a significant main effect of emotion (F(5, 706.7) = 2.26, p = .047), post-hoc comparisons of estimated marginal means (with TUkey correction) did not highlight any significant pairwise comparisons. There was no significant interaction between social context and emotion (F(5, 5422.7) = 1.19, p = .31).
+
+Skin Conductance. No significant effects were observed for social context, F(1, 92.3) = 2.27, p = .14, emotion category, F(5, 1258.9) = 0.23, p = .95, or their interaction, F(5, 5322.1) = 1.72, p = .13.
+
+```{r eye movement models}
+options(contrasts =c("contr.sum", "contr.sum"))
+eye_results<- list()
+
+eye_results$Fixation_duration<-lmer(mean_fix_dur_stim_aoi ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                 (1|participant) + 
+                                                 (1|stim_iaps), 
+                                               REML = FALSE,
+                                               data = eye_data)
+
+eye_results$Saccade_amplitude<-lmer(mean_sac_amp_stim_aoi ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                (1|participant) + 
+                                                (1|stim_iaps), 
+                                              REML = FALSE,
+                                              data = eye_data)
+
+eye_results$Entropy<-lmer(mean_stat_entropy_maxnorm ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                (1|participant) + 
+                                                (1|stim_iaps), 
+                                              REML = FALSE,
+                                              data = eye_data)
+message("ANOVA: Fixation duration")
+anova(eye_results$Fixation_duration, type = 3)
+message("ANOVA: Saccade amplitude")
+anova(eye_results$Saccade_amplitude, type = 3)
+message("ANOVA: Entropy")
+anova(eye_results$Entropy, type = 3)
+```
+
+Neither social context or emotion had any impact upon fixation duration, saccade amplitude or entropy, where neither of these main effects reached significance (p >.05).
+
+## FAU mixed models - excluding time
+```{r z score face signals}
+# z score each facial action unit 
+face_z_scored <- face_data %>%
+  mutate(across(starts_with("au"), scale))
+face_z_scored
+```
+
+```{r run models on z scores}
+face_results<- list()
+face_results$Inner_brow<-lmer(au01_inner_brow_raise~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                          (1|participant) + 
+                                                          (1|stim_iaps), 
+                                                        REML = FALSE,
+                                                        data = face_z_scored)
+
+face_results$Outer_brow<-lmer(au02_outer_brow_raise~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+
+face_results$Brow_lower<-lmer(au_04_brow_lower~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+
+face_results$eyelid_raise<-lmer(au05_eye_lid_raise~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+
+face_results$cheek_raise<-lmer(au06_cheek_raise~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+
+face_results$eyelid_tighten<-lmer(au07_eye_lid_tighten~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+
+face_results$nose_wrinkle<-lmer(au09_nose_wrinkle~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+
+face_results$upper_lip_raise<-lmer(au10_upper_lip_raise~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+
+face_results$lip_corner_pull<-lmer(au12_lip_corner_pull~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+face_results$dimpler<-lmer(au14_dimpler~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                  (1|participant) + 
+                                                  (1|stim_iaps), 
+                                                REML = FALSE,
+                                                data = face_z_scored)
+
+face_results$lip_corner_depress<-lmer(au15_lip_corner_depress~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                  (1|participant) + 
+                                                  (1|stim_iaps), 
+                                                REML = FALSE,
+                                                data = face_z_scored)
+
+face_results$chin_raise<-lmer(au17_chin_raise~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                           (1|participant) + 
+                                                           (1|stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_z_scored)
+
+face_results$lip_stretch<-lmer(au20_lip_stretch~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                           (1|participant) + 
+                                                           (1|stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_z_scored)
+
+face_results$lip_tighten<-lmer(au23_lip_tighten~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                           (1|participant) + 
+                                                           (1|stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_z_scored)
+
+face_results$lips_apart<-lmer(au25_lips_apart~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                           (1|participant) + 
+                                                           (1|stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_z_scored)
+
+face_results$jaw_drop<-lmer(au26_jaw_drop~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                   (1|participant) + 
+                                                   (1|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_z_scored)
+
+face_results$eye_blink<-lmer(au45_eye_blink~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                                                 (1|participant) + 
+                                                 (1|stim_iaps), 
+                                               REML = FALSE,
+                                               data = face_z_scored)
+
+#face_results <- map_dfr(face_results, tidy, effects = "fixed", conf.int = TRUE, .id="model")
+```
+
+```{r print face signal results}
+anova(face_results$Inner_brow, type = 3)
+anova(face_results$Outer_brow, type = 3)
+anova(face_results$Brow_lower, type = 3)
+anova(face_results$eyelid_raise, type = 3)
+anova(face_results$cheek_raise, type = 3)
+anova(face_results$eyelid_tighten, type = 3)
+anova(face_results$nose_wrinkle, type = 3)
+anova(face_results$upper_lip_raise, type = 3)
+anova(face_results$lip_corner_pull, type = 3)
+anova(face_results$dimpler, type = 3)
+anova(face_results$lip_corner_depress, type = 3)
+anova(face_results$chin_raise, type = 3)
+anova(face_results$lip_stretch, type = 3)
+anova(face_results$lip_tighten, type = 3)
+anova(face_results$lips_apart, type = 3)
+anova(face_results$jaw_drop, type = 3)
+anova(face_results$eye_blink, type = 3)
+
+test <-emmeans(face_results$Inner_brow, ~ subj_emo_lab_no_amb)
+test
+pairs(test)
+```
+emotion category was significant for multiple AUs, including Inner brow, brow lower, eye lid raise, cheek raise, eye lid tighten, nose wrinkle, upper lip raise,  lip corner depress, and lips apart, indicating that facial responses differed reliably across emotions (all p < .05). For example, Lip Corner Pull showed increased activity for happy expressions relative to other emotions, F(5, 5402.0) = 4.89, p < .001.
+
+A significant main effect of social context was observed for eyelid tighten, F(1, 92.2) = 4.53, p = .036, with greater activity in the nonsocial condition (M = 0.19, SE = 0.13) than the social condition (M = -0.20, SE = 0.13).”No other AUs were significantly influenced by social context, suggesting that social conditions had minimal impact on facial expressions overall.
+
+The interaction between social context and emotion category was generally non-significant, indicating that emotion-driven facial responses were largely consistent across social and nonsocial settings. A notable exception was Eye Blink, where the interaction was significant, F(5, 5362.2) = 4.89, p < .001, suggesting that blinking varied across emotions depending on the social context. However, pairwise comparisons did not reveal any differences between emotions across social contexts, 
+Overall, facial expressions were primarily driven by emotion category, with limited modulation by social context and only isolated evidence for social × emotion interactions.
+
+```{r plot model results face signals }
+
+face_emmeans <- map_dfr(face_results, ~ {
+  as.data.frame(emmeans(.x, ~ subj_emo_lab_no_amb, infer = c(TRUE, TRUE)))
+}, .id = "model")  # .id adds model name (e.g., AU01, AU02)
+face_emmeans$model <- dplyr::recode(face_emmeans$model,
+  "Inner_brow"= "Inner brow",
+  "Outer_brow" = "Outer brow",
+  "Brow_lower"="Brow lower",
+  "eyelid_raise" = "Eyelid raise",
+  "cheek_raise" = "Cheek raise",
+  "eyelid_tighten" = "Eyelid tighten",
+  "nose_wrinkle" = "Nose wrinkle",
+  "upper_lip_raise" = "Upper lip raise",
+  "lip_corner_pull" = "Lip corner pull" ,
+  "dimpler" ="Dimpler",
+  "lip_corner_depress" = "Lip corner depress",
+  "chin_raise" = "Chin raise" ,
+  "lip_stretch" = "Lip stretch",
+ "lip_tighten" =  "Lip tighten" ,
+  "lips_apart" = "Lips apart",
+  "jaw_drop" = "Jaw drop",
+  "eye_blink" = "Eye blink"
+)
+au_order <- c(
+  "Inner brow", "Outer brow", "Brow lower", "Eyelid raise", "Cheek raise",
+  "Eyelid tighten", "Nose wrinkle", "Upper lip raise", "Lip corner pull",
+  "Dimpler", "Lip corner depress", "Chin raise", "Lip stretch", "Lip tighten",
+  "Lips apart", "Jaw drop", "Eye blink"
+)
+
+face_emmeans$model <- factor(face_emmeans$model, levels = au_order)
+
+```
+
+```{r pool and plot face signals}
+# pool the betas for all facial units and plot pooled effects
+# Pooling + Z-test (Equations 1–2)
+pool_effect <- function(betas, ses) {
+  beta_pool <- sqrt(sum(betas^2))
+  se_pool   <- sqrt(sum(ses^2))
+  Z_stat    <- beta_pool / se_pool
+  p_value   <- 2 * pnorm(-abs(Z_stat))
+  c(beta = beta_pool, se = se_pool, Z = Z_stat, p = p_value)
+}
+
+# Pool social manipulation effect
+social_pool_faces<- face_results_df %>%
+  filter(term == "social_nonsocial1") %>%
+  #turn into data frame for plotitng: 
+  summarise(pooled = list(pool_effect(estimate, std.error))) %>%  
+  unnest_wider(pooled) %>%  
+  mutate(effect = "Social vs Non-Social") 
+
+social_pool_faces_plot<-
+  ggplot(social_pool_faces, aes(x = beta, y = effect)) +
+  geom_point(size = 4) +
+  geom_errorbarh(aes(xmin = beta - se, xmax = beta + se), height = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(x = "Pooled Beta (±SE)", y = "", title = "Fixed Effect of Social Manipulation on Face Behaviour (pooled)") +
+  theme_minimal(base_size = 14)
+
+social_pool_faces_plot 
+  
+#ggsave('pooled_faces_x_social.tiff', plot = social_pool_faces_plot, bg="white")
+
+# Pool emotion effects 
+emotion_pool_faces <- face_emmeans %>%
+  group_by(subj_emo_lab_no_amb) %>% 
+  summarise(pooled = list(pool_effect(emmean, SE))) %>%
+  tidyr::unnest_wider(pooled) %>%
+  mutate(effect = subj_emo_lab_no_amb)
+
+emotion_pool_faces_plot<-
+  ggplot(emotion_pool_faces, aes(x = beta, y = effect, colour = subj_emo_lab_no_amb)) +
+  geom_point(size = 4) +
+  geom_errorbarh(aes(xmin = beta - se, xmax = beta + se), height = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_colour_manual(values=cbbPalette)+
+  labs(x = "Pooled Beta (±SE)", y = "Emotion", title = "Fixed Effects of Emotion on Face Behaviour (pooled)") +
+  theme_minimal(base_size = 14)
+#ggsave('pooled_faces_x_emotion.tiff', plot = emotion_pool_faces_plot, bg="white")
+
+emotion_pool_faces_plot + theme(legend.position = "none")
+```
+social manipulation increases AU activity by 0.236 units - non significant 
+no significant effects of subjective rated emotion on action units when pooled 
+
+```{r Face PCAs}
+#	Run a multilevel PCA (see mixOmics r package for this kind of PCA) → extract component scores → run mixed models on these component scores. – face only 
+
+#logic:
+# We want to test the effects of social manipulation (social vs. nonsocial) and emotion category (anger, #fear, happy, etc.) on facial behavior.
+# We have 17 facial AUs per trial, per participant. Thats a lot and makes interpretation tricky
+# Theoretically as well, action units work together 
+# Why PCA? PCA reduces these 17 AUs into a few principal components (PCs).
+# Each PC is a linear combination of AUs that explains the most variance in facial behavior.
+# e.g. perhaps its the case that au01, au02, au03 are grouped and = smile, for example
+# extract the pcc scores for each trial and each participant
+# then we can run mixed models on each PC and ask does social manip affect this 
+
+# ## install BiocManager if not installed 
+# if (!requireNamespace("BiocManager", quietly = TRUE))    
+# install.packages("BiocManager")
+# ## then install mixOmics
+# BiocManager::install("mixOmics")
+library(mixOmics)
+require(Factoshiny)
+require(factoextra)
+
+pca_multil_design <- data.frame(sample = face_data$participant) # set the multilevel design
+
+# note this is not the z scored data, mixOmics will scale when performing the PCA 
+pca_multil_omix_face <- mixOmics::pca(face_data[42:58], 
+                            scale = TRUE, 
+                            center = TRUE, 
+                            multilevel = pca_multil_design, ncomp = 3)
+pca_multil_omix_face
+
+# plot the scores. do they cluster differently depending on emotion rating? 
+plotIndiv(pca_multil_omix_face , group = face_data$subj_emo_lab_no_amb,
+          ind.names = face_data$participant,
+          legend = TRUE)
+
+# do scores cluster differently for nonsocial and social conditions?
+plotIndiv(pca_multil_omix_face , group = face_data$social_nonsocial, 
+          ind.names = face_data$participant,
+          legend =TRUE)
+
+plotVar(pca_multil_omix_face , var.names = TRUE, cutoff = 0.4, pch = 16)
+
+# Extract all PCs 
+components <- data.frame(pca_multil_omix_face$variates$X)
+# attach back to main data frame
+pc_data <- cbind(face_data[, c("participant", "stim_iaps","social_nonsocial", "subj_emo_lab_no_amb")],
+                   components) # we want this data frame for our mixed models
+
+
+# Extract loadings for AUs onto each PC so we can see what goes where
+au_loadings <- as.data.frame(pca_multil_omix_face$loadings$X)
+au_loadings$AU <- rownames(au_loadings)
+# Reorder so AU is first column
+au_loadings<- au_loadings[, c("AU", colnames(au_loadings)[1:3])]
+
+au_loadings_ranked <- au_loadings %>%
+  pivot_longer(cols = -AU, names_to = "PC", values_to = "loading") %>%
+  mutate(abs_loading = abs(loading)) %>%
+  group_by(PC) %>%
+  arrange(desc(abs_loading), .by_group = TRUE) %>%
+  ungroup()
+
+top5_per_pc <- au_loadings_ranked %>%
+  group_by(PC) %>%
+  slice_head(n = 5)
+
+top5_per_pc
+
+```
+
+```{r extract metrics}
+# Extract proportion of variance explained per component
+pca_multil_omix_face[["prop_expl_var"]]
+
+var_explained <- unlist(pca_multil_omix_face$prop_expl_var$X)
+
+var_explained_df <- data.frame(
+  PC = paste0("PC", 1:length(var_explained)),
+  Variance_Explained = var_explained,
+  Cumulative_Variance = cumsum(var_explained)
+)
+
+var_explained_df
+
+```
+
+What is the PCA telling us? 
+The AUs loaded onto PC1 could reflect a surprised/open-mouth/tense expression
+The AUs loaded onto PC2 could reflect a positive facial expression/smile pattern
+The AUs loaded onto PC3 could reflect surprise (e.g. eyebrow raises)
+
+```{r run mixed models on the principle components}
+# add stimulus as random effect instead of participant 
+pc1 <- lmer(PC1 ~ social_nonsocial * subj_emo_lab_no_amb +(1|stim_iaps), data = pc_data)
+pc2 <- lmer(PC2 ~ social_nonsocial * subj_emo_lab_no_amb + (1|stim_iaps),data = pc_data)
+pc3 <- lmer(PC3 ~ social_nonsocial * subj_emo_lab_no_amb + (1|stim_iaps),data = pc_data)
+
+# multiple comparisons are tukey-adjusted
+anova(pc1, type = 3)
+anova(pc2, type = 3)
+anova(pc3, type = 3)
+```
+
+For all principle components, there was no significant main effect of social manipulation. 
+For PC1, there was a significant main effect of emotion category (p=.008 respectively).
+No main effects for PC3. 
+
+```{r pairwise comparisons, message = FALSE}
+emm_PC1 <- emmeans(pc1, ~ subj_emo_lab_no_amb, adjust = "tukey")
+pairs(emm_PC1)
+```
+
+PC1 seems to distinguish disgust from other emotions. That is, images rated as disgusting predict facial movements for this PC. 
+Ties in with the AUs loaded on this factor? 
+
+PC2 has fewer significant differences overall, but happy and neutral are both higher than disgust. Ties in somewhat with the AUs for PC2 reflecting positive expression? 
+
+Results show that findings are not down to methodological/analytical limitations 
+
+## FAU mixed models - including time - report these ones
+```{r linear mixed models on FAUs over time}
+# 1. use the face data that includes time series
+# can we predict effects across the 6 seconds for each action unit 
+# z-score time as a predictor + covariate + random effect
+#so replicate the existing models per AU, just adding time to the models 
+
+#prepare the data 
+library(arrow)
+face_time_raw <- read_parquet("face_time_data.parquet", show_col_types = FALSE)
+
+head(face_time_raw)
+
+#filter to columns we want : raw smoothed aus e.g. au01_r_smt
+face_time<- face_time_raw[,-c(5:39, 58:110)]
+
+#filter out rest and example stimuli trials
+face_time <- face_time%>%
+  filter(!grepl("example|rest", source_file, ignore.case = TRUE))
+
+#extract participant id from source_file column
+library(stringr)
+
+# Extract the participant number at the start of the source file
+face_time <- face_time %>%
+  mutate(participant = str_extract(source_file, "^\\d+"))
+#rename ppt 103103 to 103
+face_time <- face_time %>%
+  mutate(participant = substr(participant, 1, 3))
+
+# extract whether participant was in social or nonsocial 
+ppt_conditions <- dta_original %>% 
+  dplyr::select(participant, social_nonsocial) %>% 
+  distinct()
+
+# Join it to face_time data
+face_time <- face_time %>%
+  left_join(ppt_conditions, by = "participant")
+
+# extract subj_emo_lab_no_amb
+ppt_images <- full_dta %>% 
+  dplyr::select(stim_iaps, subj_emo_lab_no_amb, participant)%>% 
+  distinct()
+
+# Extract the image name from filename
+face_time <- face_time %>%
+  mutate(source_file = str_extract(source_file, "\\d+\\.jpg"))
+
+#rename column in ppt_images
+face_time <- face_time %>%
+  rename(stim_iaps = source_file)
+
+face_time <- face_time %>%
+  left_join(ppt_images, by = c("stim_iaps", "participant"))
+
+#check how many frames were recorded for each ppt
+frame_counts <- face_time %>%
+  group_by(participant, filename) %>%
+  summarise(frame = n())
+frame_counts
+
+frame_counts  <- frame_counts %>%
+  filter (frame < 100)
+frame_counts
+
+#exclude participants where they had too few frames
+#participants excluded = 103, 104, 105,106,107,108
+#before exclusions we had 1190285 rows, after we have 1139465
+face_time_clean <- face_time %>%
+  filter(!participant %in% c(103:108, 201:205))
+
+#also check data quality using open face confidence
+# first, look at trials that have an average confidence of less than 75%
+low_confidence_trials <- face_time_clean %>%
+  group_by(filename)%>%
+  summarise(avg_confidence = mean(confidence, na.rm =TRUE))%>%
+  filter(avg_confidence < 0.75)
+low_confidence_trials
+
+#remove these trials 
+face_time_clean <- face_time_clean %>%
+  filter(!filename %in% low_confidence_trials$filename)
+
+#check confidence per ppt per trial
+participant_confidence <- face_time_clean %>%
+  group_by(participant, filename) %>%
+  summarise(avg_confidence = mean(confidence, na.rm = TRUE))%>%
+  filter(avg_confidence < 0.75)
+
+participant_confidence 
+#no further trials to remove
+# 1134770 trials left after exclusions 
+
+#finally, downsample. keep every 3rd frame. gives around 76 samples per trial
+face_time_downsampled <- face_time_clean %>%
+  group_by(participant, filename)%>%
+  slice(seq(1, n(), by = 3))%>%
+  ungroup()
+face_time_downsampled
+```
+
+```{r mixed models}
+# z score each facial action unit 
+face_time_z_scored <- face_time_downsampled %>%
+  mutate(across(starts_with("au"), scale))
+face_time_z_scored
+
+#z score time
+face_time_z_scored$timestamp_z<- scale(face_time_z_scored$timestamp)
+face_time_z_scored
+saveRDS(face_time_z_scored, file = "face_time_z_scored.rds")
+```
+
+```{r visualise some time data}
+library(dplyr)
+library(ggplot2)
+
+# Get all AU column names
+au_columns <- names(face_time_z_scored)[grepl("^au.*_smt$", names(face_time_z_scored))]
+
+bin_size <- 0.01
+
+# Create directory for plots if it doesn't exist
+dir.create("au_time_plots", showWarnings = FALSE)
+
+# Loop through each AU and save
+for(au in au_columns) {
+  
+  summary_data <- face_time_z_scored %>%
+    mutate(time_bin = floor(timestamp / bin_size) * bin_size) %>%
+    group_by(subj_emo_lab_no_amb, participant, time_bin) %>%
+    summarise(mean_au_participant = mean(.data[[au]], na.rm = TRUE),
+              .groups = 'drop') %>%
+    group_by(subj_emo_lab_no_amb, time_bin) %>%
+    summarise(
+      mean_au = mean(mean_au_participant, na.rm = TRUE),
+      se_au = sd(mean_au_participant, na.rm = TRUE) / sqrt(n()),
+      .groups = 'drop'
+    )
+  
+  p <- ggplot(summary_data, aes(x = time_bin, y = mean_au,
+                                 color = subj_emo_lab_no_amb,
+                                 fill = subj_emo_lab_no_amb)) +
+    geom_ribbon(aes(ymin = mean_au - se_au, 
+                    ymax = mean_au + se_au), 
+                alpha = 0.2, color = NA) +
+    geom_line(linewidth = 1) +
+    labs(
+      x = "Time (seconds)",
+      y = "Intensity (z-scored)",
+      title = au,
+      color = "Emotion",
+      fill = "Emotion"
+    ) +
+    theme_minimal()+
+    theme(
+      legend.position = "bottom",
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
+    )
+  
+  # Save as TIFF
+  ggsave(
+    filename = paste0("au_time_plots/", au, ".tiff"),
+    plot = p,
+    width = 8,
+    height = 6,
+    dpi = 300,
+    compression = "lzw"  # lossless compression
+  )
+  
+  print(paste("Saved:", au))
+}
+
+print("All plots saved to au_time_plots/ directory")
+
+```
+Facial action unit intensities were averaged within 100-ms time bins to reduce high-frequency noise while preserving meaningful temporal dynamics across the 6 second stimulus presentation.
+
+Note: the plots were returning some NAs, which was weird. After looking at the data
+ na_rows <- face_time_z_scored %>%
+     filter(is.na(subj_emo_lab_no_amb))
+all of the NAs are for trials that had 0 confidence from open face. all of the FAUs are also 0. so, i think these trials were excluded from full_dta, hence the join is returning NAs.
+
+```{r run models on z scores}
+#check convergence warnings - if results is lower than the tolerance stated in the warning, then the model did converge 
+#relgrad <- with(face_time_results$Inner_brow@optinfo$derivs,solve(Hessian,gradient))
+#max(abs(relgrad))
+
+face_time_results<- list()
+
+library(lmerTest)
+face_time_results$Inner_brow <-lmer(au01_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z +
+                                                          (1 + timestamp_z | participant)+
+                                                          (1 + timestamp_z |stim_iaps), 
+                                                        REML = FALSE,
+                                                        data = face_time_z_scored)
+
+face_time_results$Outer_brow<-lmer(au02_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z + 
+                                                   (1 + timestamp_z|participant) + 
+                                                   (1 + timestamp_z|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$Brow_lower<-lmer(au04_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                   (1 + timestamp_z|participant) + 
+                                                   (1+ timestamp_z|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$eyelid_raise<-lmer(au05_r_smt~  social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                   (1 + timestamp_z|participant) + 
+                                                   (1+ timestamp_z|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$cheek_raise<-lmer(au06_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                   (1 + timestamp_z|participant) + 
+                                                   (1 + timestamp_z|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$eyelid_tighten<-lmer(au07_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z + 
+                                                   (1 + timestamp_z|participant) + 
+                                                   (1 + timestamp_z|stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$nose_wrinkle<-lmer(au09_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                   (1 + timestamp_z |participant) + 
+                                                   (1 + timestamp_z |stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$upper_lip_raise<-lmer(au10_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                   (1 + timestamp_z |participant) + 
+                                                   (1 + timestamp_z |stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$lip_corner_pull<-lmer(au12_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                   (1 + timestamp_z |participant) + 
+                                                   (1 + timestamp_z |stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$dimpler<-lmer(au14_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                  (1 + timestamp_z |participant) + 
+                                                  (1 + timestamp_z |stim_iaps), 
+                                                REML = FALSE,
+                                                data = face_time_z_scored)
+
+face_time_results$lip_corner_depress<-lmer(au15_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z + 
+                                                  (1 + timestamp_z |participant) + 
+                                                  (1 + timestamp_z |stim_iaps), 
+                                                REML = FALSE,
+                                                data = face_time_z_scored)
+
+face_time_results$chin_raise<-lmer(au17_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                           (1 + timestamp_z |participant) + 
+                                                           (1 + timestamp_z |stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_time_z_scored)
+
+face_time_results$lip_stretch<-lmer(au20_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z + 
+                                                           (1 + timestamp_z |participant) + 
+                                                           (1 + timestamp_z |stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_time_z_scored)
+
+face_time_results$lip_tighten<-lmer(au23_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                           (1 + timestamp_z |participant) + 
+                                                           (1 + timestamp_z |stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_time_z_scored)
+
+face_time_results$lips_apart<-lmer(au25_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                           (1 + timestamp_z |participant) + 
+                                                           (1 + timestamp_z |stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_time_z_scored)
+
+face_time_results$jaw_drop<-lmer(au26_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z+ 
+                                                   (1 + timestamp_z |participant) + 
+                                                   (1 + timestamp_z |stim_iaps), 
+                                                 REML = FALSE,
+                                                 data = face_time_z_scored)
+
+face_time_results$eye_blink<-lmer(au45_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z + 
+                                                 (1 + timestamp_z |participant) + 
+                                                 (1 + timestamp_z |stim_iaps), 
+                                               REML = FALSE,
+                                               data = face_time_z_scored)
+
+```
+
+```{r display model results}
+message("ANOVA: Inner Brow")
+anova(face_time_results$Inner_brow, type = 3)
+message("ANOVA: Outer Brow")
+anova(face_time_results$Outer_brow, type = 3)
+message("ANOVA: Brow lower")
+anova(face_time_results$Brow_lower, type = 3)
+message("ANOVA: Eyelid raise")
+anova(face_time_results$eyelid_raise, type = 3)
+message("ANOVA: Cheek raise")
+anova(face_time_results$cheek_raise, type = 3)
+message("ANOVA: Eyelid tighten")
+anova(face_time_results$eyelid_tighten, type = 3)
+message("ANOVA: Nose wrinkle")
+anova(face_time_results$nose_wrinkle, type = 3)
+message("ANOVA: Lip raise")
+anova(face_time_results$upper_lip_raise, type = 3)
+message("ANOVA: Lip corner pull")
+anova(face_time_results$lip_corner_pull, type = 3)
+message("ANOVA: Dimpler")
+anova(face_time_results$dimpler, type = 3)
+message("ANOVA: Lip corner depress")
+anova(face_time_results$lip_corner_depress, type = 3)
+message("ANOVA: Chin raise")
+anova(face_time_results$chin_raise, type = 3)
+message("ANOVA: Lip stretch")
+anova(face_time_results$lip_stretch, type = 3)
+message("ANOVA: Lip tighten")
+anova(face_time_results$lip_tighten, type = 3)
+message("ANOVA: Lips apart")
+anova(face_time_results$lips_apart, type = 3)
+message("ANOVA: Jaw drop")
+anova(face_time_results$jaw_drop, type = 3)
+message("ANOVA: Eye blink")
+anova(face_time_results$eye_blink, type = 3)
+
+eyelid_emm <- emmeans(face_time_results$eyelid_tighten, ~ social_nonsocial)
+eyelid_emm
+eyelid_posthoc <-pairs(eyelid_emm, adjust = "tukey")
+eyelid_posthoc
+```
+
+```{r model tests}
+model_tests <- list()
+model_tests$model1 <-lmer(au01_r_smt~ 1 +
+                                                           (1 + timestamp_z | participant)+
+                                                           (1 + timestamp_z |stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_time_z_scored)
+
+
+model_tests$model2 <-lmer(au01_r_smt~ 1 + (1 + subj_emo_lab_no_amb* timestamp_z | participant)+                                                                       (1 + timestamp_z |stim_iaps), 
+                                              REML = FALSE,
+                                              data = face_time_z_scored)
+
+model_tests$model3 <-lmer(au01_r_smt~ social_nonsocial * subj_emo_lab_no_amb * timestamp_z +
+                                                           (1 + subj_emo_lab_no_amb * timestamp_z | participant)+
+                                                           (1 +  social_nonsocial * timestamp_z |stim_iaps), 
+                                                         REML = FALSE,
+                                                         data = face_time_z_scored)
+
+anova(model1, model2, model3)
+
+```
+
+```{r}
+face_time_results_2 <- map_dfr(face_time_results, tidy, effects = "fixed", conf.int = TRUE, .id="model")
+
+all_au_plots<-ggplot(
+  filter(face_time_results_2, term == "social_nonsocialsocial"),
+  aes(x = estimate, y = model, colour=model)
+) +
+  geom_point() +
+  geom_errorbarh(
+    aes(xmin = estimate - std.error,
+        xmax = estimate + std.error),
+    height = 0.2
+  ) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(
+    x = "Beta (± SE)",
+    y = "Action Unit",
+    title = "Effect of Social Manipulation on Facial Action Units"
+  ) + 
+  theme_minimal(base_size = 13)+
+  theme(legend.position = "none")
+all_au_plots
+
+au_x_time <-ggplot(
+  filter(face_time_results_2, term == "timestamp_z"),
+  aes(x = estimate, y = model, colour = model)
+) +
+  geom_point() +
+  geom_errorbarh(
+    aes(xmin = estimate - std.error,
+        xmax = estimate + std.error),
+    height = 0.2
+  ) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(
+    x = "Beta (± SE)",
+    y = "Action Unit",
+    title = "Effect of Time on Facial Action Units"
+  ) +
+  theme_minimal(base_size = 13)+
+  theme(legend.position = "none")
+au_x_time
+```
+
+```{r pool face time models}
+
+# pool the betas for all facial units and plot pooled effects
+
+# Pooling + Z-test (Equations 1–2)
+pool_effect <- function(betas, ses) {
+  beta_pool <- sqrt(sum(betas^2))
+  se_pool   <- sqrt(sum(ses^2))
+  Z_stat    <- beta_pool / se_pool
+  p_value   <- 2 * pnorm(-abs(Z_stat))
+  c(beta = beta_pool, se = se_pool, Z = Z_stat, p = p_value)
+}
+
+# Pool social manipulation effect
+social_pool_faces <- face_time_results_2 %>%
+  filter(term == "social_nonsocialsocial") %>%
+  summarise(pooled = list(pool_effect(estimate, std.error))) %>%
+  unnest_wider(pooled) %>%
+  mutate(effect = "Social vs Non-Social")
+
+social_pool_faces_plot<-
+  ggplot(social_pool_faces, aes(x = beta, y = effect)) +
+  geom_point(size = 4) +
+  geom_errorbarh(aes(xmin = beta - se, xmax = beta + se), height = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(x = "Pooled Beta (±SE)", y = "", title = "Fixed Effect of Social Manipulation on Face Behaviour (pooled)") +
+  theme_minimal(base_size = 14)
+social_pool_faces_plot 
+  
+#ggsave('pooled_faces_x_social.tiff', plot = social_pool_faces_plot, bg="white")
+
+# Pool emotion effects 
+emotion_pool_faces <- face_emmeans %>%
+  group_by(subj_emo_lab_no_amb) %>% 
+  summarise(pooled = list(pool_effect(emmean, SE))) %>%
+  tidyr::unnest_wider(pooled) %>%
+  mutate(effect = subj_emo_lab_no_amb)
+
+emotion_pool_faces_plot<-
+  ggplot(emotion_pool_faces, aes(x = beta, y = effect, colour = subj_emo_lab_no_amb)) +
+  geom_point(size = 4) +
+  geom_errorbarh(aes(xmin = beta - se, xmax = beta + se), height = 0.2) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_colour_manual(values=cbbPalette)+
+  labs(x = "Pooled Beta (±SE)", y = "Emotion", title = "Fixed Effects of Emotion on Face Behaviour (pooled)") +
+  theme_minimal(base_size = 14)
+#ggsave('pooled_faces_x_emotion.tiff', plot = emotion_pool_faces_plot, bg="white")
+
+emotion_pool_faces_plot + theme(legend.position = "none")
+```
+
+```{r NMF stuff}
+# 2. also do mixed models on features derived from the face data 
+# on Helio's github, see 'expression only nmf' for feature extraction
+# here we're just measuring overall change 
+```
+
+Non-negative Matrix Factorization (NMF) is used in psychology and machine vision to model facial expressions by decomposing images or data into a set of constituent, localized facial features or "parts" that are then used for recognition and analysis. This approach aligns with psychological and neurological theories of part-based object recognition in the brain. 
+
+
+
+
+
+

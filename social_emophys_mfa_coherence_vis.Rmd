@@ -190,7 +190,7 @@ ggplot( aes(x = mfa_pc1, y = mfa_pc2, colour = social_nonsocial,
   # 2) Plot the points themselves
   geom_point(
     alpha = 0.7,
-    size  = 2
+    size  = 3
   ) +
   # 3) Zero lines for reference
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
@@ -249,6 +249,7 @@ plts$mfa_ind_dim
 permutation plot
 
 ```{r}
+library(scales)
 
 plts$sim_p_val<- 
 ggplot(df_ratio, aes(x = sim, fill = region)) +
@@ -259,9 +260,9 @@ ggplot(df_ratio, aes(x = sim, fill = region)) +
 
   scale_fill_manual(values = c("grey50", "tomato")) +
   # coord_cartesian(xlim = range(ratio1_sim_indep)) +   # zoom to null range
-  labs(x = "Simulated eigenvalue ratio (Dim1 / Dim2)", y = "Frequency", fill = "") +
+  labs(x = "sim  eig-ratio (Dim1 / Dim2)", y = "Frequency", fill = "") +
   theme_classic()+
-  p$graphstyle_int+
+  p$graphstyle_int+ scale_x_continuous(labels = label_number(accuracy = 0.01)) +   # <- 2 decimals
   theme(legend.position = "top")
 
 
@@ -281,7 +282,7 @@ ggplot()+
   # geom_vline(xintercept = ratio1_obs, linetype = "dashed", linewidth = 1) +
   
   # coord_cartesian(xlim = range(ratio1_sim_indep)) +   # zoom to null range
-  labs(x = "corr boot-sim vs data MFA PC1", y = "Frequency", fill = "") +
+  labs(x = "sim-data corr - MFA PC1", y = "Frequency", fill = "") +
   theme_classic()+
   p$graphstyle_int+
   theme(legend.position = "top")
@@ -301,20 +302,18 @@ grp_cols <- setNames(
   c("subj_aff", "phys_hr", "phys_scr", "face")
 )
 
-plts$mfa_grpc1 <-
-  fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 1, top = 10) +
-  aes(fill = name) +
-  scale_fill_manual(values = grp_cols)
+plts$mfa_grpc1 <- fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 1, top = 10, colour = "group") +p$graphstyle_int+
+  theme(axis.title.x = element_blank())
 
 plts$mfa_grpc2 <-
   fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 2, top = 10) +
-  aes(fill = name) +
-  scale_fill_manual(values = grp_cols)
+  p$graphstyle_int+
+  theme(axis.title.x = element_blank())
 
 plts$mfa_grpc3 <-
   fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 3, top = 10) +
-  aes(fill = name) +
-  scale_colour_manual(values = grp_cols)
+p$graphstyle_int+
+  theme(axis.title.x = element_blank())
 
 
 
@@ -325,16 +324,27 @@ plts$mfa_grpc3
 patchwork
 
 ```{r}
-((plts$mfa_var_dimensions|plts$sim_p_val|plts$mfa_grpc1)/(
-  plts$mfa_ind_dim|plts$boot_cor_mfa_stability|plts$mfa_grpc2))+plot_layout(nrow = 2)
 
-((plts$mfa_var_dimensions | plts$sim_p_val | plts$mfa_grpc1) /
- (plts$mfa_ind_dim       | plts$boot_cor_mfa_stability | plts$mfa_grpc2)) +
-  plot_layout(nrow = 2, widths = c(2.5, .5, .5))
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Figures")
+
+plts$mfa_model <- ((plts$mfa_var_dimensions|plts$sim_p_val|plts$mfa_grpc1)/(
+  plts$mfa_ind_dim|plts$boot_cor_mfa_stability|plts$mfa_grpc2))+plot_layout(nrow = 2)+plot_annotation(tag_levels = "A")
+
+plts$mfa_model
 
 
-(plts$mfa_var_dimensions/plts$mfa_ind_dim | plts$sim_p_val/plts$boot_cor_mfa_stability | plts$mfa_grpc1/plts$mfa_grpc2) 
-  plot_layout(nrow = 2, ncol =3,  widths = c(2, 1, 1), heights = c(1.5,1.5))
+plts$mfa_model2 <- ((plts$mfa_var_dimensions| plts$mfa_ind_dim)/
+  (plts$sim_p_val|plts$boot_cor_mfa_stability|plts$mfa_grpc1 |plts$mfa_grpc2))+
+  plot_layout(nrow = 2, heights =c(2.5,1))+plot_annotation(tag_levels = "A")
+
+
+
+ggsave("plts_mfa_model.png",plts$mfa_model2 ,  dpi = 300, width = 20, height = 13,  units = "in",
+       device = "png")
+
+
+ggsave("plts_mfa_model.tiff",plts$mfa_model2 ,  dpi = 300, width = 20, height = 13,  units = "in",
+       device = "tiff", compression = "lzw")
 ```
 
 ```{r}

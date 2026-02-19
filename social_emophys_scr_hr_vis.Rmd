@@ -1,0 +1,259 @@
+---
+title: "social_emophys_scr_hr_vis"
+author: "helio"
+date: "2026-02-19"
+output: html_document
+---
+
+associated data: load("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Mixed_models_output_JD.RData")
+associated scripts: Mixed_models_Analysis_JD.Rmd
+
+```{r}
+# vis preferences 
+require(tidyverse)
+require(ggplot2)
+
+require(patchwork)
+sf = 1 # scaling factor to make it easier to change sizes of everything, in which case change here
+
+p<- list()
+
+p$graphstyle_int <-  theme(#base plot theme
+  
+  # axis lines
+  axis.line.y = element_line(color="black", size = 1.5),
+  axis.line.x = element_line(color="black", size = 1,5),
+  
+  axis.title.y=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
+  axis.title.x=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
+  
+  # text
+  strip.text.x = element_text(size = 16*(sf+.5),  colour = "black"),
+  strip.text.y = element_text(size = 16*(sf+.5),  colour = "black"),
+  
+  text=element_text(size = 14),
+  axis.text.x = element_text(size = 15*(sf+.5), colour = "black",),
+  axis.text.y = element_text(size = 15*(sf+.5), colour = "black"),
+  
+  
+  # panel
+  panel.grid.major = element_blank(),
+  panel.background = element_blank(),
+  # panel.background = element_rect(fill="transparent"),
+  # panel.border = element_rect(fill="transparent"),
+  # strip shades (reco rectagles)
+   # strip.background = element_blank(),
+  
+  # legend
+  # legend.position = "top",
+  legend.key = element_rect(colour = "transparent", fill="transparent"),
+  # axis.ticks = element_blank(),
+  # legend.k
+  #legend.direction = "horizontal",
+
+  legend.text = element_text(size = 16*(sf+.5)),
+  legend.title= element_text(size = 16*(sf+.5)),
+  # legend.title = element_text(size = 10*(sf+.3)),
+  # legend line tends to be really small in print so adjust here
+  # legend.key.height = unit(.5, "cm"),
+  # legend.key.width = unit(2, "cm"),
+  
+  #legend.text = element_text(size = 10*sf),
+  # legend.title=element_blank(),
+  #legend.text = element_blank(),
+  #axis.ticks = element_blank(),
+)
+
+```
+
+SCR and HR
+```{r}
+plts<- list()
+
+library(dplyr)
+library(ggplot2)
+
+# 1) participant-level means (this is what you’re plotting as points)
+hr_part <- heart_data %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(hr_mean_diff = mean(hr_mean_diff, na.rm = TRUE), .groups = "drop")
+
+# 2) summary stats computed on the SAME participant-level data
+hr_summary <- hr_part %>%
+  group_by(subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(
+    mean = mean(hr_mean_diff, na.rm = TRUE),
+    sd   = sd(hr_mean_diff, na.rm = TRUE),
+    n    = sum(!is.na(hr_mean_diff)),
+    se   = sd / sqrt(n),
+    ci_lower = mean - 1.96 * se,
+    ci_upper = mean + 1.96 * se,
+    .groups = "drop"
+  )
+
+# 3) plot
+
+plts$hr_deceleration <-
+hr_part %>%
+  ggplot(aes(x = social_nonsocial, y = hr_mean_diff, colour = social_nonsocial)) +
+  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  geom_point(
+    data = hr_summary,
+    aes(x = social_nonsocial, y = mean, colour = social_nonsocial),
+    inherit.aes = FALSE,
+    size = 2.5
+  ) +
+  geom_errorbar(
+    data = hr_summary,
+    aes(x = social_nonsocial, y = mean, ymin = mean - se, ymax = mean + se, colour = social_nonsocial),
+    width = 0.15,
+    inherit.aes = FALSE
+  ) +
+  facet_grid(~subj_emo_lab_no_amb) +
+  xlab("condition") +
+  ylab(expression(("Heart Rate Deceleration "*Delta*""))) +
+  scale_colour_brewer(palette = "Dark2") +
+  theme_classic() +
+p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+plts$hr_deceleration 
+
+ggsave(filename = "heart_rate.tiff", plot = social_x_hr, width =7, height = 7, dpi = 300, compression = "lzw", bg = "white")
+
+
+
+```
+
+
+HR - tweaking Jays plot slightly
+```{r}
+hr_summary <- heart_data %>%
+  group_by(subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(
+    mean = mean(hr_mean_diff, na.rm = TRUE),
+    sd   = sd(hr_mean_diff, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+
+
+hr_agg_means <- heart_data %>%
+  group_by(participant, social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(mean = mean(hr_mean_diff, na.rm = TRUE),.groups = "drop")
+
+
+plts$hr_deceleration <-
+
+ggplot(
+  hr_agg_means, aes(x = social_nonsocial, y = mean, colour = social_nonsocial, shape = social_nonsocial)) +
+  ## raw participant means (background)
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_errorbar(data = hr_summary,
+    aes(ymin = ci_lower, ymax = ci_upper),
+    width = 0.15, size = 1, position = position_dodge(width = 0.4)) +
+    facet_grid(~subj_emo_lab_no_amb) +
+ stat_summary(data = hr_summary,
+                 aes(x = social_nonsocial, y = mean),geom = "pointrange")+
+  xlab("condition") +
+  ylab(expression("Heart Rate "*Delta*"")) +
+  scale_colour_brewer(palette = "Dark2") +
+  theme_classic() +
+   coord_cartesian(ylim = c(-10, 10))+
+p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+plts$hr_deceleration 
+```
+
+
+SCR
+
+```{r}
+
+scr_summary <- skin_data %>%
+  group_by(subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(
+    mean = mean(log_cda_phasic_max, na.rm = TRUE),
+    sd   = sd(log_cda_phasic_max, na.rm = TRUE),
+    n    = n(),
+    se   = sd / sqrt(n),
+    .groups = "drop")%>%
+    mutate(ci_lower = mean - 1.96*se,
+         ci_upper = mean + 1.96*se)
+
+
+
+
+
+
+
+plts$scr 
+
+scr_agg_means <- skin_data %>%
+  group_by(participant, social_nonsocial,subj_emo_lab_no_amb) %>%
+  summarise( mean = mean(log_cda_phasic_max, na.rm = TRUE),.groups = "drop")
+
+
+plts$scr <- ggplot(
+  scr_agg_means, aes(x = social_nonsocial, y = mean, colour = social_nonsocial, shape = social_nonsocial)) +
+  ## raw participant means (background)
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_errorbar(data = scr_summary,
+    aes(ymin = ci_lower, ymax = ci_upper),
+    width = 0.15, size = 1, position = position_dodge(width = 0.4)) +
+    stat_summary(data = scr_summary,
+                 aes(x = social_nonsocial, y = mean),geom = "pointrange")+
+   # geom_point(data = scr_summary, 
+   #               (x = social_nonsocial, y = mean),size = 1.5, position = position_dodge(width = 0.4)) +
+    facet_grid(~subj_emo_lab_no_amb) +
+
+  xlab("condition") +
+  ylab("Skin Condutance (log z)") +
+  scale_colour_brewer(palette = "Dark2") +
+  theme_classic() +
+   coord_cartesian(ylim = c(-9, 5))+
+p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none", legend.title = element_blank() 
+         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+
+plts$scr 
+
+```
+
+
+combined
+
+
+```{r}
+plts$hr_scr_patch<- (plts$hr_deceleration| plts$scr) +
+  plot_annotation(tag_levels = "A")
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Figures")
+
+ggsave("plts_hr_scr_patch.png",plts$hr_scr_patch,  dpi = 300, width = 11, height = 5,  units = "in",
+       device = "png")
+
+ggsave("plts_hr_scr_patch.tiff",plts$hr_scr_patch,  dpi = 300, width = 11, height = 5,  units = "in",
+       device = "tiff")
+
+
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Mixed_models_output_JD.RData")
+```

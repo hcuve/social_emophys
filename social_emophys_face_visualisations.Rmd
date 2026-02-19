@@ -123,6 +123,7 @@ plts$face_pc3<-dta_cmfsts_aus3_wid%>%
   ggplot(aes(social_nonsocial,pca_comp3_au, colour = social_nonsocial, shape = social_nonsocial))+
  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
   geom_jitter(width = .2, size = 2, alpha = .2) +
+   geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
   # geom_dotplot(binaxis = "y", stackdir = "center",
   #              alpha = .4, dotsize = .6, binwidth = .2) +
   stat_summary(geom ="pointrange", fun.data  = "mean_se")+
@@ -284,12 +285,12 @@ plot_annotation(
   )
 plts$face_ks
 
-ggsave("plts_face_ks.png",plts$face_ks,  dpi = 300, width = 20, height = 13,  units = "in",
+ggsave("plts_face_ks.png",plts$face_ks,  dpi = 300, width = 20, height = 16,  units = "in",
        device = "png")
 
 
-ggsave("plts_face_ks.tiff",plts$face_ks,  dpi = 300, width = 20, height = 13,  units = "in",
-       device = "tiff")
+ggsave("plts_face_ks.tiff",plts$face_ks,  dpi = 300, width = 20, height = 16,  units = "in",
+       device = "tiff", compression = "lzw")
 ```
 
 
