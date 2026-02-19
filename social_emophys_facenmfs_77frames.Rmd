@@ -127,6 +127,9 @@ coefmap(res_k3)
 
 
 # k3. =mix upper/lower face
+
+require(NMF)
+res_k3@fit
 ```
 basismap(res_k3)
 
@@ -138,9 +141,29 @@ dta_face_z_shift_3$nmf_comp3<- as.data.frame(res_k3@fit@W)[,3]
 
 
 
+options(scipen = 999)
+H_matrix<- as.data.frame(res_k3@fit@H)/max(res_k3@fit@H)
+
+H_matrix1<- as.data.frame(t(H_matrix))
+
+colnames(H_matrix1)
+H_matrix1$au<- rownames(H_matrix1)
+
+colnames(H_matrix1)
+
+names(H_matrix1)<- c("comp1", "comp2", "comp3", "au")
+
+colnames((H_matrix1))
+
+H_matrix2<- H_matrix1%>%
+  mutate(comp1 = comp1/max(comp1),
+         comp2 = comp2/max(comp2),
+         comp3 = comp3/max(comp3)
+         
+         )
 
 
-
+H_matrix2
 ```
 
 # some vis
@@ -149,26 +172,20 @@ mean
 dta_face_z_shift_3%>%
   group_by(participant, frame,subj_emo_lab_no_amb,social_nonsocial)%>%
  summarise_if(is.numeric, mean,na.rm = T)%>%
-  ggplot(aes(bin_frame, nmf_comp1, colour = subj_emo_lab_no_amb))+
-  geom_smooth()+
-  facet_grid(~social_nonsocial)
+  ggplot(aes(bin_frame, nmf_comp1, colour = subj_emo_lab_no_amb, group = subj_emo_lab_no_amb))+
+  # geom_smooth()+
+   stat_summary(fun = mean, geom = "line", linewidth = 1) +
 
-dta_face_z_shift_3%>%
-  group_by(participant, frame,subj_emo_lab_no_amb,social_nonsocial)%>%
- summarise_if(is.numeric, mean,na.rm = T)%>%
-  ggplot(aes(bin_frame, nmf_comp2, colour = subj_emo_lab_no_amb))+
-  geom_smooth()+
+  stat_summary(fun.data = mean_se, geom = "ribbon",
+               aes(fill = subj_emo_lab_no_amb),
+               alpha = .20, colour = NA)+
   facet_grid(~social_nonsocial)
 
 
-dta_face_z_shift_3%>%
-  group_by(participant, frame,subj_emo_lab_no_amb,social_nonsocial)%>%
- summarise_if(is.numeric, mean,na.rm = T)%>%
-  ggplot(aes(bin_frame, nmf_comp3, colour = subj_emo_lab_no_amb))+
-  geom_smooth()+
-  facet_grid(~social_nonsocial)
-  
+
 ```
+
+
 
 
 max
@@ -181,6 +198,15 @@ dta_face_z_shift_3%>%
   geom_jitter(width = .1, alpha = .1)+
  stat_summary(geom = "pointrange")+
   facet_grid(~social_nonsocial)
+
+dta_face_z_shift_3%>%
+  group_by(participant,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, max,na.rm = T)%>%
+  ggplot(aes(social_nonsocial, nmf_comp2, colour = subj_emo_lab_no_amb))+
+  geom_jitter(width = .1, alpha = .1)+
+ stat_summary(geom = "pointrange")+
+  facet_grid(~subj_emo_lab_no_amb)
+
 
 dta_face_z_shift_3%>%
   group_by(participant,subj_emo_lab_no_amb,social_nonsocial)%>%
@@ -943,6 +969,25 @@ dta_cmfsts3_wid%>%
   geom_jitter(width= .1, alpha = .1)+
   stat_summary(geom = "pointrange")
   # facet_grid(~social_nonsocial)
+
+dta_cmfsts3_wid %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,nmf_comp2_shannon_entropy_CS, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+
+
+
+dta_cmfsts3_wid %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(subj_emo_lab_no_amb,pc_comp1.2, colour = social_nonsocial))+
+  geom_jitter(width= .1, alpha = .1)+
+  stat_summary(geom = "pointrange")
+
+
+
 
 dta_cmfsts3_wid%>%
   group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
@@ -1800,3 +1845,7 @@ emmeans::emmeans(mod_res$pca_comp2_au_lmer, pairwise ~ subj_emo_lab_no_amb|socia
 save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_facenmfs_77frames.RData")
 
 ```
+
+
+
+

@@ -1,0 +1,343 @@
+---
+title: "social_emophys_mfa_coherence_vis"
+author: "helio"
+date: "2026-02-19"
+output: html_document
+---
+
+associated data:
+```{r}
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/s4sndata_select.RData")
+
+```
+
+associated analyses code: social empophys coherence.Rmd
+Visualisations for MFA coherence analysis
+
+
+
+dimensions
+
+VISUALISE THE DIMENSIONS
+
+```{r}
+
+coords_mat <- mod_res$mfa_result_wide_new$quanti.var$coord[, 1:2]  # 
+
+mod_res$mfa_result_wide_new$global.pca$var$coord[,1]
+
+ggplot()+
+  geom_point(aes(mod_res$mfa_result_wide_new$quanti.var$coord[, 1],mod_res$mfa_result_wide_new$global.pca$var$coord[,1] ))
+unique(df_plot$Variable)
+df_plot$stim_iaps<- str_remove(df_plot$Variable, "val_slider_response_")
+
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "int_slider_response_")
+# df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "happy_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "happy_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "sad_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "fear_slide_response_")
+
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "disgust_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "anger_slide_response_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "hr_mean_diff_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "log_cda_iscr_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "pc_comp1.2_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "pc_comp2.2_")
+df_plot$stim_iaps<- str_remove(df_plot$stim_iaps, "pc_comp3.2_")
+
+unique(df_plot$stim_iaps)
+```
+
+```{r}
+ #Build a data.frame that also stores “which block” each variable belongs to
+var_names   <- rownames(coords_mat)        
+
+
+block_groups <- c(420, 60, 60, 180)
+block_names  <- c("subj_aff","phys_hr","phys_scr","face")
+
+
+block_labels <- rep(block_names, times = block_groups) 
+
+df_plot <- data.frame(
+  Variable = var_names,
+  Block    = block_labels,
+  Dim1     = coords_mat[, 1],
+  Dim2     = coords_mat[, 2],
+  row.names = NULL,
+  stringsAsFactors = FALSE
+)
+
+
+# Load ggplot2 (if not already)
+library(ggplot2)
+
+mod_res$mfa_result_wide_new$quanti.var$cos2[, 1:2]
+
+
+df_plot$dim_1_cos<- mod_res$mfa_result_wide_new$quanti.var$cos2[, 1]
+df_plot$dim_2_cos<- mod_res$mfa_result_wide_new$quanti.var$cos2[, 2]
+
+df_plot$dim_1_cont<- mod_res$mfa_result_wide_new$quanti.var$contrib[, 1]
+df_plot$dim_2_cont<- mod_res$mfa_result_wide_new$quanti.var$contrib[, 2]
+
+
+df_plot <- df_plot %>% 
+  # (no scaling of Dim1/Dim2 here) 
+  mutate(
+    cos12_total    = dim_1_cos + dim_2_cos,
+    
+    # optionally cap or filter out very low cos² if you only want well-represented vars:
+    cos12_total2   = if_else(cos12_total < 0.05, NA_real_, cos12_total)
+  )
+
+
+
+
+
+
+plts$mfa_var_dimensions<-
+df_plot%>%
+  group_by(Block)%>%
+  mutate(Dim1_z = scale(Dim1),
+         Dim2_z =scale(Dim2))%>%
+  # subset(!is.na(cos12_total2))%>%
+  # summarise_if(is.numeric, mean, na.rm = T)%>%
+ggplot( aes(x = Dim1, y = Dim2)) +
+
+geom_point(
+  aes(
+    colour = Block,
+    shape  = Block,
+    size   = Dim1
+  ),
+  alpha = 0.3
+) +
+  # geom_line(aes(group = stim_iaps), colour = "grey60", alpha = 0.7) + 
+  # 3) shared axes
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  # coord_fixed(
+
+  scale_colour_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")+
+  # scale_colour_viridis_c(option = "inferno")+
+ 
+  # scale_size_continuous(
+  #   range = c(1, 6),
+  #   name  = "Total cos² (Dim1+2)"
+  # ) +
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  )+ 
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = Block),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE)+
+  # )+ 
+  labs(
+    x     = "MFA PC1",
+    y     = "MFA PC2",
+    title = " size scaled by MFA PC1."
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(colour = "grey90", size = 0.2)
+  )+
+  guides(size = FALSE)
+
+
+plts$mfa_var_dimensions<- plts$mfa_var_dimensions+p$graphstyle_int+
+   theme(legend.title = element_blank())+
+      theme(ggside.panel.scale = .1,
+          ggside.axis.text.y = element_blank(),
+           ggside.axis.text.x = element_blank())
+
+plts$mfa_var_dimensions
+```
+
+individuals
+```{r}
+
+plts<- list()
+require(tidyverse)
+require(patchwork)
+
+plts$mfa_ind_dim <- dta_mfa_part4_wide%>%
+   # subset(participant!= 105)%>%
+
+ggplot( aes(x = mfa_pc1, y = mfa_pc2, colour = social_nonsocial,
+                             shape = social_nonsocial)) +
+  # 1) Draw a 95% ellipse around each group’s points
+  stat_ellipse(
+    aes(fill = social_nonsocial),
+    type   = "norm",
+    level  = 0.95,
+    geom   = "polygon",
+    alpha  = 0.1,
+    colour = NA
+  ) +
+  # 2) Plot the points themselves
+  geom_point(
+    alpha = 0.7,
+    size  = 2
+  ) +
+  # 3) Zero lines for reference
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+
+  scale_colour_brewer(palette = "Set1", name = "Group") +
+  scale_fill_brewer(palette = "Set1", guide = "none") +
+  # 6) Labels and theme tweaks
+  labs(
+    x     = "MFA PC1",
+    y     = "MFA PC2",
+    title = "MFA: Individuals"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position   = "top",
+    legend.title = element_blank(),
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(colour = "grey90", size = 0.2),
+    strip.background  = element_rect(fill = "grey95", colour = NA),
+    strip.text        = element_text(face = "bold")
+  )+
+   # ggside::geom_ysidedensity(aes(y =pc2_mfa, fill = social_nonsocial, alpha = .0001),orientation = "y")+
+  
+    ggside::geom_ysidedensity(
+    aes(x = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  
+  ggside::geom_xsidedensity(
+    aes(y = after_stat(density),fill = social_nonsocial),       # density of PC1
+    position = "identity",
+    alpha    = 0.3,
+    size     = 0,                       
+    adjust   = 1.2,                     # smoothing
+    show.legend = FALSE
+  ) +
+  scale_color_brewer(palette = "Dark2")+
+    scale_fill_brewer(palette = "Dark2")
+
+plts$mfa_ind_dim<- plts$mfa_ind_dim+
+  p$graphstyle_int+
+   theme(legend.title = element_blank())+
+      theme(ggside.panel.scale = .3,
+          ggside.axis.text.y = element_blank(),
+           ggside.axis.text.x = element_blank())
+
+plts$mfa_ind_dim
+```
+
+
+permutation plot
+
+```{r}
+
+plts$sim_p_val<- 
+ggplot(df_ratio, aes(x = sim, fill = region)) +
+  geom_histogram() +
+  geom_vline(xintercept = crit_ratio, linetype = "dotted", linewidth = 1) +
+  # geom_vline(xintercept = ratio1_obs, linetype = "dashed", linewidth = 1) +
+  
+
+  scale_fill_manual(values = c("grey50", "tomato")) +
+  # coord_cartesian(xlim = range(ratio1_sim_indep)) +   # zoom to null range
+  labs(x = "Simulated eigenvalue ratio (Dim1 / Dim2)", y = "Frequency", fill = "") +
+  theme_classic()+
+  p$graphstyle_int+
+  theme(legend.position = "top")
+
+
+# library(ggplot2)
+
+plts$sim_p_val
+
+```
+
+
+```{r}
+plts$boot_cor_mfa_stability<- 
+ggplot()+
+  
+  geom_histogram(aes(corrs), colour = "gray50") +
+  geom_vline(xintercept = mean_abs_corr, linetype = "dotted", linewidth = 1) +
+  # geom_vline(xintercept = ratio1_obs, linetype = "dashed", linewidth = 1) +
+  
+  # coord_cartesian(xlim = range(ratio1_sim_indep)) +   # zoom to null range
+  labs(x = "corr boot-sim vs data MFA PC1", y = "Frequency", fill = "") +
+  theme_classic()+
+  p$graphstyle_int+
+  theme(legend.position = "top")
+
+plts$boot_cor_mfa_stability
+
+# CIs?
+
+
+```
+
+```{r}
+library(RColorBrewer)
+
+grp_cols <- setNames(
+  brewer.pal(4, "Dark2"),
+  c("subj_aff", "phys_hr", "phys_scr", "face")
+)
+
+plts$mfa_grpc1 <-
+  fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 1, top = 10) +
+  aes(fill = name) +
+  scale_fill_manual(values = grp_cols)
+
+plts$mfa_grpc2 <-
+  fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 2, top = 10) +
+  aes(fill = name) +
+  scale_fill_manual(values = grp_cols)
+
+plts$mfa_grpc3 <-
+  fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 3, top = 10) +
+  aes(fill = name) +
+  scale_colour_manual(values = grp_cols)
+
+
+
+plts$mfa_grpc1 
+plts$mfa_grpc2
+plts$mfa_grpc3
+```
+patchwork
+
+```{r}
+((plts$mfa_var_dimensions|plts$sim_p_val|plts$mfa_grpc1)/(
+  plts$mfa_ind_dim|plts$boot_cor_mfa_stability|plts$mfa_grpc2))+plot_layout(nrow = 2)
+
+((plts$mfa_var_dimensions | plts$sim_p_val | plts$mfa_grpc1) /
+ (plts$mfa_ind_dim       | plts$boot_cor_mfa_stability | plts$mfa_grpc2)) +
+  plot_layout(nrow = 2, widths = c(2.5, .5, .5))
+
+
+(plts$mfa_var_dimensions/plts$mfa_ind_dim | plts$sim_p_val/plts$boot_cor_mfa_stability | plts$mfa_grpc1/plts$mfa_grpc2) 
+  plot_layout(nrow = 2, ncol =3,  widths = c(2, 1, 1), heights = c(1.5,1.5))
+```
+
+```{r}
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/s4sndata_select.RData")
+
+```

@@ -1,0 +1,300 @@
+---
+title: "social_emophys_face_visualisations"
+author: "helio"
+date: "2026-02-19"
+output: html_document
+---
+
+
+data: save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_facenmfs_77frames.RData")
+
+relsted analysis code: social_emophys_facenmfs_77frames
+visualisations of face responses
+
+```{r}
+
+sf = 1 # scaling factor to make it easier to change sizes of everything, in which case change here
+
+p<- list()
+
+p$graphstyle_int <-  theme(#base plot theme
+  
+  # axis lines
+  axis.line.y = element_line(color="black", size = 1.5),
+  axis.line.x = element_line(color="black", size = 1,5),
+  
+  axis.title.y=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
+  axis.title.x=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
+  
+  # text
+  strip.text.x = element_text(size = 16*(sf+.5),  colour = "black"),
+  strip.text.y = element_text(size = 16*(sf+.5),  colour = "black"),
+  
+  text=element_text(size = 14),
+  axis.text.x = element_text(size = 15*(sf+.5), colour = "black",),
+  axis.text.y = element_text(size = 15*(sf+.5), colour = "black"),
+  
+  
+  # panel
+  panel.grid.major = element_blank(),
+  panel.background = element_blank(),
+  # panel.background = element_rect(fill="transparent"),
+  # panel.border = element_rect(fill="transparent"),
+  # strip shades (reco rectagles)
+   # strip.background = element_blank(),
+  
+  # legend
+  # legend.position = "top",
+  legend.key = element_rect(colour = "transparent", fill="transparent"),
+  # axis.ticks = element_blank(),
+  # legend.k
+  #legend.direction = "horizontal",
+
+  legend.text = element_text(size = 16*(sf+.5)),
+  legend.title= element_text(size = 16*(sf+.5)),
+  # legend.title = element_text(size = 10*(sf+.3)),
+  # legend line tends to be really small in print so adjust here
+  # legend.key.height = unit(.5, "cm"),
+  # legend.key.width = unit(2, "cm"),
+  
+  #legend.text = element_text(size = 10*sf),
+  # legend.title=element_blank(),
+  #legend.text = element_blank(),
+  #axis.ticks = element_blank(),
+)
+
+ plts$face_pc1<-
+dta_cmfsts_aus3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  mutate(pca_comp1_au = scale(pca_comp1_au)[,1])%>%
+  ggplot(aes(social_nonsocial,pca_comp1_au, colour = social_nonsocial, shape = social_nonsocial))+
+ geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("comp1 (z)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top", legend.title = element_blank(), strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+plts$face_pc1
+
+plts$face_pc2<-dta_cmfsts_aus3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  mutate(pca_comp2_au = scale(pca_comp2_au)[,1])%>%
+  ggplot(aes(social_nonsocial,pca_comp2_au, colour = social_nonsocial, shape = social_nonsocial))+
+ geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("comp2 (z)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+       legend.position = "none", legend.title = element_blank(),  
+         strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+
+plts$face_pc3<-dta_cmfsts_aus3_wid%>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ungroup()%>%
+  mutate(pca_comp3_au = scale(pca_comp3_au)[,1])%>%
+  ggplot(aes(social_nonsocial,pca_comp3_au, colour = social_nonsocial, shape = social_nonsocial))+
+ geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_dotplot(binaxis = "y", stackdir = "center",
+  #              alpha = .4, dotsize = .6, binwidth = .2) +
+  stat_summary(geom ="pointrange", fun.data  = "mean_se")+
+  facet_grid(~subj_emo_lab_no_amb) +
+  # geom_text(aes(label = participant))+
+  xlab("condition") +
+  ylab("comp3 (z)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none", legend.title = element_blank(),  
+         strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
+  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
+        )
+ 
+ 
+ plts$face_pc1
+ plts$face_pc2
+ plts$face_pc3
+ 
+
+
+```
+
+
+timeseries component plots
+
+
+```{r}
+
+plts$face_nmf_tims1<-
+dta_face_z_shift_3%>%
+  group_by(participant, bin_frame,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%
+  ungroup()%>%
+  mutate(nmf_comp1 = scale(nmf_comp1)[,1])%>%
+ggplot( aes(as.numeric(bin_frame), nmf_comp1,
+               colour = subj_emo_lab_no_amb,
+               fill   = subj_emo_lab_no_amb,
+               group  = subj_emo_lab_no_amb)) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1) +
+  stat_summary(fun.data = mean_se, geom = "ribbon",
+               alpha = .20, colour = NA) +
+  facet_grid(~social_nonsocial) +
+  ylab("comp 1 (z)")+
+  xlab("bin frame")+
+   p$graphstyle_int+ guides(fill = "none")+
+  guides(fill = "none")+  theme(
+        legend.position = "top", legend.title = element_blank())
+
+plts$face_nmf_tims1
+plts$face_nmf_tims2<- dta_face_z_shift_3%>%
+  group_by(participant, bin_frame,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%
+  ungroup()%>%
+  mutate(nmf_comp2 = scale(nmf_comp2)[,1])%>%
+  # ggplot(aes(bin_frame, nmf_comp2, colour = subj_emo_lab_no_amb))+
+  ggplot( aes(as.numeric(bin_frame), nmf_comp2,
+               colour = subj_emo_lab_no_amb,
+               fill   = subj_emo_lab_no_amb,
+               group  = subj_emo_lab_no_amb)) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1) +
+  stat_summary(fun.data = mean_se, geom = "ribbon",
+               alpha = .20, colour = NA) +
+  facet_grid(~social_nonsocial) +
+   ylab("comp 2 (z)")+
+  xlab("bin frame")+
+   p$graphstyle_int+ guides(fill = "none")+
+  guides(fill = "none")+  theme(
+        legend.position = "none", legend.title = element_blank())
+  # geom_smooth()+
+  # facet_grid(~social_nonsocial)
+
+plts$face_nmf_tims3<-
+dta_face_z_shift_3%>%
+  group_by(participant, bin_frame,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)%>%ungroup()%>%
+  mutate(nmf_comp3 = scale(nmf_comp3)[,1])%>%
+  # ggplot(aes(bin_frame, nmf_comp3, colour = subj_emo_lab_no_amb))+
+   ggplot( aes(as.numeric(bin_frame), nmf_comp3,
+               colour = subj_emo_lab_no_amb,
+               fill   = subj_emo_lab_no_amb,
+               group  = subj_emo_lab_no_amb)) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1) +
+  stat_summary(fun.data = mean_se, geom = "ribbon",
+               alpha = .20, colour = NA) +
+  facet_grid(~social_nonsocial) +
+   ylab("comp 3 (z)")+
+  xlab("bin frame")+
+   p$graphstyle_int+ guides(fill = "none")+
+  guides(fill = "none")+  theme(
+        legend.position = "none", legend.title = element_blank())
+
+plts$face_nmf_tims1
+
+plts$face_nmf_tims2
+plts$face_nmf_tims3
+```
+
+
+```{r}
+
+# how to load local plots (comp1_pyfeat.png, comp2_pyfeat.png, comp3_pyfeat.png) andf combine with below
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Figures")
+library(png)
+library(grid)
+library(ggplot2)
+library(patchwork)
+
+# helper: read PNG and wrap as a ggplot object
+png_plot <- function(path) {
+  img <- png::readPNG(path)
+  ggplot() +
+    annotation_custom(rasterGrob(img, width = unit(1, "npc"), height = unit(1, "npc"))) +
+    coord_cartesian(expand = FALSE) +
+    theme_void()
+}
+# avoid streching
+png_plot <- function(path) {
+  img <- png::readPNG(path)
+  h <- dim(img)[1]
+  w <- dim(img)[2]
+
+  ggplot() +
+    annotation_custom(
+      rasterGrob(img, width = unit(1, "npc"), height = unit(1, "npc"))
+    ) +
+    coord_fixed(ratio = h / w, expand = FALSE) +   # <- prevents stretching
+    theme_void()
+}
+
+comp1_pyfeat <- png_plot("comp1_pyfeat.png")
+comp2_pyfeat <- png_plot("comp2_pyfeat.png")
+comp3_pyfeat <- png_plot("comp3_pyfeat.png")
+
+# combine: top row = your NMF faces, middle row = your PC faces, bottom row = pyfeat PNGs
+
+
+
+
+plts$face_ks <- (comp1_pyfeat | comp2_pyfeat | comp3_pyfeat) /
+    # (comp1_pyfeat        | comp2_pyfeat        | comp3_pyfeat)/
+  (plts$face_nmf_tims1 | plts$face_nmf_tims2 | plts$face_nmf_tims3) /
+  ( plts$face_pc1       | plts$face_pc2       | plts$face_pc3) 
+
+  
+  # require(patchwork)
+plts$face_ks<- plts$face_ks  +plot_layout(heights = c(2,1.5,1.5), widths = c(1,1,1))+
+plot_annotation(
+    title = "Facial response components",
+    tag_levels = "A",                 # <- patchwork auto-tags: A, B, C (one per row here)
+    theme = theme(
+      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+      plot.tag   = element_text(face = "bold", size = 14)
+    )
+  )
+plts$face_ks
+
+ggsave("plts_face_ks.png",plts$face_ks,  dpi = 300, width = 20, height = 13,  units = "in",
+       device = "png")
+
+
+ggsave("plts_face_ks.tiff",plts$face_ks,  dpi = 300, width = 20, height = 13,  units = "in",
+       device = "tiff")
+```
+
+
+
+```{r}
+save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_facenmfs_77frames.RData")
+
+```
