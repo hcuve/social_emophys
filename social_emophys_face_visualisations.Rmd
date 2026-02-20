@@ -63,6 +63,110 @@ p$graphstyle_int <-  theme(#base plot theme
   #axis.ticks = element_blank(),
 )
 
+
+```
+raw face pc models
+face comp 1
+```{r}
+
+df_plot_face_pc1 <- dta_cmfsts_aus3_wid %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ungroup() %>%
+  mutate(pca_comp1_au = scale(pca_comp1_au)[, 1])
+
+x_levels_fpc1 <- levels(factor(df_plot_face_pc1$subj_emo_lab_no_amb))
+y_lim_fpc1 <- range(df_plot_face_pc1$pca_comp1_au, na.rm = TRUE)
+
+plts$face_pc1 <- df_plot_face_pc1 %>%
+  ggplot(aes(social_nonsocial, pca_comp1_au,
+             colour = social_nonsocial, shape = social_nonsocial)) +
+  geom_hline(aes(yintercept = 0), linetype = "dotted",
+             colour = "gray50", linewidth = .8) +
+  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  stat_summary(geom ="pointrange", fun.data = "mean_se") +
+  facet_grid(~subj_emo_lab_no_amb) +
+  xlab("condition") + ylab("comp1 (z)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_fpc1) +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(
+    # axis.text.x = element_text(angle = 45, hjust = 1),
+    
+        legend.position = "none", #because this might be the top plot
+        legend.title = element_blank(),
+        axis.title.x = element_blank(), #remove the repeated social and non social just on the top plos
+        axis.text.x = element_blank(),
+        strip.text.x = element_text(size = 12*(sf+.5), colour = "black"))
+
+plts$face_pc1 
+
+plts$face_pc1_soc_dens <- ggplot(df_plot_face_pc1,
+                                 aes(y = pca_comp1_au, fill = social_nonsocial)) +
+  geom_density(aes(x = after_stat(density)), orientation = "y",
+               alpha = 0.25, colour = NA) +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_fpc1) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none")
+
+
+plts$face_pc1_emo_top <- df_plot_face_pc1 %>%
+  group_by(subj_emo_lab_no_amb) %>%
+  summarise(mean = mean(pca_comp1_au, na.rm = TRUE),
+            se = sd(pca_comp1_au, na.rm = TRUE) / sqrt(n()),
+            .groups = "drop") %>%
+  ggplot(aes(subj_emo_lab_no_amb, mean)) +
+  geom_hline(aes(yintercept = 0), linetype = "dotted",
+             colour = "gray50", linewidth = .8) +
+  geom_pointrange(aes(ymin = mean - se, ymax = mean + se), linewidth = 1) +
+  scale_x_discrete(limits = x_levels_fpc1) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+plts$face_pc1_p1 <- (plts$face_pc1_emo_top | plot_spacer()) +
+  plot_layout(widths = c(5, 1))
+
+plts$face_pc1_p2 <- (plts$face_pc1 | plts$face_pc1_soc_dens) +
+  plot_layout(widths = c(5, 1))
+
+plts$face_pc1_ptchw <- (plts$face_pc1_p1 / plts$face_pc1_p2) +
+  plot_layout(heights = c(1.5, 5))
+
+plts$face_pc1_ptchw 
+
+library(cowplot)
+
+# # extract legend from main plot only
+# social_non_soc_leg <- get_legend(plts$face_pc1 + theme(legend.position = "top"))
+# 
+# 
+# 
+#  
+# 
+# 
+# 
+# base_pc1 <- (plts$face_pc1_p1 / plts$face_pc1_p2) +
+#   plot_layout(heights = c(1.5, 5))
+# 
+# library(cowplot)
+# 
+# leg <- get_legend(plts$face_pc1 + theme(legend.position = "top"))
+# 
+# plts$face_pc1_ptchw  <- wrap_elements(social_non_soc_leg) / base_pc1 +
+#   plot_layout(heights = c(0.4, 5))
+
+plts$face_pc1_final
+```
+
  plts$face_pc1<-
 dta_cmfsts_aus3_wid%>%
   group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
@@ -90,12 +194,25 @@ dta_cmfsts_aus3_wid%>%
 
 plts$face_pc1
 
+
+
+
+face comp 2
+```{r}
+
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+
+
 plts$face_pc2<-dta_cmfsts_aus3_wid%>%
   group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
   summarise_if(is.numeric, mean, na.rm = T)%>%
   ungroup()%>%
   mutate(pca_comp2_au = scale(pca_comp2_au)[,1])%>%
   ggplot(aes(social_nonsocial,pca_comp2_au, colour = social_nonsocial, shape = social_nonsocial))+
+  geom_hline(aes(yintercept = 0), linetype = "dotted",
+             colour = "gray50", linewidth = .8) +
  geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
   geom_jitter(width = .2, size = 2, alpha = .2) +
   # geom_dotplot(binaxis = "y", stackdir = "center",
@@ -109,11 +226,81 @@ plts$face_pc2<-dta_cmfsts_aus3_wid%>%
   scale_fill_brewer(palette = "Dark2") +
   theme_classic() +
   p$graphstyle_int +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-       legend.position = "none", legend.title = element_blank(),  
-         strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
-  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
-        )
+ theme(
+    # axis.text.x = element_text(angle = 45, hjust = 1),
+    
+        legend.position = "none", #because this might be the top plot
+        legend.title = element_blank(),
+        axis.title.x = element_blank(), #remove the repeated social and non social just on the top plos
+        axis.text.x = element_blank(),
+        strip.text.x = element_text(size = 12*(sf+.5), colour = "black"))
+
+
+
+
+df_plot_face_pc2 <- dta_cmfsts_aus3_wid %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ungroup() %>%
+  mutate(pca_comp2_au = scale(pca_comp2_au)[, 1])
+
+# shared ranges
+x_levels_fpc2 <- levels(factor(df_plot_face_pc2$subj_emo_lab_no_amb))
+y_lim_fpc2 <- range(df_plot_face_pc2$pca_comp2_au, na.rm = TRUE)
+
+
+
+
+plts$face_pc2_soc_dens <- ggplot(df_plot_face_pc2, aes(y = pca_comp2_au, fill = social_nonsocial)) +
+  geom_density(aes(x = after_stat(density)), orientation = "y",
+               alpha = 0.25, colour = NA) +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_fpc2) +
+  theme_classic() +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "none"
+    # plot.margin = margin(0, 0, 0, 0)
+  )
+
+plts$face_pc2_soc_dens
+
+plts$face_pc2_emo_top <- df_plot_face_pc2 %>%
+  group_by(subj_emo_lab_no_amb) %>%
+  summarise(mean = mean(pca_comp2_au, na.rm = TRUE),
+            se = sd(pca_comp2_au, na.rm = TRUE) / sqrt(n()),
+            .groups = "drop") %>%
+  ggplot(aes(subj_emo_lab_no_amb, mean)) +
+  geom_hline(aes(yintercept = 0), linetype = "dotted", colour = "gray50", linewidth = .8)+
+  geom_pointrange(aes(ymin = mean - se, ymax = mean + se), linewidth = 1) +
+  scale_x_discrete(limits = x_levels_fpc2) +
+  
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+
+
+
+plts$face_pc2_p1<- (plts$face_pc2_emo_top  | plot_spacer())+plot_layout(widths = c(5, 1))
+
+plts$face_pc2_p2<- (plts$face_pc2 |  plts$face_pc2_soc_dens)+plot_layout(widths = c(5, 1))
+
+plts$face_pc2_ptchw<- (plts$face_pc2_p1/plts$face_pc2_p2)+plot_layout(heights = c(1.5, 5))
+plts$face_pc2_ptchw
+
+
+
+
+```
+
+comp 3
+
+
+
 
 plts$face_pc3<-dta_cmfsts_aus3_wid%>%
   group_by(participant, subj_emo_lab_no_amb, social_nonsocial)%>%
@@ -128,7 +315,7 @@ plts$face_pc3<-dta_cmfsts_aus3_wid%>%
   #              alpha = .4, dotsize = .6, binwidth = .2) +
   stat_summary(geom ="pointrange", fun.data  = "mean_se")+
   facet_grid(~subj_emo_lab_no_amb) +
-  # geom_text(aes(label = participant))+
+  # geom_text(aes(labelcomp1_pyfeat = participant))+
   xlab("condition") +
   ylab("comp3 (z)") +
   scale_colour_brewer(palette = "Dark2") +
@@ -141,12 +328,81 @@ plts$face_pc3<-dta_cmfsts_aus3_wid%>%
   # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
         )
  
- 
+
+
+```{r}
  plts$face_pc1
  plts$face_pc2
  plts$face_pc3
  
+ 
+df_plot_face_pc3 <- dta_cmfsts_aus3_wid %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ungroup() %>%
+  mutate(pca_comp3_au = scale(pca_comp3_au)[, 1])
 
+x_levels_fpc3 <- levels(factor(df_plot_face_pc3$subj_emo_lab_no_amb))
+y_lim_fpc3 <- range(df_plot_face_pc3$pca_comp3_au, na.rm = TRUE)
+
+plts$face_pc3 <- ggplot(df_plot_face_pc3,
+                        aes(social_nonsocial, pca_comp3_au,
+                            colour = social_nonsocial, shape = social_nonsocial)) +
+  geom_hline(aes(yintercept = 0), linetype = "dotted",
+             colour = "gray50", linewidth = .8) +
+   geom_boxplot(alpha = .01, colour = "black", notch = TRUE) +
+  geom_jitter(width = .2, size = 2, alpha = .2) +
+  # geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  stat_summary(geom ="pointrange", fun.data = "mean_se") +
+  facet_grid(~subj_emo_lab_no_amb) +
+  xlab("condition") +
+  ylab("comp3 (z)") +
+  scale_colour_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_fpc3) +
+  theme_classic() +
+  p$graphstyle_int +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none",
+        strip.text.x = element_text(size = 12*(sf+.5), colour = "black"))
+
+plts$face_pc3_soc_dens <- ggplot(df_plot_face_pc3,
+                                 aes(y = pca_comp3_au, fill = social_nonsocial)) +
+  geom_density(aes(x = after_stat(density)), orientation = "y",
+               alpha = 0.25, colour = NA) +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_fpc3) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none")
+
+plts$face_pc3_emo_top <- df_plot_face_pc3 %>%
+  group_by(subj_emo_lab_no_amb) %>%
+  summarise(mean = mean(pca_comp3_au, na.rm = TRUE),
+            se = sd(pca_comp3_au, na.rm = TRUE) / sqrt(n()),
+            .groups = "drop") %>%
+  ggplot(aes(subj_emo_lab_no_amb, mean)) +
+  geom_hline(aes(yintercept = 0), linetype = "dotted",
+             colour = "gray50", linewidth = .8) +
+  geom_pointrange(aes(ymin = mean - se, ymax = mean + se), linewidth = 1) +
+  scale_x_discrete(limits = x_levels_fpc3) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+plts$face_pc3_p1 <- (plts$face_pc3_emo_top | plot_spacer()) +
+  plot_layout(widths = c(5, 1))
+
+plts$face_pc3_p2 <- (plts$face_pc3 | plts$face_pc3_soc_dens) +
+  plot_layout(widths = c(5, 1))
+
+plts$face_pc3_ptchw <- (plts$face_pc3_p1 / plts$face_pc3_p2) +
+  plot_layout(heights = c(1.5, 5))
+
+plts$face_pc3_ptchw 
 
 ```
 
@@ -165,16 +421,24 @@ dta_face_z_shift_3%>%
 ggplot( aes(as.numeric(bin_frame), nmf_comp1,
                colour = subj_emo_lab_no_amb,
                fill   = subj_emo_lab_no_amb,
+             linetype = subj_emo_lab_no_amb,
                group  = subj_emo_lab_no_amb)) +
+  geom_hline(aes(yintercept = 0), linetype = "dotted",
+             colour = "gray50", linewidth = .8) +
   stat_summary(fun = mean, geom = "line", linewidth = 1) +
   stat_summary(fun.data = mean_se, geom = "ribbon",
                alpha = .20, colour = NA) +
   facet_grid(~social_nonsocial) +
   ylab("comp 1 (z)")+
   xlab("bin frame")+
-   p$graphstyle_int+ guides(fill = "none")+
+  p$graphstyle_int+ guides(fill = "none")+
   guides(fill = "none")+  theme(
-        legend.position = "top", legend.title = element_blank())
+        legend.position = "none", legend.title = element_blank(), axis.title.x = element_blank())
+# gather legends separtelly
+  # 
+  #  p$graphstyle_int+ guides(fill = "none")+
+  # guides(fill = "none")+  theme(
+  #       legend.position = "top", legend.title = element_blank())
 
 plts$face_nmf_tims1
 plts$face_nmf_tims2<- dta_face_z_shift_3%>%
@@ -186,7 +450,10 @@ plts$face_nmf_tims2<- dta_face_z_shift_3%>%
   ggplot( aes(as.numeric(bin_frame), nmf_comp2,
                colour = subj_emo_lab_no_amb,
                fill   = subj_emo_lab_no_amb,
+                linetype = subj_emo_lab_no_amb,
                group  = subj_emo_lab_no_amb)) +
+  geom_hline(aes(yintercept = 0), linetype = "dotted",
+             colour = "gray50", linewidth = .8) +
   stat_summary(fun = mean, geom = "line", linewidth = 1) +
   stat_summary(fun.data = mean_se, geom = "ribbon",
                alpha = .20, colour = NA) +
@@ -195,7 +462,7 @@ plts$face_nmf_tims2<- dta_face_z_shift_3%>%
   xlab("bin frame")+
    p$graphstyle_int+ guides(fill = "none")+
   guides(fill = "none")+  theme(
-        legend.position = "none", legend.title = element_blank())
+        legend.position = "none", legend.title = element_blank(), axis.title.x = element_blank())
   # geom_smooth()+
   # facet_grid(~social_nonsocial)
 
@@ -208,7 +475,10 @@ dta_face_z_shift_3%>%
    ggplot( aes(as.numeric(bin_frame), nmf_comp3,
                colour = subj_emo_lab_no_amb,
                fill   = subj_emo_lab_no_amb,
+                linetype = subj_emo_lab_no_amb,
                group  = subj_emo_lab_no_amb)) +
+  geom_hline(aes(yintercept = 0), linetype = "dotted",
+             colour = "gray50", linewidth = .8) +
   stat_summary(fun = mean, geom = "line", linewidth = 1) +
   stat_summary(fun.data = mean_se, geom = "ribbon",
                alpha = .20, colour = NA) +
@@ -225,7 +495,7 @@ plts$face_nmf_tims2
 plts$face_nmf_tims3
 ```
 
-
+combine
 ```{r}
 
 # how to load local plots (comp1_pyfeat.png, comp2_pyfeat.png, comp3_pyfeat.png) andf combine with below
@@ -264,7 +534,33 @@ comp3_pyfeat <- png_plot("comp3_pyfeat.png")
 
 # combine: top row = your NMF faces, middle row = your PC faces, bottom row = pyfeat PNGs
 
+library(magick)
+library(ggplot2)
+library(grid)
+install.packages("magick")
+png_plot <- function(path) {
 
+  img <- image_read(path) |>
+         image_trim()      # <- removes empty margins automatically
+
+  # get dimensions AFTER trimming
+  info <- image_info(img)
+  w <- info$width
+  h <- info$height
+
+  img <- as.raster(img)
+
+  ggplot() +
+    annotation_custom(
+      rasterGrob(img, width = unit(1, "npc"), height = unit(1, "npc"))
+    ) +
+    coord_fixed(ratio = h / w, expand = FALSE) +
+    theme_void()
+}
+
+comp1_pyfeat <- png_plot("comp1_pyfeat.png")
+comp2_pyfeat <- png_plot("comp2_pyfeat.png")
+comp3_pyfeat <- png_plot("comp3_pyfeat.png")
 
 
 plts$face_ks <- (comp1_pyfeat | comp2_pyfeat | comp3_pyfeat) /
@@ -272,26 +568,121 @@ plts$face_ks <- (comp1_pyfeat | comp2_pyfeat | comp3_pyfeat) /
   (plts$face_nmf_tims1 | plts$face_nmf_tims2 | plts$face_nmf_tims3) /
   ( plts$face_pc1       | plts$face_pc2       | plts$face_pc3) 
 
-  
-  # require(patchwork)
-plts$face_ks<- plts$face_ks  +plot_layout(heights = c(2,1.5,1.5), widths = c(1,1,1))+
-plot_annotation(
-    title = "Facial response components",
-    tag_levels = "A",                 # <- patchwork auto-tags: A, B, C (one per row here)
-    theme = theme(
-      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
-      plot.tag   = element_text(face = "bold", size = 14)
-    )
-  )
-plts$face_ks
 
-ggsave("plts_face_ks.png",plts$face_ks,  dpi = 300, width = 20, height = 16,  units = "in",
+plts$face_ks 
+
+
+```
+
+each column is a type of plot
+```{r}
+plts$face_ks2 
+
+(wrap_plots(comp1_pyfeat) / wrap_plots(comp2_pyfeat) / wrap_plots(comp3_pyfeat) )|
+    # (comp1_pyfeat        | comp2_pyfeat        | comp3_pyfeat)/
+  (plts$face_nmf_tims1 / plts$face_nmf_tims2 / plts$face_nmf_tims3) |
+  ( patchwork::wrap_plots(plts$face_pc1_ptchw)       / 
+      wrap_plots(plts$face_pc2_ptchw)       / 
+      wrap_plots(plts$face_pc3_ptchw) )
+
+plts$face_ks2+plot_layout(heights = c(1,1,1), widths = c(.5,1,1))
+
+
+
+library(cowplot)
+library(patchwork)
+
+# pick which plots supply the legends
+plts$face_nmf_leg <- get_legend(plts$face_nmf_tims1 + theme(legend.position = "top"))
+plts$face_pc_leg <- get_legend(plts$face_pc1       + theme(legend.position = "top"))
+
+# 
+# title plot for column 1
+plts$pyfeat_title<- ggplot() +
+  annotate("text", x = 0, y = 0, label = "Facial response components", hjust = 0, size = 5) +
+  theme_void()
+
+
+
+
+
+
+
+col_pyfeat <-
+  (plts$pyfeat_title / comp1_pyfeat / comp2_pyfeat / comp3_pyfeat) +
+  plot_layout(heights = c(0.1, 1, 1, 1))
+
+col_nmf <-
+  (wrap_elements(plts$face_nmf_leg) / plts$face_nmf_tims1 / plts$face_nmf_tims2 / plts$face_nmf_tims3) +
+  plot_layout(heights = c(0.1, 1, 1, 1))
+
+col_pc <-
+  (wrap_elements(plts$face_pc_leg) / plts$face_pc1_ptchw / plts$face_pc2_ptchw / plts$face_pc3_ptchw) +
+  plot_layout(heights = c(0.1, 1, 1, 1))
+
+(col_pyfeat | col_nmf | col_pc) +
+  plot_layout(widths = c(0.5, 1, 1.5))
+```
+
+
+
+# try rowwise
+# centered title panel
+plts$pyfeat_title <- ggplot() +
+  annotate("text", x = 0.5, y = 0.5,
+           label = "Facial response components",
+           hjust = 0, vjust = 0.5, size = 12) +
+  xlim(0, 1) + ylim(0, 1) +
+  theme_void()
+
+row1 <- (plts$pyfeat_title | wrap_elements(plts$face_nmf_leg) | wrap_elements(plts$face_pc_leg))
+row2 <- (comp1_pyfeat | plts$face_nmf_tims1 | plts$face_pc1_ptchw)
+row3 <- (comp2_pyfeat | plts$face_nmf_tims2 | plts$face_pc2_ptchw)
+row4 <- (comp3_pyfeat | plts$face_nmf_tims3 | plts$face_pc3_ptchw)
+
+Main solution
+```{r}
+# remove legends from all body plots
+# plts$face_nmf_tims1 <- plts$face_nmf_tims1 + theme(legend.position = "none")
+# plts$face_nmf_tims2 <- plts$face_nmf_tims2 + theme(legend.position = "none")
+# plts$face_nmf_tims3 <- plts$face_nmf_tims3 + theme(legend.position = "none")
+# 
+plts$face_pc1_ptchw <- plts$face_pc1_ptchw + theme(legend.position = "none")
+# plts$face_pc2 <- plts$face_pc2 + theme(legend.position = "none")
+# plts$face_pc3 <- plts$face_pc3 + theme(legend.position = "none")
+
+
+center_grob <- function(g) {
+  ggplot() +
+    annotation_custom(grob = g) +
+    theme_void()
+}
+
+row1 <- (
+  plts$pyfeat_title  |
+  center_grob(plts$face_nmf_leg) |
+  center_grob(plts$face_pc_leg)
+)
+
+row2 <- (comp1_pyfeat | plts$face_nmf_tims1 | plts$face_pc1_ptchw)
+row3 <- (comp2_pyfeat | plts$face_nmf_tims2 | plts$face_pc2_ptchw)
+row4 <- (comp3_pyfeat | plts$face_nmf_tims3 | plts$face_pc3_ptchw)
+
+plts$face_panel<- (row1 / row2 / row3 / row4) +
+  plot_layout(heights = c(0.25, 1, 1, 1), widths = c(0.5, 1, 1.7))
+
+
+
+
+ 
+ggsave("plts_face_panel.png",plts$face_panel,  dpi = 300, width = 22, height = 17,  units = "in",
        device = "png")
 
 
-ggsave("plts_face_ks.tiff",plts$face_ks,  dpi = 300, width = 20, height = 16,  units = "in",
+ggsave("plts_face_panel.tiff",plts$face_panel,  dpi = 300, width = 22, height = 17,  units = "in",
        device = "tiff", compression = "lzw")
 ```
+
 
 
 

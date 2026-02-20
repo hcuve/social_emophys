@@ -338,6 +338,11 @@ plts$mfa_model2 <- ((plts$mfa_var_dimensions| plts$mfa_ind_dim)/
   plot_layout(nrow = 2, heights =c(2.5,1))+plot_annotation(tag_levels = "A")
 
 
+plts$mfa_model3 <- ((plts$mfa_var_dimensions/ plts$mfa_ind_dim)|
+  (plts$sim_p_val/plts$boot_cor_mfa_stability/plts$mfa_grpc1 /plts$mfa_grpc2))+
+  plot_layout(ncol = 2, widths  =c(2.5,1))+plot_annotation(tag_levels = "A")
+
+
 
 ggsave("plts_mfa_model.png",plts$mfa_model2 ,  dpi = 300, width = 20, height = 13,  units = "in",
        device = "png")
