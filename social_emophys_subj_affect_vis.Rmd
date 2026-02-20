@@ -66,7 +66,47 @@ social_x_valence <- ggplot(valence_agg_means, aes(x = social_nonsocial, y = mean
 
 social_x_valence
 
+# side density data
+df_plot_valence <- subjective_data %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(mean = mean(val_slider_response, na.rm = TRUE), .groups = "drop")
 
+y_lim_valence <- range(df_plot_valence$mean, na.rm = TRUE)
+
+plts$valence_soc_dens <- ggplot(df_plot_valence,
+  aes(y = mean, fill = social_nonsocial)) +
+  geom_density(aes(x = after_stat(density)), orientation = "y",
+               alpha = 0.25, colour = NA) +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_valence) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none")
+
+# top emotion summary
+plts$valence_emo_top <- df_plot_valence %>%
+  group_by(subj_emo_lab_no_amb) %>%
+  ggplot(aes(subj_emo_lab_no_amb, mean)) +
+  stat_summary(geom = "pointrange", fun.data = mean_se) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+# patchwork
+plts$valence_p1 <- (plts$valence_emo_top | plot_spacer()) +
+  plot_layout(widths = c(5, 1))
+
+plts$valence_p2 <- (social_x_valence| plts$valence_soc_dens) +
+  plot_layout(widths = c(5, 1))
+
+plts$valence_ptchw <- (plts$valence_p1 / plts$valence_p2) +
+  plot_layout(heights = c(1.5, 5))
+
+
+plts$valence_ptchw 
 
 ```
 
@@ -108,7 +148,8 @@ social_x_intensity <- ggplot(intensity_agg_means, aes(x = social_nonsocial, y = 
   theme_classic(base_size = 14) +
  p$graphstyle_int +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "top", legend.title = element_blank() 
+legend.position = "none"
+        # legend.position = "top", legend.title = element_blank() 
          # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
   # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
         )
@@ -116,6 +157,47 @@ social_x_intensity
 
 ggsave(filename = "intensity_model.tiff", plot = social_x_intensity, width = 7, height = 7,dpi = 300,compression = "lzw", bg = "white")
 
+
+# side density
+df_plot_intensity <- subjective_data %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(mean = mean(int_slider_response, na.rm = TRUE), .groups = "drop")
+
+y_lim_intensity <- range(df_plot_intensity$mean, na.rm = TRUE)
+
+plts$intensity_soc_dens <- ggplot(df_plot_intensity,
+  aes(y = mean, fill = social_nonsocial)) +
+  geom_density(aes(x = after_stat(density)), orientation = "y",
+               alpha = 0.25, colour = NA) +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_intensity) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none")
+
+# top emotion summary
+plts$intensity_emo_top <- df_plot_intensity %>%
+  group_by(subj_emo_lab_no_amb) %>%
+  ggplot(aes(subj_emo_lab_no_amb, mean)) +
+  stat_summary(geom = "pointrange", fun.data = mean_se) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+# patchwork like HR/SCR
+plts$intensity_p1 <- (plts$intensity_emo_top | plot_spacer()) +
+  plot_layout(widths = c(5, 1))
+
+plts$intensity_p2 <- (social_x_intensity | plts$intensity_soc_dens) +
+  plot_layout(widths = c(5, 1))
+
+plts$intensity_ptchw <- (plts$intensity_p1 / plts$intensity_p2) +
+  plot_layout(heights = c(1.5, 5))
+
+plts$intensity_ptchw 
 ```
 
 
