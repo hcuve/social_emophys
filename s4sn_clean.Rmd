@@ -222,10 +222,19 @@ mod_res$hr_mean_diff_2 <- lmer(hr_mean_diff ~ 1+ social_nonsocial * subj_emo_lab
                      (1|stim_iaps), #social_nonsocial doesn't converge
                    REML = FALSE,
                    data = dta_emo)
+
+
+mod_res$hr_mean_diff_2.tas <- lmer(hr_mean_diff ~ 1+ social_nonsocial * subj_emo_lab_no_amb *tas20_total_z+
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_emo)
 #  data = dta_emo%>%subset(participant!=235)%>%
 # subset(participant!=142)) #results remain the same withouth these
 
 anova(mod_res$hr_mean_diff_2)
+
+anova(mod_res$hr_mean_diff_2.tas)
 
 dta_emo%>%
   group_by(participant,subj_emo_lab_no_amb)%>%
@@ -623,6 +632,11 @@ coherence
 
 
 ```{r}
+
+unique(dta_emo$participant)
+
+
+# unique(dta_emo_wide_mfa$)
 dta_emo_wide_mfa<- newDF%>%
  pivot_wider(
     id_cols     = c(participant, social_nonsocial),
@@ -890,7 +904,7 @@ ggplot(dta_emo_wide_mfa, aes(x = pc1_mfa, y = pc3_mfa, colour = social_nonsocial
 
 plts$mfa_wide_ind
 
-
+dta_emo_wide_mfa
 
 dta_emo_wide_mfa%>%
   ggplot(aes(social_nonsocial, pc1_mfa ))+
@@ -904,16 +918,23 @@ dta_emo_wide_mfa%>%
   stat_summary(geom = "pointrange")+
   ggpubr::stat_compare_means(method = "t.test")
 
-dta_emo_wide_mfa%>%
-  ggplot(aes(social_nonsocial, ind_cos2_mfa1 ))+
-  geom_point(alpha = .1)+
-  stat_summary(geom = "pointrange")+
-  ggpubr::stat_compare_means(method = "t.test")
 
 dta_emo_wide_mfa$ind_cos2_mfa1<-mod_res[["mfa_face_wide"]][["ind"]][["cos2"]][,1]
 
 dta_emo_wide_mfa$ind_contrb_mfa1<-mod_res[["mfa_face_wide"]][["ind"]][["contrib"]][,1]
+
+
+dta_emo_wide_mfa%>%
+  ggplot(aes(social_nonsocial, log1p(ind_contrb_mfa1+.1 )))+
+  geom_point(alpha = .1)+
+  stat_summary(geom = "pointrange")+
+  ggpubr::stat_compare_means(method = "t.test")
+
 ```
+
+
+permutation
+
 
 ```{r}
 #----------------------------------------------------------
@@ -1102,3 +1123,6 @@ save(
 # use this and s4sn submission 2025
 
 ```
+
+
+

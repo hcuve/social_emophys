@@ -53,10 +53,11 @@ social_x_valence <- ggplot(valence_agg_means, aes(x = social_nonsocial, y = mean
   coord_cartesian(ylim = c(0, 10)) +
   scale_colour_brewer(palette = "Dark2") +
   labs(x = "Condition", y = "Valence (Mean)", colour = "") +
-  theme_classic(base_size = 14) +
+  theme_classic() +
+
  p$graphstyle_int +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "top", legend.title = element_blank() 
+        legend.position = "none", legend.title = element_blank() 
          # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
   # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
         )
@@ -99,7 +100,7 @@ plts$valence_emo_top <- df_plot_valence %>%
 plts$valence_p1 <- (plts$valence_emo_top | plot_spacer()) +
   plot_layout(widths = c(5, 1))
 
-plts$valence_p2 <- (social_x_valence| plts$valence_soc_dens) +
+plts$valence_p2 <- (social_x_valence+theme(axis.title.x = element_blank())| plts$valence_soc_dens) +
   plot_layout(widths = c(5, 1))
 
 plts$valence_ptchw <- (plts$valence_p1 / plts$valence_p2) +
@@ -145,11 +146,10 @@ social_x_intensity <- ggplot(intensity_agg_means, aes(x = social_nonsocial, y = 
   coord_cartesian(ylim = c(0, 10)) +
   scale_colour_brewer(palette = "Dark2") +
   labs(x = "Condition", y = "Intensity (Mean)", colour = "") +
-  theme_classic(base_size = 14) +
- p$graphstyle_int +
+ theme_classic() +
+  p$graphstyle_int +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-legend.position = "none"
-        # legend.position = "top", legend.title = element_blank() 
+        legend.position = "none", legend.title = element_blank() 
          # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
   # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
         )
@@ -191,7 +191,7 @@ plts$intensity_emo_top <- df_plot_intensity %>%
 plts$intensity_p1 <- (plts$intensity_emo_top | plot_spacer()) +
   plot_layout(widths = c(5, 1))
 
-plts$intensity_p2 <- (social_x_intensity | plts$intensity_soc_dens) +
+plts$intensity_p2 <- (social_x_intensity+theme(axis.title.x = element_blank()) | plts$intensity_soc_dens) +
   plot_layout(widths = c(5, 1))
 
 plts$intensity_ptchw <- (plts$intensity_p1 / plts$intensity_p2) +
@@ -469,22 +469,47 @@ emotion_x_social
 subj_ratings_plot <- (social_x_valence | social_x_intensity) / emotion_x_social+
   plot_layout(heights = c(1.5, 0.5))+plot_annotation(tag_levels = "A")
 
+subj_ratings_plot <- (social_x_valence | social_x_intensity) / emotion_x_social+
+  plot_layout(heights = c(1.5, 0.5))+plot_annotation(tag_levels = "A")
+
 subj_ratings_plot 
 
 plts$subj_affect<-subj_ratings_plot
 
 
-ggsave(filename = "plts_subj_affect.png",
-    plot = plts$subj_affect, width = 14, height = 10,dpi = 300, 
+```
+
+combine subj and physio
+
+```{r}
+plts$legend <- get_legend(plts$hr_deceleration+ theme(legend.position = "top"))
+plts$valence_ptchw+theme(axis.title.x = element_blank())
+plts$subj_phys<- (
+                     (plts$valence_ptchw| plts$intensity_ptchw ) / 
+                     (plts$hr_ptchw| plts$scr_ptchw))+
+                    plot_layout(heights = c(1.1,1.2))
+  
+plts$subj_phys
+
+```
+
+```{r}
+ggsave(filename = "plts_subj_phys.png",
+    plot = plts$subj_phys, width = 13, height = 11,dpi = 300, 
     device = "png",units = "in",
     bg = "white")
 
 
-ggsave(filename = "plts_subj_affect.tiff",
-    plot = plts$subj_affect, width = 14, height = 10,dpi = 300, compression = "lzw", 
+ggsave(filename = "plts_subj_phys.tiff",
+    plot = plts$subj_phys, width = 13, height = 11,dpi = 300, compression = "lzw", 
     device = "tiff",
     bg = "white")
+
+
 ```
 
-save
+
+```{r}
 save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Mixed_models_output_JD.RData")
+
+```

@@ -170,13 +170,64 @@ ggplot(
   theme_classic() +
    coord_cartesian(ylim = c(-10, 10))+
 p$graphstyle_int +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "top", legend.title = element_blank() 
-         # strip.text.x = element_text(size = 12*(sf+.5),  colour = "black")
-  # strip.text.y = element_text(size = 12*(sf+.5),  colour = "black")
-        )
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none"
+        # legend.title = element_blank(),
+        # axis.title.x = element_blank()
+        # axis.text.x = element_blank()
+    )
+
+# side density
+df_plot_hr <- heart_data %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(mean = mean(hr_mean_diff, na.rm = TRUE), .groups = "drop")
+
+x_levels_hr <- levels(factor(df_plot_hr$subj_emo_lab_no_amb))
+y_lim_hr <- range(df_plot_hr$mean, na.rm = TRUE)
+
+plts$hr_soc_dens <- ggplot(df_plot_hr,
+  aes(y = mean, fill = social_nonsocial)) +
+  geom_density(aes(x = after_stat(density)), orientation = "y",
+               alpha = 0.25, colour = NA) +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_hr) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none")
+
+# top emotion summary
+plts$hr_emo_top <- df_plot_hr %>%
+  group_by(subj_emo_lab_no_amb) %>%
+  # summarise(mean = mean(mean, na.rm = TRUE),
+  #           se = sd(hr_mean_diff, na.rm = TRUE) / sqrt(n()),
+  #           .groups = "drop") %>%
+  ggplot(aes(subj_emo_lab_no_amb, mean)) +
+  stat_summary(geom = "pointrange", fun.data = mean_se)+
+  # geom_hline(aes(yintercept = 0), linetype = "dotted",
+             # colour = "gray50", linewidth = .8) +
+  # geom_pointrange(aes(ymin = mean - se, ymax = mean + se), linewidth = 1) +
+  # scale_x_discrete(limits = x_levels_hr) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+plts$hr_emo_top
+# patchwork like face_pc1
+plts$hr_p1 <- (plts$hr_emo_top | plot_spacer()) +
+  plot_layout(widths = c(5, 1))
+
+plts$hr_p2 <- (plts$hr_deceleration | plts$hr_soc_dens) +
+  plot_layout(widths = c(5, 1))
+
+plts$hr_ptchw <- (plts$hr_p1 / plts$hr_p2) +
+  plot_layout(heights = c(1.5, 5))
 
 plts$hr_deceleration 
+plts$hr_ptchw
 ```
 
 
@@ -237,6 +288,49 @@ p$graphstyle_int +
 
 plts$scr 
 
+
+# side density data
+df_plot_scr <- skin_data %>%
+  group_by(participant, subj_emo_lab_no_amb, social_nonsocial) %>%
+  summarise(mean = mean(log_cda_phasic_max, na.rm = TRUE), .groups = "drop")
+
+x_levels_scr <- levels(factor(df_plot_scr$subj_emo_lab_no_amb))
+y_lim_scr <- range(df_plot_scr$mean, na.rm = TRUE)
+
+plts$scr_soc_dens <- ggplot(df_plot_scr,
+  aes(y = mean, fill = social_nonsocial)) +
+  geom_density(aes(x = after_stat(density)), orientation = "y",
+               alpha = 0.25, colour = NA) +
+  scale_fill_brewer(palette = "Dark2") +
+  coord_cartesian(ylim = y_lim_scr) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none")
+
+# top emotion summary
+plts$scr_emo_top <- df_plot_scr %>%
+  group_by(subj_emo_lab_no_amb) %>%
+  ggplot(aes(subj_emo_lab_no_amb, mean)) +
+  stat_summary(geom = "pointrange", fun.data = mean_se) +
+  theme_classic() +
+  theme(axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+# patchwork (same as HR)
+plts$scr_p1 <- (plts$scr_emo_top | plot_spacer()) +
+  plot_layout(widths = c(5, 1))
+
+plts$scr_p2 <- (plts$scr | plts$scr_soc_dens) +
+  plot_layout(widths = c(5, 1))
+
+plts$scr_ptchw <- (plts$scr_p1 / plts$scr_p2) +
+  plot_layout(heights = c(1.5, 5))
+
+plts$scr_ptchw
+
 ```
 
 
@@ -244,14 +338,16 @@ combined
 
 
 ```{r}
-plts$hr_scr_patch<- (plts$hr_deceleration| plts$scr) +
+plts$hr_scr_patch<- (plts$hr_ptchw| plts$scr_ptchw)
   plot_annotation(tag_levels = "A")
+
+
 setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Figures")
 
-ggsave("plts_hr_scr_patch.png",plts$hr_scr_patch,  dpi = 300, width = 11, height = 5,  units = "in",
+ggsave("plts_hr_scr_patch.png",plts$hr_scr_patch,  dpi = 300, width = 14, height = 7,  units = "in",
        device = "png")
 
-ggsave("plts_hr_scr_patch.tiff",plts$hr_scr_patch,  dpi = 300, width = 11, height = 5,  units = "in",
+ggsave("plts_hr_scr_patch.tiff",plts$hr_scr_patch,  dpi = 300, width = 14, height = 7,  units = "in",
        device = "tiff")
 
 
