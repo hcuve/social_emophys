@@ -277,7 +277,7 @@ plts$sim_p_val
 plts$boot_cor_mfa_stability<- 
 ggplot()+
   
-  geom_histogram(aes(corrs), colour = "gray50") +
+  geom_histogram(aes(abs(corrs)), colour = "gray50") +
   geom_vline(xintercept = mean_abs_corr, linetype = "dotted", linewidth = 1) +
   # geom_vline(xintercept = ratio1_obs, linetype = "dashed", linewidth = 1) +
   
@@ -290,8 +290,55 @@ ggplot()+
 plts$boot_cor_mfa_stability
 
 # CIs?
+plts$boot_cor_mfa_stability<- ggplot()+
+  
+  geom_histogram(aes(abs(corrs)), colour = "gray50") +
+  geom_vline(xintercept = mean_abs_corr, linetype = "dotted", linewidth = 1) +
+  # geom_vline(xintercept = ratio1_obs, linetype = "dashed", linewidth = 1) +
+  
+  # coord_cartesian(xlim = range(ratio1_sim_indep)) +   # zoom to null range
+  labs(x = "sim-data score corr - MFA PC1", y = "Frequency", fill = "") +
+  theme_classic()+
+  p$graphstyle_int+
+  theme(legend.position = "top")
 
 
+
+
+mean_score_corr <- mean(boot_score_corrs, na.rm = TRUE)
+
+plts$boot_cor_mfa_stability<- 
+ggplot(data.frame(corr = boot_score_corrs), aes(x = corr)) +
+  
+
+   geom_histogram(aes((corr)), colour = "gray50") +
+  geom_vline(xintercept = mean_score_corr, linetype = "dotted", linewidth = 1) +
+  # geom_vline(xintercept = ratio1_obs, linetype = "dashed", linewidth = 1) +
+  
+  # coord_cartesian(xlim = range(ratio1_sim_indep)) +   # zoom to null range
+  labs(x = "sim-data score corr - MFA PC1", y = "Frequency", fill = "") +
+  theme_classic()+
+  p$graphstyle_int+
+  theme(legend.position = "top")
+
+plts$boot_cor_mfa_stability
+
+plts$boot_cor_mfa_stability_load <-
+
+ggplot(data.frame(corr = boot_corrs), aes(x = corr)) +
+  
+  geom_histogram(aes(corr), colour = "gray50") +
+  
+  geom_vline(xintercept = mean_corr, linetype = "dotted", linewidth = 1) +
+  # geom_vline(xintercept = ci, linetype = "dashed", linewidth = .9) +
+  
+    labs(x = "sim-data loadings corr - MFA PC1", y = "Frequency", fill = "") +
+  
+  theme_classic() +
+  p$graphstyle_int +
+  theme(legend.position = "top")
+
+plts$boot_cor_mfa_stability_load
 ```
 
 ```{r}
@@ -334,7 +381,7 @@ plts$mfa_model
 
 
 plts$mfa_model2 <- ((plts$mfa_var_dimensions| plts$mfa_ind_dim)/
-  (plts$sim_p_val|plts$boot_cor_mfa_stability|plts$mfa_grpc1 |plts$mfa_grpc2))+
+  (plts$sim_p_val|plts$boot_cor_mfa_stability| plts$mfa_grpc1 |plts$mfa_grpc2))+
   plot_layout(nrow = 2, heights =c(2.5,1))+plot_annotation(tag_levels = "A")
 
 

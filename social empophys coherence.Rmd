@@ -768,6 +768,176 @@ mean_abs_corr #0.8157963
 ```
 
 
+
+
+
+
+Issues and fixes
+
+Sign indeterminacy of MFA dimensions
+Issue: Bootstrap dimensions can flip sign, lowering correlations.
+Fix: Align the sign of the bootstrap Dimension 1 with the original before computing correlations.
+
+Bootstrap duplicates participants
+Issue: Correlating bootstrap scores with obs_scores[idx] compares duplicated rows rather than a clean one-to-one mapping.
+Fix: Project the full original dataset onto the bootstrap solution and correlate those scores with the original scores.
+
+Score stability ≠ dimension stability
+Issue: Correlating individual scores alone does not test whether the dimension structure (variable loadings) is stable.
+Fix: Also bootstrap Dimension 1 loadings and correlate bootstrap vs. observed loadings.
+
+Minor code cleanup
+Fix: Use library(FactoMineR), initialise with numeric(B), and remove the stray sample() line.
+
+Best practice: report both
+
+loading stability (structure of the dimension) and
+
+score stability (reliability of individual differences).
+
+```{r}
+
+library(FactoMineR)
+
+# loadings stability
+library(FactoMineR)
+
+B <- 1000
+boot_corrs <- numeric(B)
+
+# Original MFA
+mfa_obs <- MFA(
+  dta_mfa_part4_wide_complete[, 1:720],
+  group = c(420, 60, 60, 180),
+  type = c("s", "s", "s", "s"),
+  name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
+  graph = FALSE
+)
+
+# Variable coordinates/loadings for Dimension 1 in the observed solution
+obs_loadings <- mfa_obs$quanti.var$coord[, 1]
+
+n <- nrow(dta_mfa_part4_wide_complete)
+
+for (b in seq_len(B)) {
+  idx <- sample(seq_len(n), size = n, replace = TRUE)
+
+  mfa_b <- MFA(
+    dta_mfa_part4_wide_complete[idx, 1:720],
+    group = c(420, 60, 60, 180),
+    type = c("s", "s", "s", "s"),
+    name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
+    graph = FALSE
+  )
+
+  boot_loadings <- mfa_b$quanti.var$coord[, 1]
+
+  # Align sign to observed solution
+  if (cor(boot_loadings, obs_loadings, use = "pairwise.complete.obs") < 0) {
+    boot_loadings <- -boot_loadings
+  }
+
+  boot_corrs[b] <- cor(
+    boot_loadings,
+    obs_loadings,
+    use = "pairwise.complete.obs"
+  )
+}
+
+mean_corr <- mean(boot_corrs, na.rm = TRUE)
+ci_corr <- quantile(boot_corrs, probs = c(.025, .975), na.rm = TRUE)
+
+mean_corr
+ci_corr
+
+
+
+# corrected participants core stability
+B <- 1000
+boot_score_corrs <- numeric(B)
+
+X <- scale(dta_mfa_part4_wide_complete[, 1:720])
+
+mfa_obs <- MFA(
+  X,
+  group = c(420, 60, 60, 180),
+  type = c("s", "s", "s", "s"),
+  name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
+  graph = FALSE
+)
+
+obs_scores <- mfa_obs$ind$coord[, 1]
+n <- nrow(X)
+
+for (b in seq_len(B)) {
+  idx <- sample(seq_len(n), size = n, replace = TRUE)
+
+  mfa_b <- MFA(
+    X[idx, ],
+    group = c(420, 60, 60, 180),
+    type = c("s", "s", "s", "s"),
+    name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
+    graph = FALSE
+  )
+
+  # Use variable coordinates on Dim 1 as weights to score all original cases
+  w <- mfa_b$quanti.var$coord[, 1]
+  boot_scores_full <- as.numeric(X %*% w)
+
+  # Align sign
+  if (cor(boot_scores_full, obs_scores, use = "pairwise.complete.obs") < 0) {
+    boot_scores_full <- -boot_scores_full
+  }
+
+  boot_score_corrs[b] <- cor(
+    boot_scores_full,
+    obs_scores,
+    use = "pairwise.complete.obs"
+  )
+}
+
+mean_score_corr <- mean(boot_score_corrs, na.rm = TRUE)
+ci_score_corr <- quantile(boot_score_corrs, c(.025, .975), na.rm = TRUE)
+
+mean_score_corr
+ci_score_corr
+
+# loadings stability: 
+  mean_corr
+  # 0.6856942
+#   score stability (individuals)
+mean_score_corr
+# 0.7381403
+
+
+
+
+mean_corr <- mean(boot_corrs, na.rm = TRUE)
+ci_corr <- quantile(boot_corrs, probs = c(.025, .975), na.rm = TRUE)
+
+# one-sided p: H0 <= 0, H1 > 0
+p_one_sided <- mean(boot_corrs <= 0, na.rm = TRUE)
+
+# two-sided empirical p around 0
+p_two_sided <- 2 * min(
+  mean(boot_corrs <= 0, na.rm = TRUE),
+  mean(boot_corrs >= 0, na.rm = TRUE)
+)
+
+mean_corr
+ci_corr
+p_one_sided
+p_two_sided
+
+
+mean(boot_corrs)
+mean(boot_score_corrs)
+mean(boot_corrs <= .3, na.rm = TRUE)
+
+mean(boot_score_corrs <= .50, na.rm = TRUE)
+```
+
+
 CIs in case we need them at some point
 library(FactoMineR)
 ```{r}
@@ -903,7 +1073,7 @@ list(
 
 t.test(coord1 ~ grp)
 
-t.test(dta_mfa_part4_wide$mfa_pc1_contrib ~ dta_mfa_part4_wide$social_nonsocial)
+t.test(dta_mfa_part4_wide$mfa_pc1_contrib ~ grp)
 ```
 
 Welch Two Sample t-test
