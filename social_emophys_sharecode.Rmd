@@ -1,0 +1,20 @@
+---
+title: "social_emophys_sharecode"
+author: "helio"
+date: "2026-03-25"
+output: html_document
+---
+
+cleaned scripts for github
+#Main analyses 
+
+social_emophys_facenmfs_w77frames_lmers.Rmd
+social_emophys_coherence_analys.rmd : coherence analysis and sensitivity analysis
+
+#Visualisations
+social_emophys_scr_hr_vis.Rmd
+social_emophys_subj_affect_vis.Rmd
+social_emophys_mfa_coherence_vis.Rmd
+
+
+#Pre-processing

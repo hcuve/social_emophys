@@ -7,7 +7,7 @@ output: html_document
 
 starting point: jays subjective plots
 
-associated data: load("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Mixed_models_output_JD.RData")
+associated data: load(soc_emophys_paths$lmer_data_jd)
 associated scripts: Mixed_models_Analysis_JD.Rmd
 
 ```{r plot}
@@ -494,6 +494,7 @@ plts$subj_phys
 ```
 
 ```{r}
+setwd(soc_emophys_paths$figures)
 ggsave(filename = "plts_subj_phys.png",
     plot = plts$subj_phys, width = 13, height = 11,dpi = 300, 
     device = "png",units = "in",
@@ -510,6 +511,6 @@ ggsave(filename = "plts_subj_phys.tiff",
 
 
 ```{r}
-save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Mixed_models_output_JD.RData")
+save.image(soc_emophys_paths$lmer_data_jd)
 
 ```

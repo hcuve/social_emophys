@@ -6,9 +6,10 @@ output: html_document
 ---
 
 
-data: save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_facenmfs_77frames.RData")
+data: soc_emophys_paths$backup_rdata (folder)
+"social_emophys_facenmfs_77frames.RData"
 
-relsted analysis code: social_emophys_facenmfs_77frames
+related analysis code: social_emophys_facenmfs_77frames
 visualisations of face responses
 
 ```{r}
@@ -500,7 +501,7 @@ combine
 
 # how to load local plots (comp1_pyfeat.png, comp2_pyfeat.png, comp3_pyfeat.png) andf combine with below
 
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Figures")
+setwd(soc_emophys_paths$figures)
 library(png)
 library(grid)
 library(ggplot2)
@@ -687,6 +688,6 @@ ggsave("plts_face_panel.tiff",plts$face_panel,  dpi = 300, width = 22, height = 
 
 
 ```{r}
-save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/social_emophys_facenmfs_77frames.RData")
+save.image(paste(soc_emophys_paths$backup_rdata, "social_emophys_facenmfs_77frames.RData"))
 
 ```

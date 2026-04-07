@@ -5,14 +5,7 @@ date: "2026-01-15"
 output: html_document
 ---
 
-build on s4sn
-mfa
-consider including one component per face
-
-consider reducing dimensionality of subjective ratings into one compoentn as well
-
-just subjective, scr, hr, and face
-
+Prep
 
 
 ```{r}
@@ -79,6 +72,7 @@ dta_mfa_part4_wide
 # 
 # 541:600
 
+# imputation
 imputedmfa <- missMDA::imputeMFA(dta_mfa_part4_wide[,3:722],
                                                ncp=2,
                                                 group=c(420, 60, 60, 180),
@@ -87,7 +81,7 @@ imputedmfa <- missMDA::imputeMFA(dta_mfa_part4_wide[,3:722],
 
 dta_mfa_part4_wide_complete<- imputedmfa$completeObs
 
-
+# fit the MFA
 # just the hr, scr, subje, face components
 mod_res$mfa_result_wide_new <- MFA(dta_mfa_part4_wide_complete,
                          group=c(420, 60, 60, 180),
@@ -101,15 +95,12 @@ mod_res$mfa_result_wide_new$global.pca$var
 
 ```
 
-some vis
+some preliminary visualisations
 
 ```{r}
 fviz_contrib(mod_res$mfa_result_wide_new, "quanti.var", axes = 1, top = 10)
 fviz_contrib(mod_res$mfa_result_wide_new, "quanti.var", axes = 2,top = 10)# 
 fviz_contrib(mod_res$mfa_result_wide_new, "quanti.var", axes = 3,top = 10)
-
-
-
 
 fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 1,sort.val = "none",ylim = c(0, 60))
 fviz_contrib(mod_res$mfa_result_wide_new, "group", axes = 2,sort.val = "none",ylim = c(0, 60))
@@ -122,6 +113,7 @@ fviz_contrib(mod_res$mfa_result_wide_new, "quanti.var", axes = 3)
 
 ```
 
+store component scores
 ```{r}
 dta_mfa_part4_wide$mfa_pc1<- mod_res$mfa_result_wide_new$ind$coord[,1]
 dta_mfa_part4_wide$mfa_pc2<- mod_res$mfa_result_wide_new$ind$coord[,2]
@@ -135,14 +127,10 @@ dta_mfa_part4_wide$mfa_pc3_contrib<- mod_res$mfa_result_wide_new$ind$contrib[,3]
 mod_res$mfa_result_wide_new$quanti.var$coord
 ```
 
-
+quick prelim vis
 ```{r}
 
 dta_mfa_part4_wide%>%
-  # mutate(social_nonsocial = ifelse(partic >199, "social", "nonsocial"))%>%
-  # group_by(particpant, social,nonsocial)%>%
-  # summairse_if(is.numeric, mean, na.rm = T)%>%
-   # subset(participant!= 105)%>%#doesnt change significance
   ggplot(aes(social_nonsocial, mfa_pc1,colour = social_nonsocial))+
   geom_jitter(alpha = .2, width = .1)+
   stat_summary(geom = "pointrange",position = position_dodge(1))+
@@ -189,104 +177,12 @@ dta_mfa_part4_wide%>%
 
 
 
-dta_mfa_part4_wide%>%
-   
-  ggplot(aes(social_nonsocial, log1p(mfa_pc3_contrib+ mfa_pc3_contrib),colour = social_nonsocial))+
-
-  geom_jitter(alpha = .2, width = .1)+
-  stat_summary(geom = "pointrange",position = position_dodge(1))+
-   ggpubr::stat_compare_means()
-
-dta_mfa_part4_wide%>%
-   
-  ggplot(aes(social_nonsocial, (mfa_pc1_contrib+mfa_pc2_contrib+mfa_pc3_contrib),colour = social_nonsocial))+
-
-  geom_jitter(alpha = .2, width = .1)+
-  stat_summary(geom = "pointrange",position = position_dodge(1))+
-   ggpubr::stat_compare_means()+
-  geom_text(aes(label = participant))
-
-```
-
-
-
-
-
-
-
-```{r}
-mod_res$mfa_result_wide_new$group$contrib
-mod_res$mfa_result_wide_new$group$coord
-
-mod_res$mfa_result_wide_new$quanti.var$contrib[, 1]
-mod_res$mfa_result_wide_new$quanti.var$coord[, 1]
-range(mod_res$mfa_result_wide_new$quanti.var$contrib[, 1])
-range(mod_res$mfa_result_wide_new$quanti.var$contrib[, 2])
-
-
-df_plot%>%
-  group_by(Block)%>%
-  mutate(Dim1_z_cont= scale(log1p(dim_1_cont+.1)),
-         Dim2_z_cont =scale(log1p(dim_2_cont+.1)))%>%
-  # subset(!is.na(cos12_total2))%>%
-  # summarise_if(is.numeric, mean, na.rm = T)%>%
-ggplot( aes(x = log1p(dim_1_cont+.01), y = log1p(dim_2_cont+.01))) +
-
-geom_point(
-  aes(
-    colour = Block,
-    shape  = Block,
-    size   = dim_1_cos
-  ),
-  alpha = 0.3
-) +
-  # geom_line(aes(group = stim_iaps), colour = "grey60", alpha = 0.7) + 
-  # 3) shared axes
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
-  # coord_fixed(
-
-  scale_colour_brewer(palette = "Dark2")+
-    scale_fill_brewer(palette = "Dark2")+
-  # scale_colour_viridis_c(option = "inferno")+
- 
-  # scale_size_continuous(
-  #   range = c(1, 6),
-  #   name  = "Total cos² (Dim1+2)"
-  # ) +
-  ggside::geom_xsidedensity(
-    aes(y = after_stat(density),fill = Block),       # density of PC1
-    position = "identity",
-    alpha    = 0.3,
-    size     = 0,                       
-    adjust   = 1.2,                     # smoothing
-    show.legend = FALSE
-  )+ 
-    ggside::geom_ysidedensity(
-    aes(x = after_stat(density),fill = Block),       # density of PC1
-    position = "identity",
-    alpha    = 0.3,
-    size     = 0,
-    adjust   = 1.2,                     # smoothing
-    show.legend = FALSE)+
-  # )+ 
-  labs(
-    x     = "MFA PC1",
-    y     = "MFA PC2",
-    title = "Shared axes: size = quality of rep."
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position  = "top",
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_line(colour = "grey90", size = 0.2)
-  )+
-  guides(size = FALSE)
 
 
 ```
 
-PCA version with equal weight to grouos
+
+sanity check - PCA version with equal weight to grupos
 Weighted PCA
 Give each block equal weight manually:
 ```{r}
@@ -309,105 +205,14 @@ fviz_contrib(mod_res$pca_res, "var", axes = 1, top = 15)
 fviz_contrib(mod_res$pca_res, "var", axes = 2,top = 10)# 
 fviz_contrib(mod_res$pca_res, "var", axes = 3,top = 10)
 
-
 ```
 
 
-
-
+Validation
 
 Randomly permute the rows of the dataset within each group (preserving group structure), recompute MFA, and record the eigenvalues. If the observed eigenvalue for dimension 1 exceeds the distribution of permuted eigenvalues, it is unlikely to arise by chance.
 
-library(FactoMineR)
-```{r eval=FALSE, include=FALSE}
 
-mod_res$mfa_result_wide_new <- MFA(dta_mfa_part4_wide_complete,
-                         group=c(420, 60, 60, 180),
-                         type=c("s","s","s", "s"),
-                          name.group= c("subj_aff","phys_hr","phys_scr","face"),
-                          # num.group.sup=c(6),#position of group above
-                          graph=TRUE)
-obs <- mod_res$mfa_result_wide_new$eig[1,1]  # eigenvalue of dim 1
-B <- 500
-sim <- numeric(B)
-
-for (b in 1:B) {
-  dta_perm <- dta_mfa_part4_wide_complete
-  # permute rows within each group
-  g <- list(1:420, 421:480, 481:540, 541:720)
-  for (i in seq_along(g)) {
-    dta_perm[g[[i]], ] <- dta_perm[sample(g[[i]]), ]
-  }
-  mfa_b <- MFA(dta_perm,
-               group=c(420,60,60,180),
-               type=c("s","s","s","s"),
-               name.group=c("subj_aff","phys_hr","phys_scr","face"),
-               graph=FALSE)
-  sim[b] <- mfa_b$eig[1,1]
-}
-
-p_value <- mean(sim >= obs)
-
-p_value
-
-# too consevative as it just shuffles blocks, but structure also comes from variables
-```
-Test gaps between dimension instead
-<!-- Sometimes it’s nicer to use a ratio instead of a raw difference, because overall scale of eigenvalues can shift under permutations. -->
-
-Row-within-block null: “blocks have structure, but no cross-block alignment”
-
-Goal: preserve within-block variable structure, break alignment across blocks.
-
-Here we shuffle rows separately within each block of columns.
-note its conservative because it ignores the variable influence on global dimensions
-
-too conservative don't report this
-```{r}
-eig_obs <- mod_res$mfa_result_wide_new$eig[, 1]
-
-ratio1_obs <- eig_obs[1] / eig_obs[2]    # λ1 / λ2
-ratio2_obs <- eig_obs[2] / eig_obs[3]    # λ2 / λ3, etc.
-
-
-# permutation ratios
-
-# dta_perm <- dta_mfa_part4_wide_complete
-
-mfa_b <- MFA(dta_perm,
-             group = c(420,60,60,180),
-             type  = c("s","s","s","s"),
-             name.group = c("subj_aff","phys_hr","phys_scr","face"),
-             ncp = 2,       # <<--- crucial
-             graph = FALSE)
-
-B <- 500
-ratio1_sim <- numeric(B)
-g <- list(1:420, 421:480, 481:540, 541:720)
-
-for (b in 1:B) {
-  dta_perm <- dta_mfa_part4_wide_complete
-  
-  for (i in seq_along(g)) {
-    dta_perm[g[[i]], ] <- dta_perm[sample(g[[i]]), ]
-  }
-  
-  mfa_b <- MFA(dta_perm,
-               group = c(420,60,60,180),
-               type  = c("s","s","s","s"),
-               name.group = c("subj_aff","phys_hr","phys_scr","face"),
-               ncp = 2,
-               graph = FALSE)
-  
-  eig_b <- mfa_b$eig[,1]
-  ratio1_sim[b] <- eig_b[1] / eig_b[2]
-}
-
-p_ratio1 <- mean(ratio1_sim >= ratio1_obs)
-p_ratio1
-
-# same as before too cosnervative
-```
 Column-wise null: “no structure at all” (everything is independent)
 
 Goal: test whether there is any real multivariate structure (sanity check).
@@ -541,11 +346,10 @@ ggplot()+
 
 ```
 
+
 loadings
 Compare to a “no structure at all” null (column-wise shuffle)
 
-
-“Are loadings on Dim 1 more ‘spread out’ / larger than I’d see if all variables were independent noise?”
 ```{r}
 
  mod_res$mfa_result_wide_new$quanti.var$coord
@@ -596,70 +400,6 @@ p_prop_large
 # 0
 ```
 
-Compare to a “no cross-block alignment” null (row-per-block shuffle)
-
-This one keeps within-block structure as signal and only kills cross-block alignment:
-
-i.e. Are the loadings on Dim 1 stronger than I’d expect if blocks had structure but were unrelated”
-a bit more conservative because it ignores that structure comes mostly from the variables, the block stuff is for normalisation
-
-not for reporting
-```{r}
-
-# observed stats again
-# loadings1 <- mod_res$quanti.var$coord[, 1]
-# thr <- 0.3
-
-# mean_sq_loading_obs <- mean(loadings1^2)
-# prop_large_obs      <- mean(abs(loadings1) >= thr)
-
-# column indices per block
-block_cols <- list(
-  subj_aff = 1:420,
-  phys_hr  = 421:480,
-  phys_scr = 481:540,
-  face     = 541:720
-)
-
-set.seed(123)
-B <- 500
-mean_sq_sim_block   <- numeric(B)
-prop_large_sim_block <- numeric(B)
-
-for (b in 1:B) {
-  dta_perm <- dta_mfa_part4_wide_complete
-  
-  # shuffle rows separately within each block of columns
-  for (blk in block_cols) {
-    idx_rows <- sample(nrow(dta_perm))
-    dta_perm[, blk] <- dta_perm[idx_rows, blk]
-  }
-  
-  mfa_b <- MFA(dta_perm,
-               group      = c(420, 60, 60, 180),
-               type       = c("s", "s", "s", "s"),
-               name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
-               ncp        = 2,
-               graph      = FALSE)
-  
-  load_b <- mfa_b$quanti.var$coord[, 1]
-  mean_sq_sim_block[b]    <- mean(load_b^2)
-  prop_large_sim_block[b] <- mean(abs(load_b) >= thr)
-}
-
-p_mean_sq_block   <- mean(mean_sq_sim_block    >= mean_sq_loading_obs)
-p_prop_large_block <- mean(prop_large_sim_block >= prop_large_obs)
-
-p_mean_sq_block
-p_prop_large_block
-
-```
-1] 0.516
-[1] 0.288
-
-as discussed above this is conservative
-
-
 
 #############
 Stability
@@ -667,48 +407,11 @@ Stability
 This checks stability of loadings and factor scores.
 
 Idea:
+- stability of the latent dimension, i.e. how reproducible is Dim 1 as a participant-level score?
 Resample rows with replacement, rerun MFA, and assess:
-	•	correlation between bootstrapped and original axes
-	•	confidence intervals for contributions or loadings
-
-bootMFA (from ExPosition) do this directly but exposition its deprecated;
-
-so I will do manual bootstrapping:
-
- stability of the latent dimension, i.e. how reproducible is Dim 1 as a participant-level score?
-
-```{r}
-B <- 1000
-corrs <- matrix(NA, B, 1)
-require(FactoMineR)
-colnames(dta_mfa_part4_wide_complete)
-
-
-for (b in 1:B) {
-  idx <- sample(nrow(dta_mfa_part4_wide_complete), replace=TRUE)
-  mfa_b <- MFA(dta_mfa_part4_wide_complete[idx,1:720],
-               group=c(420,60,60,180),
-               type=c("s","s","s","s"),
-               name.group=c("subj_aff","phys_hr","phys_scr","face"),
-               graph=FALSE)
-  corrs[b] <- cor(mfa_b$ind$coord[,1], mod_res$mfa_result_wide_new$ind$coord[idx,1])
-}
-
-
-
-mean_abs_corr <- mean(abs(corrs))
-corrs
-mean_abs_corr #0.8157963
-
-
-
-
- sample(nrow(dta_mfa_part4_wide_complete), replace=TRUE)
-```
-
-
-
-
+- correlation between bootstrapped and original axes, same for loadings
+- bootMFA (from ExPosition) does this directly but exposition its deprecated;
+- so I will do manual bootstrapping:
 
 
 Issues and fixes
@@ -725,13 +428,8 @@ Score stability ≠ dimension stability
 Issue: Correlating individual scores alone does not test whether the dimension structure (variable loadings) is stable.
 Fix: Also bootstrap Dimension 1 loadings and correlate bootstrap vs. observed loadings.
 
-Minor code cleanup
-Fix: Use library(FactoMineR), initialise with numeric(B), and remove the stray sample() line.
-
-Best practice: report both
 
 loading stability (structure of the dimension) and
-
 score stability (reliability of individual differences).
 
 ```{r}
@@ -791,7 +489,7 @@ ci_corr
 
 
 
-# corrected participants core stability
+#  participants core stability
 B <- 1000
 boot_score_corrs <- numeric(B)
 
@@ -877,71 +575,8 @@ mean(boot_score_corrs <= .50, na.rm = TRUE)
 ```
 
 
-CIs in case we need them at some point
-library(FactoMineR)
-```{r}
-n       <- nrow(dta_mfa_part4_wide_complete)
-B_boot  <- 500
 
-# original MFA
-mfa_orig      <- mod_res$mfa_result_wide_new
-loadings_orig <- mfa_orig$quanti.var$coord[, 1]
-eig_orig      <- mfa_orig$eig[, 1]
-gap1_orig     <- eig_orig[1] - eig_orig[2]
-ratio1_orig   <- eig_orig[1] / eig_orig[2]
-
-# storage
-loadings_boot <- matrix(NA, nrow = length(loadings_orig), ncol = B_boot)
-eig1_boot     <- numeric(B_boot)
-eig2_boot     <- numeric(B_boot)
-gap1_boot     <- numeric(B_boot)
-ratio1_boot   <- numeric(B_boot)
-
-set.seed(123)
-
-for (b in 1:B_boot) {
-  idx <- sample.int(n, size = n, replace = TRUE)
-  dta_boot <- dta_mfa_part4_wide_complete[idx, ]
-
-  mfa_b <- MFA(dta_boot,
-               group      = c(420, 60, 60, 180),
-               type       = c("s", "s", "s", "s"),
-               name.group = c("subj_aff", "phys_hr", "phys_scr", "face"),
-               ncp        = 2,     # we only need first 2 dims for gaps
-               graph      = FALSE)
-
-  ## eigenvalues + gap/ratio
-  eig_b         <- mfa_b$eig[, 1]
-  eig1_boot[b]  <- eig_b[1]
-  eig2_boot[b]  <- eig_b[2]
-  gap1_boot[b]  <- eig_b[1] - eig_b[2]
-  ratio1_boot[b] <- eig_b[1] / eig_b[2]
-
-  ## loadings on Dim 1 with sign alignment
-  load_b    <- mfa_b$quanti.var$coord[, 1]
-  sign_flip <- sign(sum(load_b * loadings_orig, na.rm = TRUE))
-  loadings_boot[, b] <- load_b * sign_flip
-}
-
-## 95% bootstrap CIs for loadings
-load_ci_low  <- apply(loadings_boot, 1, quantile, probs = 0.025, na.rm = TRUE)
-load_ci_high <- apply(loadings_boot, 1, quantile, probs = 0.975, na.rm = TRUE)
-
-## 95% CIs for eigenvalue 1, and gap/ratio
-eig1_ci    <- quantile(eig1_boot,  probs = c(0.025, 0.975), na.rm = TRUE)
-gap1_ci    <- quantile(gap1_boot,  probs = c(0.025, 0.975), na.rm = TRUE)
-ratio1_ci  <- quantile(ratio1_boot, probs = c(0.025, 0.975), na.rm = TRUE)
-
-eig_orig[1]
-ratio1_orig
-eig1_ci
-# gap1_ci
-ratio1_ci
-```
-
-
-
-<!-- so in summary the diemnsions are valid -->
+<!-- so in summary the dimensions are valid, robust and reliable-->
 social vs non social
 
 
@@ -1013,6 +648,15 @@ list(
 t.test(coord1 ~ grp)
 
 t.test(dta_mfa_part4_wide$mfa_pc1_contrib ~ grp)
+
+install.packages("effectsize")
+library(effectsize)
+
+cohens_d(mfa_pc1 ~ grp, data = dta_mfa_part4_wide)
+# Cohen's d |       95% CI
+# ------------------------
+# 0.77      | [0.34, 1.20]
+cohens_d(mfa_pc1_contrib ~ grp, data = dta_mfa_part4_wide)
 ```
 
 Welch Two Sample t-test
@@ -1030,7 +674,7 @@ we see differences in dimensions but not in other metrics, contrib, cons, etc
 
 
 
-note  shuffling the columns address  structure not group differences. the later needs shufflig labels
+
 
 USING EIGENVUALUES REQUIRES REFIITING
 
@@ -1133,7 +777,7 @@ $p_value_perm
 $diff_sim_range
 [1] 0.0001709709 4.0902212746
 
-lets try co conceptualise coherebnce as the degree to which most variables and blocks allign with the dominant dimenhsion, dim 1
+whats the degree  to which most variables and blocks align with the dominant dimenhsion, dim 1 (i.e. is there a diference in quality if representation?)
 ```{r}
  mod_res$mfa_result_wide_new$quanti.var
  mod_res$mfa_result_wide_new$group$
@@ -1214,18 +858,16 @@ result_coherence
 ```
 
 
-also no differences, so we don't have structural differences in the degree to which responses are more or less captured by cohrence dimension between social and non social, just that they differ in their location in this dimension (work put the interpretation of locations)
+also no differences, so we don't have structural differences in the degree to which responses are more or less captured by coherence dimension between social and non social, just that they differ in their location in this dimension
 
-Long format sanity check below, where number of observations will be greater than variables
-- we get the same as above, so it's unlikely that our findings above are driven by instability arising from number of varuables > then subjects.
+Long format sanity check below, where number of observations will be greater than variables (as pre-reg)
+- we get the same as above, so it's unlikely that our findings above are driven by instability arising from number of variables > thann subjects.
 
 
 ```{r}
 
- dta_mfa_part4
+dta_mfa_part4
 colnames(dta_mfa_part4)
-
-
 
 dta_mfa_part4_imptd <- missMDA::imputeMFA(dta_mfa_part4[,7:18],
                                                ncp=2,
@@ -1280,6 +922,13 @@ mod_res$mfa_pc1_lmer <- lmer(mfa_pc1 ~ 1+ social_nonsocial +
                    data = dta_mfa_part4)
 
 
+mod_res$mfa_pc1_lmer <- lmer(mfa_pc1 ~ 1+ social_nonsocial +  
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4$subj)
+
+
 mod_res$mfa_pc1_contrib <- lmer(mfa_pc1_contrib ~ 1+ social_nonsocial +  
                      (1|participant) + #subjective_emotion doesn't converge
                      (1|stim_iaps), #social_nonsocial doesn't converge
@@ -1292,8 +941,10 @@ mod_res$mfa_pc1_cos2 <- lmer(mfa_pc1_cos2 ~ 1+ social_nonsocial +
                      (1|stim_iaps), #social_nonsocial doesn't converge
                    REML = FALSE,
                    data = dta_mfa_part4)
-
-anova(mod_res$mfa_pc1_lmer)
+require(lmerTest)
+library(car)
+library(afex)
+afex::ano(mod_res$mfa_pc1_lmer)
 anova(mod_res$mfa_pc1_contrib)
 
 anova(mod_res$mfa_pc1_cos2)
@@ -1317,14 +968,6 @@ dta_mfa_part4%>%
 
 ```
 
-dta_mfa_part4%>%
-     group_by(participant, social_nonsocial)%>%
-  summarise_if(is.numeric, mean, na.rm = T)%>%
-  ggplot(aes(social_nonsocial, mfa_pc2,colour = social_nonsocial))+
-
-  geom_jitter(alpha = .2, width = .1)+
-  stat_summary(geom = "pointrange",position = position_dodge(1))+
-   ggpubr::stat_compare_means()
 
 
 ```{r}
@@ -1378,118 +1021,11 @@ dta_mfa_part4%>%
 
 
 
-```{r}
 
-var_names2   <- rownames(mod_res$mfa_result_long_new$quanti.var$coord[,1:2])        
-
-
-block_groups2 <- c(7, 1, 1, 3)
-block_names2  <- c("subj_aff","phys_hr","phys_scr","face")
-
-
-block_labels2 <- rep(block_names2, times = block_groups2) 
-
-df_plot2 <- data.frame(
-  Variable = var_names2,
-  Block    = block_labels2,
-  Dim1     = mod_res$mfa_result_long_new$quanti.var$coord[,1],
-  Dim2     = mod_res$mfa_result_long_new$quanti.var$coord[,2],
-  row.names = NULL,
-  stringsAsFactors = FALSE
-)
-df_plot2
-
-# Load ggplot2 (if not already)
-library(ggplot2)
-
-
-
-df_plot2$dim_1_cos<- mod_res$mfa_result_long_new$quanti.var$cos2[, 1]
-df_plot2$dim_2_cos<- mod_res$mfa_result_long_new$quanti.var$cos2[, 2]
-
-df_plot2$dim_1_cont<- mod_res$mfa_result_long_new$quanti.var$contrib[, 1]
-df_plot2$dim_2_cont<- mod_res$mfa_result_long_new$quanti.var$contrib[, 2]
-
-
-df_plot2 <- df_plot2 %>% 
-  # (no scaling of Dim1/Dim2 here) 
-  mutate(
-    cos12_total    = dim_1_cos + dim_2_cos,
-    
-    # optionally cap or filter out very low cos² if you only want well-represented vars:
-    cos12_total2   = if_else(cos12_total < 0.05, NA_real_, cos12_total)
-  )
-
-
-plts<- list()
-
-
-
-
-df_plot2%>%
-  # group_by(Block)%>%
-  # mutate(Dim1_z = scale(Dim1),
-  #        Dim2_z =scale(Dim2))%>%
-  # summarise_if(is.numeric, mean, na.rm = T)%>%
-ggplot( aes(x = Dim1, y = Dim2)) +
-
-geom_point(
-  aes(
-    colour = Block,
-    shape  = Block,
-    size   = cos12_total
-  ),
-  alpha = 0.3
-) +
-  # 3) shared axes
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
-  # coord_fixed(
-
-  scale_colour_brewer(palette = "Dark2")+
-    scale_fill_brewer(palette = "Dark2")+
-  # scale_colour_viridis_c(option = "inferno")+
- 
-  scale_size_continuous(
-    range = c(1, 6),
-    name  = "Total cos² (Dim1+2)"
-  ) +
-  ggside::geom_xsidedensity(
-    aes(y = after_stat(density),fill = Block),       # density of PC1
-    position = "identity",
-    alpha    = 0.3,
-    size     = 0,                       
-    adjust   = 1.2,                     # smoothing
-    show.legend = FALSE
-  )+ 
-    ggside::geom_ysidedensity(
-    aes(x = after_stat(density),fill = Block),       # density of PC1
-    position = "identity",
-    alpha    = 0.3,
-    size     = 0,
-    adjust   = 1.2,                     # smoothing
-    show.legend = FALSE)+
-  # )+ 
-  labs(
-    x     = "MFA PC1",
-    y     = "MFA PC2",
-    title = "Shared axes: size = quality of rep."
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position  = "top",
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_line(colour = "grey90", size = 0.2)
-  )+
-  guides(size = FALSE)
-
-```
-
-note social vs non social differences will allways liely disapear when mfa is fittes separtelly per person, due to normalisatio of between subject differences
 
 
 
 ```{r}
-save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/s4sndata_select.RData")
+save.image(soc_emophys_paths$cohr_rdata)
 
 ```

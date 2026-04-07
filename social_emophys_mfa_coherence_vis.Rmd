@@ -7,16 +7,70 @@ output: html_document
 
 associated data:
 ```{r}
-save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/s4sndata_select.RData")
-
+# read local private paths 
+soc_emophys_paths$cohr_rdata
 ```
 
 associated analyses code: social empophys coherence.Rmd
-Visualisations for MFA coherence analysis
+
+#Visualisations for MFA coherence analysis
+
+```{r}
+# vis preferences 
+
+sf = 1 # scaling factor to make it easier to change sizes of everything, in which case change here
+
+p<- list()
+
+p$graphstyle_int <-  theme(#base plot theme
+  
+  # axis lines
+  axis.line.y = element_line(color="black", size = 1.5),
+  axis.line.x = element_line(color="black", size = 1,5),
+  
+  axis.title.y=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
+  axis.title.x=element_text(size = 16*(sf+.5), margin=margin(0,5,0,0)),
+  
+  # text
+  strip.text.x = element_text(size = 16*(sf+.5),  colour = "black"),
+  strip.text.y = element_text(size = 16*(sf+.5),  colour = "black"),
+  
+  text=element_text(size = 14),
+  axis.text.x = element_text(size = 15*(sf+.5), colour = "black",),
+  axis.text.y = element_text(size = 15*(sf+.5), colour = "black"),
+  
+  
+  # panel
+  panel.grid.major = element_blank(),
+  panel.background = element_blank(),
+  # panel.background = element_rect(fill="transparent"),
+  # panel.border = element_rect(fill="transparent"),
+  # strip shades (reco rectagles)
+   # strip.background = element_blank(),
+  
+  # legend
+  # legend.position = "top",
+  legend.key = element_rect(colour = "transparent", fill="transparent"),
+  # axis.ticks = element_blank(),
+  # legend.k
+  #legend.direction = "horizontal",
+
+  legend.text = element_text(size = 16*(sf+.5)),
+  legend.title= element_text(size = 16*(sf+.5)),
+  # legend.title = element_text(size = 10*(sf+.3)),
+  # legend line tends to be really small in print so adjust here
+  # legend.key.height = unit(.5, "cm"),
+  # legend.key.width = unit(2, "cm"),
+  
+  #legend.text = element_text(size = 10*sf),
+  # legend.title=element_blank(),
+  #legend.text = element_blank(),
+  #axis.ticks = element_blank(),
+)
+
+```
 
 
-
-dimensions
 
 VISUALISE THE DIMENSIONS
 
@@ -368,11 +422,11 @@ plts$mfa_grpc1
 plts$mfa_grpc2
 plts$mfa_grpc3
 ```
-patchwork
+patchwork - aggregate plots
 
 ```{r}
 
-setwd("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/Figures")
+setwd(soc_emophys_paths$figures)
 
 plts$mfa_model <- ((plts$mfa_var_dimensions|plts$sim_p_val|plts$mfa_grpc1)/(
   plts$mfa_ind_dim|plts$boot_cor_mfa_stability|plts$mfa_grpc2))+plot_layout(nrow = 2)+plot_annotation(tag_levels = "A")
@@ -400,6 +454,6 @@ ggsave("plts_mfa_model.tiff",plts$mfa_model2 ,  dpi = 300, width = 20, height = 
 ```
 
 ```{r}
-save.image("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/s4sndata_select.RData")
+save.image(soc_emophys_paths$figures)
 
 ```
