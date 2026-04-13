@@ -10,8 +10,10 @@ Prep
 
 ```{r}
 
-
+load(soc_emophys_pathsR_keep_private$cohr_rdata)
 dta_pca1_3_face_92 <- readRDS(soc_emophys_paths$backup_rdata, "/dta_pca1_3_face_92.rds")
+
+unique(dta_pca1_3_face_92$participant)
 
 dta_mfa_part1<- dta_emo[,c("val_slider_response","int_slider_response","happy_slide_response","sad_slide_response","fear_slide_response","disgust_slide_response","anger_slide_response","hr_mean_diff","log_cda_iscr","social_nonsocial","participant","stim_iaps",
                            "social_nonsocial", "emotioncategory", "subj_emo_lab_no_amb")]
@@ -25,7 +27,7 @@ dta_mfa_part1$social_nonsocial<- NULL
 dta_mfa_part2<- left_join(dta_mfa_part1, dta_pca1_3_face_92, 
                           by = c("participant", "stim_iaps", "subj_emo_lab_no_amb"))
 
-
+colnames(dta_mfa_part2)
 dta_mfa_part2$social_nonsocial<- dta_emo$social_nonsocial
 colnames(dta_mfa_part2)
 
@@ -34,8 +36,8 @@ dta_mfa_part3<- dta_mfa_part2[,c(10:15,1:9,130:132, 16:129)]
 colnames(dta_mfa_part3)
 dta_mfa_part4<- dta_mfa_part3[,1:18]
 
+colnames(dta_mfa_part4)
 colnames(dta_emo)
-
 dta_emo_dmg<- dta_emo%>%
   group_by(participant,diagnosis,asd)%>%
   summarise_at(c("tas20_total","dass21_total","dass21_dep", "dass21_anx","dass21_total","obs_slider_response","belief_slider_response","aq28_scale_sum_cont"),
@@ -49,6 +51,11 @@ MFA coherence analyes
 ```{r}
 # cast to wide
 colnames(dta_mfa_part4)
+
+# repo file
+# setwd(soc_emophys_pathsR_keep_private$dat_repo)
+# saveRDS(dta_mfa_part4, "dta_4_mfa.Rds") # load this file from repo to reproduce analysis below
+dta_mfa_part4
 
 dta_mfa_part4_wide<- dta_mfa_part4%>%
   select(-filename, subj_emo_lab_no_amb)%>%
@@ -66,6 +73,7 @@ table(is.na(dta_mfa_part4_wide))
 # complete
 
 dta_mfa_part4_wide
+unique(dta_mfa_part4_wide$participant)
 
 # 420+60+60+(60*3)
 # 
@@ -92,6 +100,9 @@ mod_res$mfa_result_wide_new <- MFA(dta_mfa_part4_wide_complete,
 dta_mfa_part4_wide_complete
 
 mod_res$mfa_result_wide_new$global.pca$var
+
+
+unique(dta_mfa_part4_wide_complete$par)
 
 ```
 
