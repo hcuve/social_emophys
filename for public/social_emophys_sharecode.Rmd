@@ -6,10 +6,12 @@ output: html_document
 ---
 
 cleaned scripts for github
-#Main analyses 
 
-social_emophys_facenmfs_w77frames_lmers.Rmd
+#Main analyses 
+to do: JD Mixed models
+social_emophys_facenmfs_w77frames_nmf_cfmsts_lmer.Rmd
 social_emophys_coherence_analys.rmd : coherence analysis and sensitivity analysis
+
 
 #Visualisations
 social_emophys_scr_hr_vis.Rmd
