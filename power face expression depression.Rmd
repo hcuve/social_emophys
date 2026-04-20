@@ -1,0 +1,435 @@
+---
+title: "estimating power for depression effects of facial behaviour"
+author: "helio"
+date: "2026-04-20"
+output: html_document
+---
+
+setwd(paste0("~",soc_emophys_paths$backup_rdata))
+
+
+save.image("social_emophys_facenmfs_77frames.RData")
+saveRDS(dta_cmfsts3_wid, "dta_pca1_3_face_92.rds")
+```{r}
+load("social_emophys_facenmfs_77frames.RData")
+
+dta_cmfsts3_wid
+colnames(dta_cmfsts3_wid)
+require(tidyverse)
+
+dta_cmfsts3_wid_w_dmg<- dta_cmfsts3_wid%>%
+  left_join(dta_emo_dmg)
+
+range(dta_cmfsts3_wid_w_dmg$dass21_dep, na.rm = T)
+
+unique(dta_emo_dmg$participant)
+
+dta_emo_dmg%>%
+  mutate(participant_numerc=as.numeric(as.character(participant)))%>%
+  mutate(social_nonsoc = if_else(participant_numerc < 190, "nonsocial", "social"))%>%
+  # group_by(
+  ggplot(aes(dass21_dep))+
+  geom_histogram()+
+  facet_grid(~social_nonsoc)+
+  geom_vline(xintercept = 10)+
+  geom_vline(xintercept = 14)
+
+
+```
+
+
+```{r}
+  
+
+unique(dta_cmfsts3_wid_w_dmg$participant)
+
+table(is.na(dta_cmfsts3_wid_w_dmg$tas20_total))
+
+
+dta_cmfsts3_wid_w_dmg_2<- dta_cmfsts3_wid_w_dmg%>%
+  subset(!is.na(dass21_dep))
+
+dta_cmfsts3_wid_w_dmg_2$das_dep_10<- if_else(dta_cmfsts3_wid_w_dmg_2$dass21_dep>=10, "high", "low")
+
+
+dta_cmfsts3_wid_w_dmg_2$das_dep_14<- if_else(dta_cmfsts3_wid_w_dmg_2$dass21_dep>=14, "high", "low")
+
+table(dta_cmfsts3_wid_w_dmg_2$das_dep_10)/60
+
+table(dta_cmfsts3_wid_w_dmg_2$das_dep_14)/60
+
+dta_cmfsts3_wid_w_dmg_2$das_dep_10_low_14_high<- if_else(dta_cmfsts3_wid_w_dmg_2$das_dep_14 == "high", "high",
+                                                         if_else(dta_cmfsts3_wid_w_dmg_2$das_dep_10 == "low", "low", NA))
+
+table(dta_cmfsts3_wid_w_dmg_2$das_dep_10_low_14_high)/60
+
+
+```
+
+
+```{r}
+
+# colnames(dta_cmfsts3_wid_w_dmg_2)
+
+
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10, pc_comp2.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10, pc_comp3.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10, pc_comp1.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10, pc_comp1.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  # facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+
+# let's put a number
+dta_cmfsts3_wid_w_dmg_2_agg<- dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,dass21_dep, das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)
+
+
+
+dta_cmfsts3_wid_w_dmg_2_agg%>%
+  ggplot(aes(dass21_dep, pc_comp1.2))+
+  geom_point()+
+  ggpubr::stat_cor()
+
+
+dta_cmfsts3_wid_w_dmg_2_agg<- dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,dass21_dep, das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)
+
+
+
+
+
+library(effectsize)
+dta_cmfsts3_wid_w_dmg_2_agg$das_dep_10<- factor(dta_cmfsts3_wid_w_dmg_2_agg$das_dep_10)
+
+effectsize::cohens_d(
+  pc_comp1.2 ~ das_dep_10,
+  data = dta_cmfsts3_wid_w_dmg_2_agg %>% 
+           filter(social_nonsocial == "non-social")
+)
+
+
+library(dplyr)
+library(tidyr)
+
+dta_cmfsts3_wid_w_dmg_2_agg %>%
+  group_by(social_nonsocial, das_dep_10) %>%
+  summarise(
+    mean = mean(pc_comp1.2, na.rm = TRUE),
+    sd = sd(pc_comp1.2, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = das_dep_10,
+    values_from = c(mean, sd, n)
+  ) %>%
+  mutate(
+    mean_diff = mean_low - mean_high,
+    pooled_sd = sqrt(
+      ((n_low - 1) * sd_low^2 + (n_high - 1) * sd_high^2) /
+      (n_low + n_high - 2)
+    ),
+    cohen_d = mean_diff / pooled_sd
+  )
+```
+
+ocial_nonsocial
+<chr>
+mean_high
+<dbl>
+mean_low
+<dbl>
+sd_high
+<dbl>
+sd_low
+<dbl>
+n_high
+<int>
+n_low
+<int>
+mean_diff
+<dbl>
+nonsocial	-0.7492552	0.8259397	2.997052	2.522036	28	19	1.5751948	
+social	-0.1646321	0.2906957	3.269751	2.708864	24	19	0.4553278	
+
+estimate a mixed model for high vs low depression
+
+```{r}
+# start with continuous depression
+
+dta_cmfsts3_wid_w_dmg_2$dass21_dep_z<- scale(dta_cmfsts3_wid_w_dmg_2$dass21_dep)[,1]
+mod_res$power_dep_high_low <- lmer(pc_comp1.2 ~ 1+ social_nonsocial * dass21_dep_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid_w_dmg_2)
+summary(mod_res$power_dep_high_low )
+anova(mod_res$power_dep_high_low )
+
+# 0.3982/0.4333
+#moderate.
+report::report(mod_res$power_dep_high_low )
+
+
+# because in previous visualisations we saw the effect is bigger in non social, likely due to the evaluative nature and restarined nature pof social condition, let's fit a model just. on nosocial 
+
+dta_cmfsts3_wid_w_dmg_2_ns<- dta_cmfsts3_wid_w_dmg_2%>%subset(social_nonsocial!= "social")
+dta_cmfsts3_wid_w_dmg_2_ns$dass21_dep_z<- scale(dta_cmfsts3_wid_w_dmg_2_ns$dass21_dep_z)
+mod_res$power_dep_high_low_nopnsocial <- lmer(pc_comp1.2 ~ 1+ dass21_dep_z + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid_w_dmg_2_ns)
+
+
+summary(mod_res$power_dep_high_low_nopnsocial)
+# still moderate
+
+# group comparison categorically by dass cutoofs - across everyone
+
+mod_res$power_dep_high_low_cut_10 <- lmer(pc_comp1.2 ~ 1+ das_dep_10 *social_nonsocial+ 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid_w_dmg_2)
+
+anova(mod_res$power_dep_high_low_cut_10)
+emmeans::emmeans(mod_res$power_dep_high_low_cut_10, pairwise~das_dep_10, p.adjust = "none")
+summary(mod_res$power_dep_high_low_cut_10)
+
+report::report(mod_res$power_dep_high_low_cut_10)
+report::report_effectsize(mod_res$power_dep_high_low_cut_10)
+# small
+
+
+# just looks at the nonsocial
+mod_res$power_dep_high_low_cut_10_nons <- lmer(pc_comp1.2 ~ 1+ das_dep_10+ 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid_w_dmg_2_ns)
+
+anova(mod_res$power_dep_high_low_cut_10_nons)
+summary(mod_res$power_dep_high_low_cut_10_nons)
+
+report::report_effectsize(mod_res$power_dep_high_low_cut_10_nons)
+# small
+
+```
+
+
+based on the vis above we can take c1 
+
+below we take all above 14 (moderate), and mild are considered low
+```{r}
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_14, pc_comp1.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_14, pc_comp2.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_14, pc_comp3.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+```
+low vs moderate +, rationale, is to see if the moderate group adds noise
+
+
+```{r}
+
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10_low_14_high, pc_comp1.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10_low_14_high, pc_comp2.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+
+dta_cmfsts3_wid_w_dmg_2%>%
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10_low_14_high, pc_comp3.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+
+
+
+```
+
+
+evidence of small to moderate, because we are being conservative, we can probably go for the higher  given that we expect that social interaction task will be more powerful (medium/moderate)
+
+estimate power for a number of designs
+- between comparison on aggregated data
+- mixed model between subj comparison
+- simulation stuff
+
+
+
+- simulation stuff
+simrmr
+```{r}
+
+
+
+```
+
+```{r}
+dta_cmfsts3_wid_w_dmg_2%>%
+#  if das_dep_10  == low, add a gaussian that makes them more high on pc_comp1.2 by up to 2 compared to low group and vice versa
+  # mutate(pc_comp1.2_sim = if_else())
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10, pc_comp1.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+  
+  
+  library(dplyr)
+
+set.seed(123)
+
+dta_sim_agg <- dta_cmfsts3_wid_w_dmg_2 %>%
+  mutate(
+    sim_shift = case_when(
+      das_dep_10 == "low" ~ pmin(pmax(rnorm(n(), mean = 1,  sd = 0.5), 0), 2),
+      das_dep_10 != "low" ~ -pmin(pmax(rnorm(n(), mean = 1, sd = 0.5), 0), 2),
+      TRUE ~ NA_real_
+    ),
+    `pc_comp1.2_sim` = `pc_comp1.2` + sim_shift
+  ) %>%
+  group_by(participant, social_nonsocial, das_dep_10, das_dep_14, das_dep_10_low_14_high) %>%
+  summarise(
+    across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+    .groups = "drop"
+  )
+
+
+
+dta_cmfsts3_wid_w_dmg_2%>%
+#  if das_dep_10  == low, add a gaussian that makes them more high on pc_comp1.2 by up to 2 compared to low group and vice versa
+  # mutate(pc_comp1.2_sim = if_else())
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10, pc_comp1.2))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+  
+  
+  dta_sim_agg%>%
+
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10, pc_comp1.2_sim))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+```
+
+
+```{r}
+
+library(dplyr)
+
+set.seed(123)
+
+dta_sim_low_power <- dta_cmfsts3_wid_w_dmg_2 %>%
+  mutate(
+    `pc_comp1.2_sim` = `pc_comp1.2` + rnorm(n(), mean = 0, sd = 2)
+  ) %>%
+  group_by(participant, social_nonsocial, dass21_dep, das_dep_10, das_dep_14, das_dep_10_low_14_high) %>%
+  summarise(
+    across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+    .groups = "drop"
+  )
+
+
+table(dta_sim_low_power$das_dep_10, dta_sim_low_power$social_nonsocial)
+  dta_sim_low_power%>%
+
+  group_by(participant, social_nonsocial,das_dep_10, das_dep_14, das_dep_10_low_14_high)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(das_dep_10, pc_comp1.2_sim))+
+  geom_jitter(width = .1, alpha = .2)+
+  stat_summary(geom = "pointrange")+
+  facet_grid(~social_nonsocial)+
+  ggpubr::stat_compare_means()
+
+```

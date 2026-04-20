@@ -926,12 +926,23 @@ dta_mfa_part4$mfa_pc3_contrib<- mod_res$mfa_result_long_new$ind$contrib[,3]
 
 dta_mfa_part4$mfa_pc1_cos2 <- mod_res$mfa_result_long_new$ind$cos2[,1]
 
-mod_res$mfa_pc1_lmer <- lmer(mfa_pc1 ~ 1+ social_nonsocial +  
+mod_res$mfa_pc1_lmer <- lmer(mfa_pc1 ~ 1+ social_nonsocial *subj_emo_lab_no_amb+  
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
+mod_res$mfa_pc2_lmer <- lmer(mfa_pc2 ~ 1+ social_nonsocial *subj_emo_lab_no_amb+  
                      (1|participant) + #subjective_emotion doesn't converge
                      (1|stim_iaps), #social_nonsocial doesn't converge
                    REML = FALSE,
                    data = dta_mfa_part4)
 
+
+mod_res$mfa_pc3_lmer <- lmer(mfa_pc3 ~ 1+ social_nonsocial *subj_emo_lab_no_amb+  
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_mfa_part4)
 
 mod_res$mfa_pc1_lmer <- lmer(mfa_pc1 ~ 1+ social_nonsocial +  
                      (1|participant) + #subjective_emotion doesn't converge
@@ -955,7 +966,9 @@ mod_res$mfa_pc1_cos2 <- lmer(mfa_pc1_cos2 ~ 1+ social_nonsocial +
 require(lmerTest)
 library(car)
 library(afex)
-afex::ano(mod_res$mfa_pc1_lmer)
+anova(mod_res$mfa_pc1_lmer)
+
+anova(mod_res$mfa_pc2_lmer)
 anova(mod_res$mfa_pc1_contrib)
 
 anova(mod_res$mfa_pc1_cos2)
