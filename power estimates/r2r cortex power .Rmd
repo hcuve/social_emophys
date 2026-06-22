@@ -1,0 +1,112 @@
+---
+title: "cortex R2R - power approximations "
+author: "helio"
+date: "2026-06-22"
+output: html_document
+---
+
+```{r}
+
+suppressPackageStartupMessages({
+  library(lme4)
+  library(simr)
+  library(WebPower)
+})
+
+```
+
+
+
+```{r}
+set.seed(123)
+
+cat('--- ASSUMPTIONS ---\n')
+n_social <- 43
+n_control <- 46
+n_total <- n_social + n_control
+n_stim <- 60
+emotion_levels <- c('anger', 'disgust', 'fear', 'happy', 'neutral', 'sad')
+
+# Fixed effects used throughout
+main_social <- 0.30
+happy_interaction <- 0.20
+emotion_effects <- c(
+  anger = 0.00,
+  disgust = 0.10,
+  fear = 0.00,
+  happy = 0.05,
+  neutral = -0.05,
+  sad = 0.00
+)
+```
+
+# Variance components
+
+```{r}
+# set some random structure parameters
+participant_sd <- 0.30
+stim_sd <- 0.10
+resid_sd <- 1.00
+stim_per_emotion <- 10
+
+cat('n_total =', n_total, '\n')
+cat('groups =', n_social, 'social,', n_control, 'control\n')
+cat('n_stim =', n_stim, '\n')
+cat('emotion_levels =', paste(emotion_levels, collapse = ', '), '\n')
+cat('main_social =', main_social, '\n')
+cat('happy_interaction =', happy_interaction, '\n')
+cat('participant_sd =', participant_sd, '\n')
+cat('stim_sd =', stim_sd, '\n')
+cat('resid_sd =', resid_sd, '\n\n')
+
+cat('--- PART 1: simr MIXED-MODEL SENSITIVITY ANALYSIS ---\n')
+
+# Build design used for simr
+social_ids <- paste0('S', seq_len(n_social))
+control_ids <- paste0('C', seq_len(n_control))
+participant_order <- as.vector(rbind(c(social_ids, rep(NA, n_control - n_social)), control_ids))
+participant_order <- participant_order[!is.na(participant_order)]
+
+participant_df <- data.frame(
+  participant = factor(participant_order, levels = participant_order),
+  social = ifelse(grepl('^S', participant_order), 1, 0)
+)
+
+stim_df <- data.frame(
+  stim = factor(seq_len(n_stim)),
+  emotion = factor(rep(emotion_levels, each = 10), levels = emotion_levels)
+)
+
+dat <- merge(participant_df, stim_df, all = TRUE)
+dat <- dat[order(dat$participant, dat$stim), ]
+
+fixef_vec <- c(
+  '(Intercept)' = 0.00,
+  'social' = main_social,
+  'emotiondisgust' = emotion_effects['disgust'],
+  'emotionfear' = emotion_effects['fear'],
+  'emotionhappy' = emotion_effects['happy'],
+  'emotionneutral' = emotion_effects['neutral'],
+  'emotionsad' = emotion_effects['sad'],
+  'social:emotiondisgust' = 0.00,
+  'social:emotionfear' = 0.00,
+  'social:emotionhappy' = happy_interaction,
+  'social:emotionneutral' = 0.00,
+  'social:emotionsad' = 0.00
+)
+
+m1 <- makeLmer(
+  y ~ social * emotion + (1 | participant) + (1 | stim),
+  fixef = fixef_vec,
+  VarCorr = list(
+    participant = participant_sd^2,
+    stim = stim_sd^2
+  ),
+  sigma = resid_sd,
+  data = dat
+)
+
+#  run settings that are reasonable, given that this can takle a long time
+ps_social <- powerSim(m1, test = fixed('social', method = 'z'), nsim = 100)
+ps_happy <- powerSim(m1, test = fixed('social:emotionhappy', method = 'z'), nsim = 100)
+```

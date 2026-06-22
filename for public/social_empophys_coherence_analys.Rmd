@@ -14,7 +14,7 @@ load(soc_emophys_pathsR_keep_private$cohr_rdata)
 dta_pca1_3_face_92 <- readRDS(soc_emophys_paths$backup_rdata, "/dta_pca1_3_face_92.rds")
 
 unique(dta_pca1_3_face_92$participant)
-
+dta_emo$
 dta_mfa_part1<- dta_emo[,c("val_slider_response","int_slider_response","happy_slide_response","sad_slide_response","fear_slide_response","disgust_slide_response","anger_slide_response","hr_mean_diff","log_cda_iscr","social_nonsocial","participant","stim_iaps",
                            "social_nonsocial", "emotioncategory", "subj_emo_lab_no_amb")]
 
@@ -879,7 +879,7 @@ Long format sanity check below, where number of observations will be greater tha
 
 dta_mfa_part4
 colnames(dta_mfa_part4)
-
+colnames(dta_mfa_part4[,7:18])
 dta_mfa_part4_imptd <- missMDA::imputeMFA(dta_mfa_part4[,7:18],
                                                ncp=2,
                                                 group=c(7, 1, 1, 3),
@@ -1045,7 +1045,69 @@ dta_mfa_part4%>%
 
 
 
+Cortex r2r 22 June
+```{r}
+load("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/s4sndata_select.RData")
 
+load("~/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/Data backup/RData/socialemphys_coherence.RData")
+# aggregate variables by experimental emotion categories, put back to wide then fit the MFA model again
+```
+
+
+aggregated by ground truth (iaps)
+```{r}
+colnames(dta_emo_4mfa)
+dta_emo_agg<- dta_emo%>%
+  group_by(participant,social_nonsocial, emotioncategory)%>%
+  summarise_if(is.numeric, mean, na.rm = T)
+
+
+
+
+tmp_var<- c("val_slider_response","int_slider_response","happy_slide_response","sad_slide_response","fear_slide_response","disgust_slide_response","anger_slide_response","hr_mean_diff","log_cda_phasic_max","mean_fix_dur","mean_sac_amp","au14_dimpler","au12_lip_corner_pull","au_04_brow_lower","au26_jaw_drop","au01_inner_brow_raise","au02_outer_brow_raise","au05_eye_lid_raise","au06_cheek_raise","au07_eye_lid_tighten","au09_nose_wrinkle","au10_upper_lip_raise","au15_lip_corner_depress","au20_lip_stretch","au17_chin_raise","au23_lip_tighten","au25_lips_apart","au45_eye_blink","social_nonsocial","participant","emotioncategory")
+dta_emo_agg
+dta_emo_agg1<- dta_emo_agg[, tmp_var] 
+
+dta_emo_agg_wide_mfa<- dta_emo_agg1 %>%
+ pivot_wider(
+    id_cols     = c("participant", "social_nonsocial"),
+    names_from  = c("emotioncategory"),
+    values_from = tmp_var[1:28],
+    names_sep   = "_"   # optional: how to separate the original column name from the stimulus ID
+  )
+
+
+dta_emo_agg_wide_mfa
+unique(dta_emo_agg$emotioncategory)
+dta_emo_agg
+
+6*7
+6*17
+colnames(dta_emo_agg_wide_mfa)
+?MFA
+colnames(dta_emo_agg_wide_mfa)
+mod_res$mfa_result_wide_agg <- MFA(dta_emo_agg_wide_mfa[,c(3:170,2)],
+                          group=c(42,6,6,12,102,1),
+                          type=c("s","s","s","s","s","n"),  
+                          name.group= c("subj_aff","phys_hr","phys_scr","gaze","face","social_non_soc"),
+                          num.group.sup=c(6),#position of group above
+                          graph=FALSE)
+
+
+
+
+
+
+
+
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 1)
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 2)
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 3)
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 4)
+fviz_contrib(mod_res$mfa_result_wide_agg, "group", axes = 5)
+
+
+```
 
 
 

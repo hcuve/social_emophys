@@ -342,6 +342,7 @@ plts$hr_scr_patch<- (plts$hr_ptchw| plts$scr_ptchw)
   plot_annotation(tag_levels = "A")
 
 
+plts$hr_scr_patch
 setwd(soc_emophys_paths$figures)
 
 ggsave("plts_hr_scr_patch.png",plts$hr_scr_patch,  dpi = 300, width = 14, height = 7,  units = "in",
@@ -352,4 +353,60 @@ ggsave("plts_hr_scr_patch.tiff",plts$hr_scr_patch,  dpi = 300, width = 14, heigh
 
 
 save.image(soc_emophys_paths$lmer_data_jd)
+```
+
+
+
+```{r}
+# install.packages(c("lme4", "simr"))
+library(lme4)
+library(simr)
+install.packages("simr")
+
+set.seed(123)
+
+# Design skeleton
+n_participants <- 89
+n_stim <- 60
+
+dat <- expand.grid(
+  participant = factor(seq_len(n_participants)),
+  stim = factor(seq_len(n_stim))
+)
+
+# Between-subject social condition: 43 social, 46 control
+dat <- dat[order(dat$participant, dat$stim), ]
+dat$social <- rep(c(rep(1, 43), rep(0, 46)), each = n_stim)
+
+# Optional: add emotion if you want the full structure
+emotion_levels <- c("anger", "disgust", "fear", "happy", "neutral", "sad")
+dat$emotion <- factor(rep(rep(emotion_levels, each = 10), times = n_participants),
+                      levels = emotion_levels)
+
+# Standardized outcome
+# Fixed effect: representative social main effect = 0.30 SD units
+beta_0 <- 0.00
+beta_social <- 0.30
+
+# Random intercept SDs
+sd_participant <- 0.30
+sd_stim <- 0.10
+sd_resid <- 1.00
+
+# Build a model object with fixed variance components
+m0 <- makeLmer(
+  y ~ social + (1 | participant) + (1 | stim),
+  fixef = c("(Intercept)" = beta_0, "social" = beta_social),
+  VarCorr = list(
+    participant = sd_participant^2,
+    stim = sd_stim^2
+  ),
+  sigma = sd_resid,
+  data = dat
+)
+
+# Power for the main social effect
+ps <- powerSim(m0, test = fixed("social", method = "z"), nsim = 1000)
+ps
+
 ```

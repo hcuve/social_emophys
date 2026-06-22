@@ -64,6 +64,8 @@ table(dta_face_z_shift_3$participant, dta_face_z_shift_3$stim_iaps)
 
 unique(dta_face_z_shift_3$frame)
 
+dta_face_z
+
 
 dta_face_z_shift_3<- dta_face_z_shift_3%>%
   arrange(filename, frame)%>%
@@ -73,6 +75,236 @@ dta_face_z_shift_3<- dta_face_z_shift_3%>%
 unique(dta_face_z_shift_3$bin_frame)
 ```
 
+
+```{r}
+
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Identify AU columns; adapt the pattern if your columns differ
+au_cols <- grep("^au[0-9]{2}_r_smt$", names(dta_face_z_shift_3), value = TRUE)
+
+au_cols
+
+dta_face_long <- dta_face_z_shift_3 %>%
+  arrange(filename, frame) %>%
+  group_by(filename) %>%
+  mutate(bin_frame = row_number()) %>%
+  ungroup() %>%
+  pivot_longer(
+    cols = all_of(au_cols),
+    names_to = "AU",
+    values_to = "AU_value"
+  )
+
+# Trial-level expressiveness: average absolute AU activity per trial
+trial_expr <- dta_face_long %>%
+  group_by( stim_iaps, AU) %>%
+  summarise(
+    mean_abs_AU = mean(abs(AU_value), na.rm = TRUE),
+    peak_abs_AU = max(abs(AU_value), na.rm = TRUE),
+    sd_AU = sd(AU_value, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+summary(trial_expr$mean_abs_AU)
+summary(trial_expr$peak_abs_AU)
+participant_expr <- trial_expr %>%
+  group_by(participant) %>%
+  summarise(
+    mean_abs_AU = mean(mean_abs_AU, na.rm = TRUE),
+    mean_peak_abs_AU = mean(peak_abs_AU, na.rm = TRUE),
+    mean_sd_AU = mean(sd_AU, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+summary(participant_expr)
+
+```
+
+```{r}
+
+# trial_expr%>%
+  # group_by(stim_iaps)%>%
+ggplot(trial_expr, aes(x = log1p(mean_abs_0+.01))) +
+  geom_histogram(bins = 30) +
+  geom_histogram(aes(x = log1p(sd_AU+.01)), bins = 30, fill = "blue") 
+
+
+ggplot(trial_expr, aes(x = log1p(sd_AU+.01))) +
+  geom_histogram(bins = 30) +
+  labs(
+    # x = "Mean absolute AU activity",
+    y = "Number of participants"
+  )
+
+
+ggplot(participant_expr, aes(x = log1p(mean_abs_AU+.01))) +
+  geom_histogram(bins = 30) +
+    geom_histogram(aes(x = log1p(mean_sd_AU+.01)), bins = 30, fill = "blue") +  
+  labs(
+    # x = "Mean absolute AU activity",
+    y = "Number of participants"
+  )
+
+
+ggplot(participant_expr, aes(x = log1p(mean_sd_AU+.01))) +
+  geom_histogram(bins = 30) +
+  labs(
+    # x = "Mean absolute AU activity",
+    y = "Number of participants"
+  )
+
+
+
+
+ggplot(
+  participant_expr,
+  aes(x = log1p(mean_abs_AU+.001), y = log1p(mean_sd_AU+.001))
+) +
+  geom_point(size = 2.4, alpha = .75) +
+  # geom_vline(xintercept = q_abs, linetype = "dashed", linewidth = .4) +
+  # geom_hline(yintercept = q_sd, linetype = "dashed", linewidth = .4) +
+  labs(
+    x = "Mean AU activity",
+    y = "Mean within-trial AU variability"
+  ) +
+  ggside::geom_xsidehistogram(bins = 25) +
+  ggside::geom_ysidehistogram(bins = 25) +
+  theme_classic(base_size = 12)
+
+p_expr_scatter
+
+```
+
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# AU columns
+au_cols <- grep("^au[0-9]{2}_r_smt$", names(dta_face_z_shift_3), value = TRUE)
+
+# Long-format AU time-series
+
+
+au_ts_mean <- dta_face_long %>%
+  #  group_by(participant, AU) %>%
+  # mutate(
+  #   au_z = as.numeric(scale(AU_value))
+  # ) %>%
+  ungroup()%>%
+  group_by(subj_emo_lab_no_amb, AU, bin_frame) %>%
+  summarise(
+    mean_AU = mean(abs(AU_value), na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(
+  au_ts_mean,
+  aes(x = bin_frame, y = AU, fill = mean_AU)
+) +
+  geom_tile() +
+  facet_grid(
+   ~ subj_emo_lab_no_amb ,
+    scales = "free_y",
+    space = "free_y"
+  ) +
+  scale_fill_viridis_c(option = "magma")+
+  labs(
+    x = "Frame within trial",
+    y = "AU",
+    fill = "Mean AU"
+  ) 
+  # theme(
+  #   axis.text.y = element_text(size = 7),
+  #   panel.spacing = unit(0.6, "lines")
+  # )
+ggplot(
+  au_ts_mean,
+  aes(x = subj_emo_lab_no_amb, y = AU, fill = mean_AU)
+) +
+  geom_tile() +
+  # facet_grid(
+  #   ~subj_emo_lab_no_amb ,
+  #   scales = "free_y",
+  #   space = "free_y"
+  # ) +
+  # labs(
+  #   x = "Frame within trial",
+  #   y = "AU",
+  #   fill = "SD AU"
+  # ) +
+    scale_fill_viridis_c(option = "magma")+
+  theme(
+    axis.text.y = element_text(size = 7),
+    panel.spacing = unit(0.6, "lines")
+  )
+
+```
+
+```{r}
+
+au_ts_sd <- dta_face_long %>%
+  group_by(participant, AU) %>%
+  mutate(
+    au_z = as.numeric(scale(AU_value))
+  ) %>%
+  group_by(subj_emo_lab_no_amb, AU, bin_frame) %>%
+  summarise(
+    sd_AU = sd(abs(au_z ), na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(
+  au_ts_sd,
+  aes(x = bin_frame, y = AU, fill = sd_AU)
+) +
+  geom_tile() +
+  facet_grid(
+    ~subj_emo_lab_no_amb ,
+    scales = "free_y",
+    space = "free_y"
+  ) +
+  labs(
+    x = "Frame within trial",
+    y = "AU",
+    fill = "SD AU"
+  ) +
+    scale_fill_viridis_c(option = "magma")+
+  theme(
+    axis.text.y = element_text(size = 7),
+    panel.spacing = unit(0.6, "lines")
+  )
+
+
+
+ggplot(
+  au_ts_sd,
+  aes(x = subj_emo_lab_no_amb, y = AU, fill = sd_AU)
+) +
+  geom_tile() +
+  # facet_grid(
+  #   ~subj_emo_lab_no_amb ,
+  #   scales = "free_y",
+  #   space = "free_y"
+  # ) +
+  # labs(
+  #   x = "Frame within trial",
+  #   y = "AU",
+  #   fill = "SD AU"
+  # ) +
+    scale_fill_viridis_c(option = "magma")+
+  theme(
+    axis.text.y = element_text(size = 7),
+    panel.spacing = unit(0.6, "lines")
+  )
+
+```
 # apply NMF
 install.packages("NMF")
 require(NMF)
@@ -603,7 +835,43 @@ mod_res$pc_comp2.2.lmer <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_
                      (1|stim_iaps), #social_nonsocial doesn't converge
                    REML = FALSE,
                    data = dta_cmfsts3_wid)
+require(lmerTest)
 
+
+
+mod_res$pc_comp2.2.lmer_slope_r2 <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1+subj_emo_lab_no_amb|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+anova(mod_res$pc_comp2.2.lmer_slope_r2)
+# mod_res$pc_comp2.2.lmer_slope_r2 <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+# +                      (1+subj_emo_lab_no_amb|participant) + #subjective_emotion doesn't converge
+# +                      (1|stim_iaps), #social_nonsocial doesn't converge
+# +                    REML = FALSE,
+# +                    data = dta_cmfsts3_wid)
+# boundary (singular) fit: see help('isSingular')
+# Warning: Model failed to converge with 2 negative eigenvalues: -4.4e-02 -2.0e+02
+
+# The 0 + removes the random intercept for participant. So this model allows participants to vary only in their slope for subj_emo_lab_no_amb, but it does not allow participants to have different baseline levels of pc_comp2.2.
+# 
+# this is less theorethical than what r2 suggest
+
+
+mod_res$pc_comp2.2.lmer_slope_r2_2 <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (0+subj_emo_lab_no_amb|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_cmfsts3_wid)
+anova(mod_res$pc_comp2.2.lmer_slope_r2, mod_res$pc_comp2.2.lmer, mod_res$pc_comp2.2.lmer_slope_r2_2)
+# mod_res$pc_comp2.2.lmer_slope_r2_2 <- lmer(pc_comp2.2 ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+# +                      (0+subj_emo_lab_no_amb|participant) + #subjective_emotion doesn't converge
+# +                      (1|stim_iaps), #social_nonsocial doesn't converge
+# +                    REML = FALSE,
+# +                    data = dta_cmfsts3_wid)
+# boundary (singular) fit: see help('isSingular')
+# Warning: Model failed to converge with 1 negative eigenvalue: -1.9e+01
+anova(mod_res$pc_comp2.2.lmer_slope_r2_2)
 
 
 
@@ -664,9 +932,23 @@ emmeans::emmeans(mod_res$pc_comp2.2.lmer, pairwise ~ subj_emo_lab_no_amb,
 emmeans::emmeans(mod_res$pc_comp3.2.lmer, pairwise ~ subj_emo_lab_no_amb, 
                  adjust = "tukey")
 
+emmeans::emmeans(mod_res$pc_comp2.2.lmer, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
 emmeans::emmeans(mod_res$pc_comp2.2.lmer, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
                  adjust = "tukey")
+
+
+
 emmeans::emmeans(mod_res$pc_comp2.2.lmer, pairwise ~ subj_emo_lab_no_amb|social_nonsocial, 
+                 adjust = "tukey")
+
+
+
+anova(mod_res$pc_comp2.2.lmer_slope_r2)
+
+emmeans::emmeans(mod_res$pc_comp2.2.lmer_slope_r2, pairwise ~ subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+emmeans::emmeans(mod_res$pc_comp2.2.lmer_slope_r2, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
                  adjust = "tukey")
 ```
 
@@ -872,6 +1154,133 @@ To enable adjustments, add the argument 'lmerTest.limit = 5520' (or larger)
 but be warned that this may result in large computation time and memory use.
 
 
+
+```{r}
+colnames(dta_cmfsts3_wid)
+AU4+7
+
+dta_face_z_shift_1_agg<- dta_face_z_shift_1%>%
+ group_by(participant,stim_iaps,subj_emo_lab_no_amb,social_nonsocial)%>%
+ summarise_if(is.numeric, mean,na.rm = T)
+
+colnames(dta_face_z_shift_1)
+
+dta_face_z_shift_1_agg$au4_7_mean <-  (dta_face_z_shift_1_agg$au04_r_smt+dta_face_z_shift_1_agg$au07_r_smt)/2
+
+dta_face_z_shift_1_agg$au4_7_sum <-  (dta_face_z_shift_1_agg$au04_r_smt+dta_face_z_shift_1_agg$au07_r_smt)
+
+
+
+mod_res$au_4_7_mean <- lmer(au4_7_mean ~ 1+ social_nonsocial * subj_emo_lab_no_amb + 
+                     (1|participant) + #subjective_emotion doesn't converge
+                     (1|stim_iaps), #social_nonsocial doesn't converge
+                   REML = FALSE,
+                   data = dta_face_z_shift_1_agg)
+
+anova(mod_res$au_4_7_mean)
+emmeans::emmeans(mod_res$au_4_7_mean, pairwise ~ social_nonsocial|subj_emo_lab_no_amb, 
+                 adjust = "tukey")
+
+
+require(tidyverse)
+
+dta_face_z_shift_1_agg%>%
+  group_by(participant, social_nonsocial, subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, log1p(au4_7_mean+.1)))+
+  stat_summary(geom = "pointrange")+
+  # geom_boxplot()+
+  geom_jitter(width = .1, alpha = .1)+
+  facet_grid(~ subj_emo_lab_no_amb)
+
+dta_face_z_shift_1_agg %>%
+  group_by(participant, social_nonsocial, subj_emo_lab_no_amb) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)), .groups = "drop") %>%
+  mutate(au4_7_plot = log1p(au4_7_mean + .1)) %>%
+  ggplot(aes(social_nonsocial, au4_7_plot)) +
+  geom_jitter(width = .1, alpha = .1) +
+  stat_summary(
+    fun.data = mean_cl_boot,
+    geom = "pointrange",
+    size = 0.7
+  ) +
+  ylab("AUs 4+7")+
+  facet_grid(~ subj_emo_lab_no_amb)
+```
+library(dplyr)
+library(lme4)
+library(lmerTest)
+
+library(purrr)
+```{r}
+library(emmeans)
+# Aggregate first: participant × stimulus/trial level
+# This avoids treating every video frame as an independent observation.
+rm(face_agg)
+
+
+# Reviewer-requested AU composites
+dta_face_z_shift_1_agg <- dta_face_z_shift_1_agg %>%
+  mutate(
+    au_happiness = rowMeans(across(c(au12_r_smt, au06_r_smt)), na.rm = TRUE),          # AU12 + AU6
+    au_anger     = rowMeans(across(c(au04_r_smt, au05_r_smt, au07_r_smt, au23_r_smt)), na.rm = TRUE), # AU4 + AU5 + AU7 + AU23
+    au_sadness   = rowMeans(across(c(au01_r_smt, au04_r_smt, au15_r_smt)), na.rm = TRUE),             # AU1 + AU4 + AU15
+    au_fear      = rowMeans(across(c(au01_r_smt, au02_r_smt, au05_r_smt, au26_r_smt)), na.rm = TRUE), # AU1 + AU2 + AU5 + AU26
+    au_disgust   = rowMeans(across(c(au09_r_smt, au10_r_smt)), na.rm = TRUE),          # AU9 + AU10
+    au4_7        = rowMeans(across(c(au04_r_smt, au07_r_smt)), na.rm = TRUE)           # C2-specific follow-up
+  )
+
+
+fit_au_composite <- function(outcome, data = dta_face_z_shift_1_agg) {
+  formula <- as.formula(
+    paste0(outcome, " ~ social_nonsocial * subj_emo_lab_no_amb + ",
+           "(1 | participant) + (1 | stim_iaps)")
+  )
+  
+  model <- lmer(formula, data = data, REML = FALSE)
+  
+  list(
+    model = model,
+    anova = anova(model, type = 3),
+    social_by_emotion = emmeans(
+      model,
+      pairwise ~ social_nonsocial | subj_emo_lab_no_amb,
+      adjust = "tukey"
+    ),
+    emotion_pairs = emmeans(
+      model,
+      pairwise ~ subj_emo_lab_no_amb,
+      adjust = "tukey"
+    ),
+    diagnostics = list(
+      singular = isSingular(model),
+      convergence = model@optinfo$conv
+    )
+  )
+}
+
+au_models <- list(
+  happiness = fit_au_composite("au_happiness"),
+  anger     = fit_au_composite("au_anger"),
+  sadness   = fit_au_composite("au_sadness"),
+  fear      = fit_au_composite("au_fear"),
+  disgust   = fit_au_composite("au_disgust"),
+  c2_au4_7  = fit_au_composite("au4_7")
+)
+
+map(au_models, "anova")
+map(au_models, "social_by_emotion")
+map(au_models, "emotion_pairs")
+map(au_models, "diagnostics")
+  
+```
+dta_face_z_shift_1_agg%>%
+  group_by(participant, social_nonsocial, subj_emo_lab_no_amb)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(social_nonsocial, au4_7_sum))+
+  stat_summary(geom = "pointrange")+
+  geom_jitter(width = .1, alpha = .1)+
+  facet_grid(~ subj_emo_lab_no_amb)
 ```{r}
 setwd(soc_emophys_paths$backup_rdata)
 
