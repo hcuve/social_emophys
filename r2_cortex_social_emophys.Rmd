@@ -1,0 +1,505 @@
+---
+title: "r2_cortex_social_emophys"
+author: "helio"
+date: "2026-07-30"
+output: html_document
+---
+
+
+related data: load("/Users/pw22812/Library/CloudStorage/OneDrive-UniversityofBristol/AffexLab/Research Projects/EmotionPhysio2024/2023-24 Project/JD_EmotionPhysio/Mixed Models Analysis/Mixed_models_output.RData")
+related script: Mixed_models_analysis_JD.Rmd
+
+
+```{r}
+library(ggeffects)
+library(emmeans)
+
+time_seq <- seq(
+  min(face_time_z_scored$timestamp_z, na.rm = TRUE),
+  max(face_time_z_scored$timestamp_z, na.rm = TRUE),
+  length.out = 100
+)
+
+emotion_AU_time <- emmeans(
+  face_time_results$,
+  ~ subj_emo_lab_no_amb | social_nonsocial * timestamp_z,
+  at = list(timestamp_z = time_seq)
+) |>
+  confint() |>
+  as.data.frame()
+
+emotion_AU_time
+# 
+require(tidyverse)
+ggplot(
+  emotion_AU_time,
+  aes(
+    x = timestamp_z,
+    y = emmean,
+    colour = subj_emo_lab_no_amb,
+    fill = subj_emo_lab_no_amb
+  )
+) +
+  # geom_ribbon(
+  #   aes(
+  #     ymin = lower.CL,
+  #     ymax = upper.CL
+  #   ),
+  #   alpha = .12,
+  #   colour = NA
+  # ) +
+  stat_summary(geom = "line")+
+  # geom_line(linewidth = 1) +
+  # facet_wrap(~ social_nonsocial) +
+  labs(
+    x = "Time",
+    y = "Estimated AU45 activity",
+    colour = "Emotion",
+    fill = "Emotion"
+  ) +
+  theme_classic()
+
+```
+
+
+
+Predict AU data directly 
+```{r}
+face_time_pred <- face_time_z_scored |>
+  mutate(
+    pred_AU45 = predict(
+      face_time_results$eye_blink,
+      newdata = face_time_z_scored,
+      re.form = NULL
+    )
+  )
+  
+  pred_plot <- face_time_pred |>
+  group_by(subj_emo_lab_no_amb, timestamp_z) |>
+  summarise(
+    pred_AU45 = mean(pred_AU45, na.rm = TRUE),
+    .groups = "drop"
+  )
+  
+  ggplot(
+  pred_plot,
+  aes(
+    x = timestamp_z,
+    y = pred_AU45,
+    colour = subj_emo_lab_no_amb
+  )
+) +
+  geom_line(linewidth = 1) +
+  labs(
+    x = "Time",
+    y = "Predicted AU45",
+    colour = "Emotion"
+  ) +
+  theme_classic()
+  
+  
+  
+
+```
+
+raw data
+
+```{r}
+colnames(face_time_z_scored)
+face_time_results$Brow_lower #au4
+# au7 eyelid_tighten
+face_time_results$eyelid_tighten 
+
+face_time_z_scored$au04_r_smt_fitted <- fitted(
+  face_time_results$Brow_lower
+)
+
+face_time_z_scored$au07_r_smt_fitted <- fitted(
+  face_time_results$eyelid_tighten
+)
+
+
+face_time_z_scored$au07_r_smt_fitted <- fitted(
+  face_time_results$eyelid_tighten
+)
+
+face_time_z_scored$au25_r_smt_fitted <- fitted(
+  face_time_results$lips_apart
+)
+
+
+face_time_z_scored$au45_r_smt_fitted <- fitted(
+  face_time_results$eye_blink
+)
+
+table(face_time_z_scored$participant)
+
+# names(face_time_results)
+# [1] "Inner_brow"         "Outer_brow"         "Brow_lower"         "eyelid_raise"       "cheek_raise"        "eyelid_tighten"     "nose_wrinkle"      
+#  [8] "upper_lip_raise"    "lip_corner_pull"    "dimpler"            "lip_corner_depress" "chin_raise"         "lip_stretch"        "lip_tighten"       
+# [15] "lips_apart"         "jaw_drop"           "eye_blink"  
+colnames(face_time_z_scored)
+
+# frame"               "timestamp"           "confidence"          "success"             "filename"            "au01_r_smt"         
+#  [7] "au02_r_smt"          "au04_r_smt"          "au05_r_smt"          "au06_r_smt"          "au07_r_smt"          "au09_r_smt"         
+# [13] "au10_r_smt"          "au12_r_smt"          "au14_r_smt"          "au15_r_smt"          "au17_r_smt"          "au20_r_smt"         
+# [19] "au23_r_smt"          "au25_r_smt"          "au26_r_smt"          "au45_r_smt"          "stim_iaps"           "participant"        
+# [25] "social_nonsocial"    "subj_emo_lab_no_amb" "timestamp_z"
+
+# store the fitted au value
+# e.g.
+face_time_z_scored$au04_r_smt_fitted <- fitted(
+  face_time_results$Brow_lower
+)
+
+
+face_time_z_scored%>%
+  group_by(face_time_z_scored$participant, subj_emo_lab_no_amb, timestamp_z)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(timestamp_z, au45_r_smt,colour = subj_emo_lab_no_amb))+
+  # stat_smooth()
+  stat_summary(geom = "pointrange",size = .1)
+
+
+face_time_z_scored%>%
+  group_by(face_time_z_scored$participant, subj_emo_lab_no_amb, timestamp_z)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(timestamp_z, au45_r_smt_fitted, colour = subj_emo_lab_no_amb))+
+  # stat_smooth()
+  stat_summary(geom = "pointrange",size = .1)
+
+
+
+
+```
+
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+library(stringr)
+
+# Labels corresponding to the names of face_time_results
+au_labels <- c(
+  Inner_brow         = "AU01 — Inner brow raiser",
+  Outer_brow         = "AU02 — Outer brow raiser",
+  Brow_lower         = "AU04 — Brow lowerer",
+  eyelid_raise       = "AU05 — Upper-lid raiser",
+  cheek_raise        = "AU06 — Cheek raiser",
+  eyelid_tighten     = "AU07 — Lid tightener",
+  nose_wrinkle       = "AU09 — Nose wrinkler",
+  upper_lip_raise    = "AU10 — Upper-lip raiser",
+  lip_corner_pull    = "AU12 — Lip-corner puller",
+  dimpler            = "AU14 — Dimpler",
+  lip_corner_depress = "AU15 — Lip-corner depressor",
+  chin_raise         = "AU17 — Chin raiser",
+  lip_stretch        = "AU20 — Lip stretcher",
+  lip_tighten        = "AU23 — Lip tightener",
+  lips_apart         = "AU25 — Lips apart",
+  jaw_drop           = "AU26 — Jaw drop",
+  eye_blink          = "AU45 — Eye blink"
+)
+
+# Check that all model names have a corresponding label
+missing_labels <- setdiff(names(face_time_results), names(au_labels))
+
+if (length(missing_labels) > 0) {
+  stop(
+    "Missing AU labels for: ",
+    paste(missing_labels, collapse = ", ")
+  )
+}
+
+# Extract observed and fitted values from every model
+au_time_long <- imap_dfr(
+  face_time_results,
+  function(model, model_name) {
+
+    # Contains exactly the observations used by this model
+    model_data <- model.frame(model)
+
+    # Outcome variable from the left-hand side of the formula
+    outcome <- all.vars(formula(model))[1]
+
+    tibble(
+      participant = model_data$participant,
+      emotion = model_data$subj_emo_lab_no_amb,
+      timestamp_z = model_data$timestamp_z,
+
+      au_name = model_name,
+      au_label = unname(au_labels[model_name]),
+
+      observed = model_data[[outcome]],
+      fitted = unname(fitted(model))
+    )
+  }
+) %>%
+  pivot_longer(
+    cols = c(observed, fitted),
+    names_to = "series",
+    values_to = "au_value"
+  ) %>%
+  mutate(
+    series = recode(
+      series,
+      observed = "Observed AU activity",
+      fitted = "Model-fitted AU activity"
+    ),
+    series = factor(
+      series,
+      levels = c(
+        "Observed AU activity",
+        "Model-fitted AU activity"
+      )
+    )
+  )
+
+# Calculate clean participant-level trajectories
+# 
+# This first averages across trials within each participant, emotion and time point. It then calculates the group mean and 95% confidence interval across participants.
+au_time_summary <- au_time_long %>%
+  group_by(
+    au_name,
+    au_label,
+    series,
+    participant,
+    emotion,
+    timestamp_z
+  ) %>%
+  summarise(
+    au_value = mean(au_value, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(
+    au_name,
+    au_label,
+    series,
+    emotion,
+    timestamp_z
+  ) %>%
+  summarise(
+    mean_au = mean(au_value, na.rm = TRUE),
+    n_participants = sum(is.finite(au_value)),
+    se = sd(au_value, na.rm = TRUE) / sqrt(n_participants),
+    lower_ci = mean_au - 1.96 * se,
+    upper_ci = mean_au + 1.96 * se,
+    .groups = "drop"
+  )
+au_time_summary
+plot_one_au <- function(selected_au) {
+
+  plot_data <- au_time_summary %>%
+    filter(au_name == selected_au)
+
+  ggplot(
+    plot_data,
+    aes(
+      x = timestamp_z,
+      y = mean_au,
+      colour = emotion,
+      fill = emotion,
+      group = emotion
+    )
+  ) +
+    geom_ribbon(
+      aes(
+        ymin = lower_ci,
+        ymax = upper_ci
+      ),
+      alpha = 0.12,
+      colour = NA
+    ) +
+    geom_line(
+      linewidth = 0.65,
+      na.rm = TRUE
+    ) +
+    facet_wrap(
+      ~series,
+      nrow = 1,
+      scales = "fixed"
+    ) +
+    labs(
+      title = unique(plot_data$au_label),
+      x = "Time (z-scored)",
+      y = "AU intensity",
+      colour = "Emotion",
+      fill = "Emotion"
+    ) +
+    theme_classic(base_size = 11) +
+    theme(
+      plot.title = element_text(face = "bold"),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold"),
+       legend.position = "none"
+      # legend.position = "bottom"
+    )
+}
+
+plot_one_au("Brow_lower")
+plot_one_au("eye_blink")
+
+
+au_plots <- names(face_time_results) %>%
+  set_names() %>%
+  map(plot_one_au)
+
+pdf(
+  file = "AU_timecourses_observed_and_fitted.pdf",
+  width = 8,
+  height = 5,
+  onefile = TRUE
+)
+
+walk(au_plots, print)
+
+dev.off()
+
+
+library(purrr)
+library(stringr)
+
+# Create an output folder
+dir.create(
+  "AU_timecourse_plots",
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+iwalk(
+  au_plots,
+  function(plot_object, au_name) {
+
+    # Make the filename safe
+    safe_name <- au_name %>%
+      str_replace_all("[^A-Za-z0-9_-]", "_")
+
+    ggsave(
+      filename = file.path(
+        "AU_timecourse_plots",
+        paste0(safe_name, "_timecourse.png")
+      ),
+      plot = plot_object,
+      width = 8,
+      height = 8.5,
+      units = "in",
+      dpi = 300,
+      bg = "white"
+    )
+  }
+)
+
+# in order
+library(purrr)
+library(stringr)
+
+dir.create(
+  "AU_timecourse_plots",
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+walk2(
+  au_plots,
+  seq_along(au_plots),
+  function(plot_object, plot_number) {
+
+    au_name <- names(au_plots)[plot_number]
+
+    safe_name <- au_name %>%
+      str_replace_all("[^A-Za-z0-9_-]", "_")
+
+    ggsave(
+      filename = file.path(
+        "AU_timecourse_plots",
+        sprintf(
+          "%02d_%s_timecourse.png",
+          plot_number,
+          safe_name
+        )
+      ),
+      plot = plot_object,
+      width = 8,
+      height = 5,
+      units = "in",
+      dpi = 300,
+      bg = "white"
+    )
+  }
+)
+```
+
+
+Pairwise
+
+```{r}
+emotion_pairwise_overall <- imap_dfr(
+  face_time_results,
+  function(model, model_name) {
+
+    emm <- emmeans(
+      model,
+      ~ subj_emo_lab_no_amb,
+      at = list(timestamp_z = 0),
+      weights = "equal",
+      lmer.df = "satterthwaite"
+    )
+
+    pairs(
+      emm,
+      adjust = "tukey"
+    ) %>%
+      as.data.frame() %>%
+      mutate(
+        au_name = model_name,
+        au_label = unname(au_labels[model_name]),
+        .before = 1
+      )
+  }
+) %>%
+  mutate(
+    au_name = factor(
+      au_name,
+      levels = names(face_time_results)
+    )
+  ) %>%
+  arrange(
+    au_name,
+    contrast
+  )
+emotion_pairwise <- emotion_pairwise_overall %>%
+  mutate(
+    significance = case_when(
+      p.value < .001 ~ "***",
+      p.value < .01  ~ "**",
+      p.value < .05  ~ "*",
+      TRUE           ~ "ns"
+    )
+  )
+
+emotion_pairwise
+```
+NOW DOES UPPER FACE ACTIVITY DECREASES OR I9NCREASES IN SOCIAL CONDITION
+
+```{r}
+
+face_time_z_scored%>%
+  group_by(participant, social_nonsocial, subj_emo_lab_no_amb, timestamp_z)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  ggplot(aes(timestamp_z, au04_r_smt_fitted+au07_r_smt_fitted, colour = social_nonsocial))+
+    stat_summary(geom = "pointrange")+
+  facet_grid(~subj_emo_lab_no_amb)
+  
+
+
+face_time_z_scored%>%
+  group_by(participant, social_nonsocial, timestamp_z)%>%
+  summarise_if(is.numeric, mean, na.rm = T)%>%
+  mutate(upper_face_aus = (au04_r_smt+au07_r_smt)/2)%>%
+  ggplot(aes(timestamp_z, upper_face_aus, colour = social_nonsocial))+
+    stat_summary(geom = "pointrange")+
+  facet_grid(~subj_emo_lab_no_amb)
+  
+```
